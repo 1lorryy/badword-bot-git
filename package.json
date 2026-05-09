@@ -1,0 +1,17 @@
+{
+  "name": "badword-bot",
+  "version": "1.0.0",
+  "description": "Discord moderation bot with dashboard",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.26.2",
+    "dotenv": "^17.4.1",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "openai": "^6.37.0"
+  }
+}

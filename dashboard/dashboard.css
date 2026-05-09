@@ -1,0 +1,182 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, Arial, sans-serif;
+  background: #0b1020;
+  color: #e5e7eb;
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 260px;
+  background: #070b16;
+  border-right: 1px solid #1f2937;
+  padding: 22px;
+}
+
+.brand {
+  font-size: 22px;
+  font-weight: 900;
+  margin-bottom: 22px;
+  color: #ffffff;
+}
+
+.nav {
+  display: block;
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 11px 13px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.nav:hover {
+  background: #111827;
+  color: #ffffff;
+}
+
+.nav.active {
+  background: linear-gradient(135deg, #5865f2, #2563eb);
+  color: white;
+}
+
+.content {
+  flex: 1;
+  padding: 30px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.card {
+  background: #111827;
+  border: 1px solid #263244;
+  border-radius: 18px;
+  padding: 22px;
+  margin-bottom: 18px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+}
+
+.card h2,
+.card h3 {
+  margin-top: 0;
+}
+
+.card p {
+  color: #9ca3af;
+}
+
+.pill-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  background: #1f2937;
+  border: 1px solid #374151;
+  color: #e5e7eb;
+  padding: 8px 11px;
+  border-radius: 999px;
+  font-size: 14px;
+}
+
+.pill.protected {
+  background: #3b1111;
+  border-color: #7f1d1d;
+  color: #fecaca;
+}
+
+.big-pill {
+  display: inline-block;
+  background: #2563eb;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+input {
+  background: #0b1020;
+  color: white;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 11px 13px;
+  min-width: 240px;
+}
+
+button {
+  background: #5865f2;
+  color: white;
+  border: 0;
+  border-radius: 12px;
+  padding: 11px 16px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+button:hover {
+  background: #4752c4;
+}
+
+.guild-link {
+  display: block;
+  color: white;
+  background: #111827;
+  border: 1px solid #263244;
+  padding: 14px;
+  border-radius: 14px;
+  text-decoration: none;
+  margin-top: 10px;
+}
+
+.guild-link:hover {
+  background: #1f2937;
+}
+
+.warn-box {
+  background: #0b1020;
+  border: 1px solid #374151;
+  border-radius: 14px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+@media (max-width: 800px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+  }
+
+  .content {
+    padding: 18px;
+  }
+}
