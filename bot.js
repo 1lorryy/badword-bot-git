@@ -5,6 +5,7 @@ const { handleAuctionCommand } = require("./commands/auction");
 const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
 
+
 const fs = require("fs");
 const path = require("path");
 
@@ -293,52 +294,42 @@ async function handleCommands(message) {
   const command = (args.shift() || "").toLowerCase();
   if (!command) return true;
 
-/// ================= CUSTOM COMMANDS =================
-if (data.customCommands?.[command]) {
-  // AI CUSTOM COMMAND
-  if (
-    typeof custom === "object" &&
-    custom.ai === true
-  ) {
-    const aiReply = await generateAiReply(message, command);
+  // ================= CUSTOM COMMANDS =================
+  if (data.customCommands?.[command]) {
+    const custom = data.customCommands[command];
 
-    if (!aiReply) {
-      return message.reply("AI unavailable rn.");
+    if (typeof custom === "object" && custom.ai === true) {
+      const aiReply = await generateAiReply(message, message.content);
+
+      if (!aiReply) return message.reply("AI unavailable rn.");
+
+      return message.channel.send({
+        content: aiReply,
+        allowedMentions: { parse: [] }
+      });
+    }
+
+    const response =
+      typeof custom === "string"
+        ? custom
+        : custom.response || "No response set.";
+
+    const allowPings =
+      typeof custom === "object" &&
+      custom.allowPings === true;
+
+    if (allowPings) {
+      return message.reply({
+        content: response,
+        allowedMentions: { repliedUser: true }
+      });
     }
 
     return message.channel.send({
-      content: aiReply,
-      allowedMentions: {
-        parse: []
-      }
-    });
-  }
-
-  const response =
-    typeof custom === "string"
-      ? custom
-      : custom.response || "No response set.";
-
-  const allowPings =
-    typeof custom === "object" &&
-    custom.allowPings === true;
-
-  if (allowPings) {
-    return message.reply({
       content: response,
-      allowedMentions: {
-        repliedUser: true
-      }
+      allowedMentions: { parse: [] }
     });
   }
-
-  return message.channel.send({
-    content: response,
-    allowedMentions: {
-      parse: []
-    }
-  });
-}
 
   // ================= AFK / AUCTION / CHANNEL TOOLS =================
   if (command === "purchase") return handleBuyCommand(message, args, prefix, canManageGuild);
@@ -841,7 +832,20 @@ embed.setFooter({ text: "🔥 DASHBOARD Bot" });
 return message.reply({ embeds: [embed] });
   }
 
-  return false;
+  // ================= AI FALLBACK CHAT =================
+const aiReply = await generateAiReply(message, message.content);
+
+if (aiReply) {
+  return message.reply({
+    content: aiReply,
+    allowedMentions: {
+      parse: [],
+      repliedUser: false
+    }
+  });
+}
+
+return true;
 }
 
 // ================= BOT START =================
