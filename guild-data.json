@@ -4,8 +4,16 @@
     "words": [],
     "blockedLinks": [],
     "customCommands": {
-      "bye": "bye?? wow just abandon me like my last brain cell 💀",
-      "hi": "hi?? omg it talks"
+      "bye": {
+        "response": "bye?? wow just abandon me like my last brain cell 💀",
+        "allowPings": false,
+        "ai": true
+      },
+      "hi": {
+        "response": "hi?? omg it talks",
+        "allowPings": false,
+        "ai": true
+      }
     },
     "warnings": {}
   }
