@@ -895,74 +895,93 @@ function startBot() {
   });
 
   client.on("messageCreate", async (message) => {
-    try {
-      if (message.author.bot) return;
-      if (!message.guild) return;
-      if (!message.content) return;
+  try {
+    if (message.author.bot) return;
+    if (!message.guild) return;
+    if (!message.content) return;
 
-      const data = getGuildData(message.guild.id);
-      const prefix = data.prefix || DEFAULT_PREFIX;
+    // ================= REPLY TO BOT AI =================
+    if (message.reference && message.reference.messageId) {
+      const replied = await message.channel.messages
+        .fetch(message.reference.messageId)
+        .catch(() => null);
 
-      await handleAfkMentionsAndReturn(message, prefix);
+      if (replied && replied.author.id === client.user.id) {
+        const aiReply = await generateAiReply(message, message.content);
 
-      // ================= AUTOMOD =================
-      if (!message.content.startsWith(prefix) && !hasBypassRole(message)) {
-        const word = containsBlacklistedWord(message.content, [
-          ...CORE_BLACKLIST,
-          ...data.words,
-          ...(data.blockedLinks || [])
-        ]);
-
-        if (word) {
-          await message.delete().catch(() => null);
-          await sendAutomodLog(message, word);
-          return;
-        }
-      }
-
-      // ================= PREFIX COMMANDS =================
-      const usedCommand = await handleCommands(message);
-
-      // ================= CUSTOM COMMANDS WITHOUT PREFIX =================
-      if (!usedCommand) {
-        const freshData = getGuildData(message.guild.id);
-        const msg = message.content.toLowerCase().trim();
-
-        const custom = freshData.customCommands?.[msg];
-
-        if (custom) {
-          const response =
-            typeof custom === "string"
-              ? custom
-              : custom.response || "No response set.";
-
-          const allowPings =
-            typeof custom === "object" &&
-            custom.allowPings === true;
-
-          // Allow pings ON = reply + ping user
-          if (allowPings) {
-            return message.reply({
-              content: response,
-              allowedMentions: {
-                repliedUser: true
-              }
-            });
-          }
-
-          // Allow pings OFF = normal message, no ping
-          return message.channel.send({
-            content: response,
+        if (aiReply) {
+          return message.reply({
+            content: aiReply,
             allowedMentions: {
-              parse: []
+              parse: [],
+              repliedUser: false
             }
           });
         }
       }
-    } catch (err) {
-      console.error("Bot error:", err);
     }
-  });
+
+    const data = getGuildData(message.guild.id);
+    const prefix = data.prefix || DEFAULT_PREFIX;
+
+    await handleAfkMentionsAndReturn(message, prefix);
+
+    // ================= AUTOMOD =================
+    if (!message.content.startsWith(prefix) && !hasBypassRole(message)) {
+      const word = containsBlacklistedWord(message.content, [
+        ...CORE_BLACKLIST,
+        ...data.words,
+        ...(data.blockedLinks || [])
+      ]);
+
+      if (word) {
+        await message.delete().catch(() => null);
+        await sendAutomodLog(message, word);
+        return;
+      }
+    }
+
+    // ================= PREFIX COMMANDS =================
+    const usedCommand = await handleCommands(message);
+
+    // ================= CUSTOM COMMANDS WITHOUT PREFIX =================
+    if (!usedCommand) {
+      const freshData = getGuildData(message.guild.id);
+      const msg = message.content.toLowerCase().trim();
+
+      const custom = freshData.customCommands?.[msg];
+
+      if (custom) {
+        const response =
+          typeof custom === "string"
+            ? custom
+            : custom.response || "No response set.";
+
+        const allowPings =
+          typeof custom === "object" &&
+          custom.allowPings === true;
+
+        if (allowPings) {
+          return message.reply({
+            content: response,
+            allowedMentions: {
+              repliedUser: true
+            }
+          });
+        }
+
+        return message.channel.send({
+          content: response,
+          allowedMentions: {
+            parse: []
+          }
+        });
+      }
+    }
+  } catch (err) {
+    console.error("Bot error:", err);
+  }
+});
 
   client.login(process.env.DISCORD_TOKEN);
 }
