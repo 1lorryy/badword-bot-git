@@ -299,7 +299,14 @@ async function handleCommands(message) {
     const custom = data.customCommands[command];
 
     if (typeof custom === "object" && custom.ai === true) {
-      const aiReply = await generateAiReply(message, message.content);
+      let aiReply = null;
+
+try {
+  aiReply = await generateAiReply(message, message.content);
+} catch (err) {
+  console.error("AI unavailable:", err.code || err.message);
+  return true;
+}
 
       if (!aiReply) return message.reply("AI unavailable rn.");
 
