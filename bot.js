@@ -20,7 +20,12 @@ const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json
 
 const DEFAULT_PREFIX = process.env.DEFAULT_PREFIX || "?";
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || "1492845794192134245";
-const BYPASS_ROLE_ID = process.env.BYPASS_ROLE_ID || "";
+const BYPASS_ROLE_IDS = (
+  process.env.BYPASS_ROLE_IDS || ""
+)
+  .split(",")
+  .map(id => id.trim())
+  .filter(Boolean);
 
 const STAFF_ROLE_ID = "1481370041420087474";
 const MOD_ROLE_ID = "1481370041432932379";
@@ -164,9 +169,8 @@ function isStaffMember(member) {
 }
 
 function hasBypassRole(message) {
-  return !!(
-    BYPASS_ROLE_ID &&
-    message.member?.roles?.cache?.has(BYPASS_ROLE_ID)
+  return message.member?.roles?.cache?.some(role =>
+    BYPASS_ROLE_IDS.includes(role.id)
   );
 }
 
@@ -938,10 +942,8 @@ function startBot() {
     await handleAfkMentionsAndReturn(message, prefix);
 
     // ================= PROTECTED AUTOMOD =================
-const protectedWord = containsBlacklistedWord(
-  message.content,
-  PROTECTED_BLACKLIST
-);
+// Bypass role CANNOT bypass these.
+const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
 
 if (protectedWord) {
   await message.delete().catch(() => null);
@@ -950,20 +952,20 @@ if (protectedWord) {
 }
 
 // ================= NORMAL AUTOMOD =================
-if (
-  !message.content.startsWith(prefix) &&
-  !hasBypassRole(message)
-) {
-  const word = containsBlacklistedWord(message.content, [
-    ...CORE_BLACKLIST,
-    ...data.words,
-    ...(data.blockedLinks || [])
-  ]);
+// Bypass role CAN bypass these.
+if (!message.content.startsWith(prefix)) {
+  if (!hasBypassRole(message)) {
+    const word = containsBlacklistedWord(message.content, [
+      ...CORE_BLACKLIST,
+      ...data.words,
+      ...(data.blockedLinks || [])
+    ]);
 
-  if (word) {
-    await message.delete().catch(() => null);
-    await sendAutomodLog(message, word);
-    return;
+    if (word) {
+      await message.delete().catch(() => null);
+      await sendAutomodLog(message, word);
+      return;
+    }
   }
 }
 
