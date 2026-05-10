@@ -66,6 +66,15 @@ const CORE_BLACKLIST = [
   "bubs"
 ];
 
+const PROTECTED_BLACKLIST = [
+  "nigga",
+  "nigger",
+  "nga",
+  "retard",
+  "faggot",
+  "fagot"
+];
+
 let client;
 
 // ================= DATA SAVE =================
@@ -926,20 +935,31 @@ function startBot() {
 
     await handleAfkMentionsAndReturn(message, prefix);
 
-    // ================= AUTOMOD =================
-    if (!message.content.startsWith(prefix) && !hasBypassRole(message)) {
-      const word = containsBlacklistedWord(message.content, [
-        ...CORE_BLACKLIST,
-        ...data.words,
-        ...(data.blockedLinks || [])
-      ]);
+    // ================= PROTECTED AUTOMOD =================
+// These words are blocked even for bypass roles.
+const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
 
-      if (word) {
-        await message.delete().catch(() => null);
-        await sendAutomodLog(message, word);
-        return;
-      }
-    }
+if (protectedWord) {
+  await message.delete().catch(() => null);
+  await sendAutomodLog(message, protectedWord);
+  return;
+}
+
+// ================= NORMAL AUTOMOD =================
+// Bypass role can skip normal blacklist, but not protected blacklist.
+if (!message.content.startsWith(prefix) && !hasBypassRole(message)) {
+  const word = containsBlacklistedWord(message.content, [
+    ...CORE_BLACKLIST,
+    ...data.words,
+    ...(data.blockedLinks || [])
+  ]);
+
+  if (word) {
+    await message.delete().catch(() => null);
+    await sendAutomodLog(message, word);
+    return;
+  }
+}
 
     // ================= PREFIX COMMANDS =================
     const usedCommand = await handleCommands(message);
