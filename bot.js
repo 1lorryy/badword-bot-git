@@ -72,7 +72,8 @@ const PROTECTED_BLACKLIST = [
   "nga",
   "retard",
   "faggot",
-  "fagot"
+  "fagot",
+  "tard",
 ];
 
 let client;
