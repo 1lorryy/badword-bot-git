@@ -938,8 +938,10 @@ function startBot() {
     await handleAfkMentionsAndReturn(message, prefix);
 
     // ================= PROTECTED AUTOMOD =================
-// These words are blocked even for bypass roles.
-const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+const protectedWord = containsBlacklistedWord(
+  message.content,
+  PROTECTED_BLACKLIST
+);
 
 if (protectedWord) {
   await message.delete().catch(() => null);
@@ -948,8 +950,10 @@ if (protectedWord) {
 }
 
 // ================= NORMAL AUTOMOD =================
-// Bypass role can skip normal blacklist, but not protected blacklist.
-if (!message.content.startsWith(prefix) && !hasBypassRole(message)) {
+if (
+  !message.content.startsWith(prefix) &&
+  !hasBypassRole(message)
+) {
   const word = containsBlacklistedWord(message.content, [
     ...CORE_BLACKLIST,
     ...data.words,
