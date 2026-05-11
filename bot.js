@@ -138,13 +138,12 @@ async function deleteAfter(msg, ms = 5000) {
 function canManageGuild(message) {
   if (!message.member) return false;
 
-  const roles = message.member.roles.cache;
-
   return (
     message.member.permissions.has(PermissionsBitField.Flags.Administrator) ||
-    roles.has(MAIN_ADMIN_ROLE_ID) ||
-    roles.has(STAFF_ROLE_ID) ||
-    roles.has(MOD_ROLE_ID)
+    message.member.permissions.has(PermissionsBitField.Flags.ManageChannels) ||
+    message.member.roles.cache.has(MAIN_ADMIN_ROLE_ID) ||
+    message.member.roles.cache.has(STAFF_ROLE_ID) ||
+    message.member.roles.cache.has(MOD_ROLE_ID)
   );
 }
 
