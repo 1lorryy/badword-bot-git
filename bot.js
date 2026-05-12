@@ -952,22 +952,15 @@ function startBot() {
 
     await handleAfkMentionsAndReturn(message, prefix);
 
-    // ================= PROTECTED AUTOMOD =================
-// Bypass role CANNOT bypass these.
-const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
-
-if (protectedWord) {
-  await message.delete().catch(() => null);
-  await sendAutomodLog(message, protectedWord);
-  return;
-}
-
 // ================= AUTOMOD =================
 const isCommand = message.content.startsWith(prefix);
 const isBypass = hasBypassRole(message);
 
-// Protected words = deleted for EVERYONE, even bypass
-const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+// THESE WORDS ARE BLOCKED FOR EVERYONE
+const protectedWord = containsBlacklistedWord(
+  message.content,
+  PROTECTED_BLACKLIST
+);
 
 if (protectedWord) {
   await message.delete().catch(() => null);
@@ -975,13 +968,20 @@ if (protectedWord) {
   return;
 }
 
-// Normal blacklist = deleted only if user has NO bypass role
+// NORMAL BLACKLIST ONLY FOR NON-BYPASS USERS
 if (!isCommand && !isBypass) {
-  const word = containsBlacklistedWord(message.content, [
-    ...CORE_BLACKLIST,
+  const normalBlacklist = [
+    ...CORE_BLACKLIST.filter(
+      w => !PROTECTED_BLACKLIST.includes(w)
+    ),
     ...data.words,
     ...(data.blockedLinks || [])
-  ]);
+  ];
+
+  const word = containsBlacklistedWord(
+    message.content,
+    normalBlacklist
+  );
 
   if (word) {
     await message.delete().catch(() => null);
@@ -989,7 +989,6 @@ if (!isCommand && !isBypass) {
     return;
   }
 }
-
     // ================= PREFIX COMMANDS =================
     const usedCommand = await handleCommands(message);
 
