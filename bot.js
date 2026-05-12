@@ -180,24 +180,36 @@ async function findTargetMember(message, args) {
   const input = args[0];
   if (!input) return null;
 
+  // remove @ if typed manually
+  const clean = input.replace(/^@/, "");
+
   // USER ID
   const byId = await message.guild.members
-    .fetch(input)
+    .fetch(clean)
     .catch(() => null);
 
   if (byId) return byId;
 
-  const search = input.toLowerCase();
+  const search = clean.toLowerCase();
 
-  // USERNAME / DISPLAY NAME / TAG
-  return (
-    message.guild.members.cache.find(
-      m =>
-        m.user.username.toLowerCase() === search ||
-        m.displayName.toLowerCase() === search ||
-        m.user.tag.toLowerCase() === search
-    ) || null
+  // exact username/display/tag
+  let found = message.guild.members.cache.find(
+    m =>
+      m.user.username.toLowerCase() === search ||
+      m.displayName.toLowerCase() === search ||
+      m.user.tag.toLowerCase() === search
   );
+
+  if (found) return found;
+
+  // partial match
+  found = message.guild.members.cache.find(
+    m =>
+      m.user.username.toLowerCase().includes(search) ||
+      m.displayName.toLowerCase().includes(search)
+  );
+
+  return found || null;
 }
 
 function parseDuration(input) {
@@ -950,21 +962,31 @@ if (protectedWord) {
   return;
 }
 
-// ================= NORMAL AUTOMOD =================
-// Bypass role CAN bypass these.
-if (!message.content.startsWith(prefix)) {
-  if (!hasBypassRole(message)) {
-    const word = containsBlacklistedWord(message.content, [
-      ...CORE_BLACKLIST,
-      ...data.words,
-      ...(data.blockedLinks || [])
-    ]);
+// ================= AUTOMOD =================
+const isCommand = message.content.startsWith(prefix);
+const isBypass = hasBypassRole(message);
 
-    if (word) {
-      await message.delete().catch(() => null);
-      await sendAutomodLog(message, word);
-      return;
-    }
+// Protected words = deleted for EVERYONE, even bypass
+const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+
+if (protectedWord) {
+  await message.delete().catch(() => null);
+  await sendAutomodLog(message, protectedWord);
+  return;
+}
+
+// Normal blacklist = deleted only if user has NO bypass role
+if (!isCommand && !isBypass) {
+  const word = containsBlacklistedWord(message.content, [
+    ...CORE_BLACKLIST,
+    ...data.words,
+    ...(data.blockedLinks || [])
+  ]);
+
+  if (word) {
+    await message.delete().catch(() => null);
+    await sendAutomodLog(message, word);
+    return;
   }
 }
 
