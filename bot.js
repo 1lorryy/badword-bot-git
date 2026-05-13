@@ -1,3 +1,4 @@
+const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handleBuyCommand } = require("./commands/buy");
 const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
 const { handleAuctionCommand } = require("./commands/auction");
@@ -363,6 +364,15 @@ try {
   }
 
   // ================= AFK / AUCTION / CHANNEL TOOLS =================
+if (command === "slowmode") {
+  return handleChannelToolsCommand(
+    message,
+    args,
+    prefix,
+    command,
+    canManageGuild
+  );
+}
   if (command === "purchase") return handleBuyCommand(message, args, prefix, canManageGuild);
   if (command === "afk") return handleAfkCommand(message, args, prefix);
   if (command === "auction") return handleAuctionCommand(message, args, prefix);
