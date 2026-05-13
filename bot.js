@@ -1,5 +1,7 @@
 const { handleBuyCommand } = require("./commands/buy");
-const { handleChannelToolsCommand } = require("./commands/channelTools");
+if (["slowmode"].includes(command)) {
+  return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
+}
 const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
 const { handleAuctionCommand } = require("./commands/auction");
 const { handleModLogsCommand } = require("./commands/modlogs");
@@ -371,7 +373,7 @@ try {
   if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
   if (command === "modlogs") return handleModLogsCommand(message, args, prefix, getGuildData);
 
-  if (["slowmode", "lock", "unlock"].includes(command)) {
+  if (["slowmode"].includes(command)) {
     return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
   }
 
@@ -845,7 +847,7 @@ if (command === "ban") {
     { name: "⚙️ Server", value: `\`${prefix}setprefix\` • \`${prefix}role\` • \`${prefix}setnick\` • \`${prefix}purchase\``, inline: false },
     { name: "🚫 AutoMod", value: `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``, inline: false },
     { name: "🏆 Auction", value: `\`${prefix}auction start\` • \`${prefix}bid\` • \`${prefix}auction end\``, inline: false },
-    { name: "🔒 Channels", value: `\`${prefix}lock\` • \`${prefix}unlock\` • \`${prefix}slowmode\``, inline: false },
+    { name: "🔒 Channels", value: `\`${prefix}slowmode\``, inline: false },
     { name: "💤 Utility", value: `\`${prefix}afk\` • \`${prefix}ping\``, inline: false }
   );
 
