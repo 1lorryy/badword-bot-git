@@ -1,5 +1,4 @@
-const { handleBuyCommand } = require("./commands/buy");
-if (["slowmode"].includes(command)) {
+if (command === "slowmode") {
   return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
 }
 const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
