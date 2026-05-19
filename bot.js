@@ -961,10 +961,11 @@ function startBot() {
     await handleAfkMentionsAndReturn(message, prefix);
 
 // ================= AUTOMOD =================
+
 const isCommand = message.content.startsWith(prefix);
 const isBypass = hasBypassRole(message);
 
-// THESE WORDS ARE BLOCKED FOR EVERYONE
+// protected words = EVERYONE blocked
 const protectedWord = containsBlacklistedWord(
   message.content,
   PROTECTED_BLACKLIST
@@ -976,19 +977,16 @@ if (protectedWord) {
   return;
 }
 
-// NORMAL BLACKLIST ONLY FOR NON-BYPASS USERS
+// normal blacklist = bypass role ignored
 if (!isCommand && !isBypass) {
-  const normalBlacklist = [
-    ...CORE_BLACKLIST.filter(
-      w => !PROTECTED_BLACKLIST.includes(w)
-    ),
-    ...data.words,
-    ...(data.blockedLinks || [])
-  ];
 
   const word = containsBlacklistedWord(
     message.content,
-    normalBlacklist
+    [
+      ...CORE_BLACKLIST,
+      ...data.words,
+      ...(data.blockedLinks || [])
+    ]
   );
 
   if (word) {

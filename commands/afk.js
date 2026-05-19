@@ -49,11 +49,18 @@ async function handleAfkCommand(message, args) {
   }
 
   await message.reply({
-    content: `💤 ${message.author} is now AFK — ${reason}`,
-    allowedMentions: {
-      users: []
-    }
-  });
+  embeds: [
+    new EmbedBuilder()
+      .setColor(0xfacc15)
+      .setDescription(
+        `🌙 **${user.username} is AFK** — ${data.reason}\n` +
+        `⏳ Away for **${awayFor}**`
+      )
+  ],
+  allowedMentions: {
+    parse: []
+  }
+}).catch(() => null);
 
   return true;
 }
