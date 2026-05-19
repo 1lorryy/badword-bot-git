@@ -61,14 +61,16 @@ async function handleAfkCommand(message, args) {
 async function handleAfkMentionsAndReturn(message, prefix) {
   if (!message.guild || message.author.bot) return;
 
-  // ================= RETURN FROM AFK =================
-  const afk = afkUsers.get(message.author.id);
+  const authorAfk = afkUsers.get(message.author.id);
 
-  if (
-    afk &&
-    !message.content.toLowerCase().startsWith(`${prefix}afk`)
-  ) {
+  // ================= USER RETURNS =================
+  if (authorAfk && !message.content.startsWith(`${prefix}afk`)) {
+
     afkUsers.delete(message.author.id);
+
+    const awayFor = formatDuration(
+      Date.now() - authorAfk.since
+    );
 
     // restore nickname
     if (
@@ -78,24 +80,25 @@ async function handleAfkMentionsAndReturn(message, prefix) {
       message.member.manageable
     ) {
       await message.member
-        .setNickname(afk.oldNickname)
+        .setNickname(
+          authorAfk.oldNickname || null,
+          "User returned from AFK"
+        )
         .catch(() => null);
     }
 
-    const awayFor = formatDuration(
-      Date.now() - afk.since
-    );
+    // clickable ping history
+    let pingList = "NO ONE PINGED U - CRY ABOUT IT";
 
-    let pingText = "NOBODY PINGED U - CRY ABOUT IT";
-
-    if (afk.pings.length > 0) {
-      pingText = afk.pings
+    if (authorAfk.pings.length > 0) {
+      pingList = authorAfk.pings
         .slice(-10)
         .map(
           (p, i) =>
-            `${i + 1}. ${p.authorTag}`
+            `${i + 1}. ${p.authorTag} — [jump to message](${p.url})`
         )
-        .join("\n");
+        .join("\n")
+        .slice(0, 1000);
     }
 
     await message.reply({
@@ -107,46 +110,49 @@ async function handleAfkMentionsAndReturn(message, prefix) {
             iconURL: message.author.displayAvatarURL()
           })
           .setDescription(
-            `⏱️ AFK for ${awayFor}\n💬 ${afk.reason}`
+            `welcome back\n` +
+            `⏱️ AFK for: ${awayFor}\n` +
+            `💬 Reason: ${authorAfk.reason}`
           )
           .addFields({
-            name: "📬 Mentions",
-            value: pingText
+            name: "📬 Who pinged you",
+            value: pingList
           })
+          .setTimestamp()
       ],
       allowedMentions: {
-        users: []
+        parse: []
       }
     }).catch(() => null);
   }
 
-  // ================= AFK MENTIONS =================
+  // ================= MENTION AFK USER =================
   for (const user of message.mentions.users.values()) {
-    if (user.bot) continue;
 
     const data = afkUsers.get(user.id);
-
     if (!data) continue;
 
     const awayFor = formatDuration(
       Date.now() - data.since
     );
 
-    // store ping
+    // save ping
     data.pings.push({
       authorTag: message.author.tag,
+      url: message.url,
       time: Date.now()
     });
 
-    // prevent infinite spam memory
+    // prevent infinite storage
     if (data.pings.length > 20) {
       data.pings.shift();
     }
 
     await message.reply({
-      content: `${user.username} is AFK — ${awayFor}\n💬 ${data.reason}`,
+      content:
+        `${user.username} is AFK for ${awayFor} — ${data.reason}`,
       allowedMentions: {
-        users: []
+        parse: []
       }
     }).catch(() => null);
   }
