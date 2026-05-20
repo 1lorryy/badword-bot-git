@@ -51,9 +51,9 @@ async function handleAfkCommand(message, args) {
   await message.reply({
   embeds: [
     new EmbedBuilder()
-      .setColor(0xfacc15)
+      .setColor(0x5865f2)
       .setDescription(
-        `🌙 **${message.author.username} is AFK** — ${reason}`
+        `💤 **${user.username} is AFK** — ${data.reason}\n⏱️ Away for: ${awayFor}`
       )
   ],
   allowedMentions: {
