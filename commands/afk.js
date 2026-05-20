@@ -53,8 +53,7 @@ async function handleAfkCommand(message, args) {
     new EmbedBuilder()
       .setColor(0xfacc15)
       .setDescription(
-        `🌙 **${user.username} is AFK** — ${data.reason}\n` +
-        `⏳ Away for **${awayFor}**`
+        `🌙 **${message.author.username} is AFK** — ${reason}`
       )
   ],
   allowedMentions: {
@@ -62,7 +61,7 @@ async function handleAfkCommand(message, args) {
   }
 }).catch(() => null);
 
-  return true;
+return true;
 }
 
 async function handleAfkMentionsAndReturn(message, prefix) {
