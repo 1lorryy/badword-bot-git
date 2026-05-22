@@ -16,6 +16,7 @@ function formatDuration(ms) {
 }
 
 async function handleAfkCommand(message, args) {
+
   const reason = args.join(" ").trim() || "AFK";
 
   const member = message.member;
@@ -36,6 +37,7 @@ async function handleAfkCommand(message, args) {
     ) &&
     member.manageable
   ) {
+
     const base =
       member.nickname ||
       member.user.globalName ||
@@ -48,18 +50,19 @@ async function handleAfkCommand(message, args) {
     await member.setNickname(newNick).catch(() => null);
   }
 
-  await message.reply({
-  embeds: [
-    new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setDescription(
-        `💤 **${user.username} is AFK** — ${data.reason}\n⏱️ Away for: ${awayFor}`
-      )
-  ],
-  allowedMentions: {
-    parse: []
-  }
-}).catch(() => null);
+  return message.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xfacc15)
+        .setDescription(
+          `🌙 **${message.author.username} is AFK** — ${reason}`
+        )
+    ],
+    allowedMentions: {
+      parse: []
+    }
+  }).catch(() => null);
+}
 
 return true;
 }
