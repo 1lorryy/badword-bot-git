@@ -30,7 +30,7 @@ async function handleAfkCommand(message, args) {
     oldNickname
   });
 
-  // Add AFK nickname
+  // AFK nickname
   if (
     message.guild.members.me.permissions.has(
       PermissionsBitField.Flags.ManageNicknames
@@ -64,16 +64,17 @@ async function handleAfkCommand(message, args) {
   }).catch(() => null);
 }
 
-return true;
-}
-
 async function handleAfkMentionsAndReturn(message, prefix) {
+
   if (!message.guild || message.author.bot) return;
 
   const authorAfk = afkUsers.get(message.author.id);
 
-  // ================= USER RETURNS =================
-  if (authorAfk && !message.content.startsWith(`${prefix}afk`)) {
+  // ================= RETURN =================
+  if (
+    authorAfk &&
+    !message.content.startsWith(`${prefix}afk`)
+  ) {
 
     afkUsers.delete(message.author.id);
 
@@ -88,6 +89,7 @@ async function handleAfkMentionsAndReturn(message, prefix) {
       ) &&
       message.member.manageable
     ) {
+
       await message.member
         .setNickname(
           authorAfk.oldNickname || null,
@@ -96,10 +98,11 @@ async function handleAfkMentionsAndReturn(message, prefix) {
         .catch(() => null);
     }
 
-    // clickable ping history
+    // ping history
     let pingList = "NO ONE PINGED U - CRY ABOUT IT";
 
     if (authorAfk.pings.length > 0) {
+
       pingList = authorAfk.pings
         .slice(-10)
         .map(
@@ -139,6 +142,7 @@ async function handleAfkMentionsAndReturn(message, prefix) {
   for (const user of message.mentions.users.values()) {
 
     const data = afkUsers.get(user.id);
+
     if (!data) continue;
 
     const awayFor = formatDuration(
@@ -152,14 +156,14 @@ async function handleAfkMentionsAndReturn(message, prefix) {
       time: Date.now()
     });
 
-    // prevent infinite storage
+    // limit history
     if (data.pings.length > 20) {
       data.pings.shift();
     }
 
     await message.reply({
       content:
-        `${user.username} is AFK for ${awayFor} — ${data.reason}`,
+        `🌙 ${user.username} is AFK — ${data.reason}\n⏱️ Away for: ${awayFor}`,
       allowedMentions: {
         parse: []
       }
