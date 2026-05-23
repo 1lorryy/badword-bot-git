@@ -31,6 +31,8 @@ const MOD_ROLE_ID = "1481370041432932379";
 const MAIN_ADMIN_ROLE_ID = "1481370041441189959";
 
 const BLOCKED_LINKS = [
+  "discord.gg/",
+  "discord.com/invite/",
   "onlyfans.com",
   "pornhub.com",
   "xvideos.com",
@@ -985,7 +987,7 @@ const containsDiscordInvite =
   message.content.includes("discord.gg/") ||
   message.content.includes("discord.com/invite/");
 
-// protected words = ALWAYS blocked
+// protected slurs = ALWAYS blocked
 const protectedWord = containsBlacklistedWord(
   message.content,
   PROTECTED_BLACKLIST
@@ -998,10 +1000,15 @@ if (protectedWord) {
 }
 
 // clone blocked links
-let blockedLinks = [...(data.blockedLinks || [])];
+let blockedLinks = [...BLOCKED_LINKS];
 
-// allow discord invites for bypass role
-if (hasInviteBypass) {
+// custom blocked links
+if (Array.isArray(data.blockedLinks)) {
+  blockedLinks.push(...data.blockedLinks);
+}
+
+// allow ONLY discord invites for bypass role
+if (hasInviteBypass && containsDiscordInvite) {
   blockedLinks = blockedLinks.filter(
     l =>
       l !== "discord.gg/" &&
@@ -1010,10 +1017,7 @@ if (hasInviteBypass) {
 }
 
 // normal automod
-if (
-  !isCommand &&
-  !(hasInviteBypass && containsDiscordInvite)
-) {
+if (!isCommand) {
 
   const word = containsBlacklistedWord(
     message.content,
