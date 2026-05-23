@@ -31,8 +31,6 @@ const MOD_ROLE_ID = "1481370041432932379";
 const MAIN_ADMIN_ROLE_ID = "1481370041441189959";
 
 const BLOCKED_LINKS = [
-  "discord.gg/",
-  "discord.com/invite/",
   "onlyfans.com",
   "pornhub.com",
   "xvideos.com",
