@@ -31,8 +31,6 @@ const MOD_ROLE_ID = "1481370041432932379";
 const MAIN_ADMIN_ROLE_ID = "1481370041441189959";
 
 const BLOCKED_LINKS = [
-  "discord.gg/",
-  "discord.com/invite/",
   "onlyfans.com",
   "pornhub.com",
   "xvideos.com",
@@ -983,6 +981,10 @@ const isCommand = message.content.startsWith(prefix);
 const hasInviteBypass =
   message.member.roles.cache.has("1492630307650666546");
 
+const containsDiscordInvite =
+  message.content.includes("discord.gg/") ||
+  message.content.includes("discord.com/invite/");
+
 // protected words = ALWAYS blocked
 const protectedWord = containsBlacklistedWord(
   message.content,
@@ -1008,7 +1010,10 @@ if (hasInviteBypass) {
 }
 
 // normal automod
-if (!isCommand) {
+if (
+  !isCommand &&
+  !(hasInviteBypass && containsDiscordInvite)
+) {
 
   const word = containsBlacklistedWord(
     message.content,
