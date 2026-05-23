@@ -977,15 +977,9 @@ const allowDiscordInvite =
 // ================= AUTOMOD =================
 
 const isCommand = message.content.startsWith(prefix);
+const isBypass = hasBypassRole(message);
 
-const hasInviteBypass =
-  message.member.roles.cache.has("1492630307650666546");
-
-const containsDiscordInvite =
-  message.content.includes("discord.gg/") ||
-  message.content.includes("discord.com/invite/");
-
-// protected slurs = ALWAYS blocked
+// protected words = EVERYONE blocked
 const protectedWord = containsBlacklistedWord(
   message.content,
   PROTECTED_BLACKLIST
@@ -997,32 +991,15 @@ if (protectedWord) {
   return;
 }
 
-// clone blocked links
-let blockedLinks = [...BLOCKED_LINKS];
-
-// custom blocked links
-if (Array.isArray(data.blockedLinks)) {
-  blockedLinks.push(...data.blockedLinks);
-}
-
-// allow ONLY discord invites for bypass role
-if (hasInviteBypass && containsDiscordInvite) {
-  blockedLinks = blockedLinks.filter(
-    l =>
-      l !== "discord.gg/" &&
-      l !== "discord.com/invite/"
-  );
-}
-
-// normal automod
-if (!isCommand) {
+// normal blacklist = bypass role ignored
+if (!isCommand && !isBypass) {
 
   const word = containsBlacklistedWord(
     message.content,
     [
       ...CORE_BLACKLIST,
       ...data.words,
-      ...blockedLinks
+      ...(data.blockedLinks || [])
     ]
   );
 
