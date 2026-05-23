@@ -960,6 +960,22 @@ function startBot() {
 
     await handleAfkMentionsAndReturn(message, prefix);
 
+// ================= BYPASS ROLE DISCORD INVITE ALLOW =================
+
+const bypassRoleId = "1492630307650666546";
+
+const hasBypassDiscordInvite =
+  message.member.roles.cache.has(bypassRoleId);
+
+const discordInviteRegex =
+  /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
+
+const containsDiscordInvite =
+  discordInviteRegex.test(message.content);
+
+const allowDiscordInvite =
+  hasBypassDiscordInvite && containsDiscordInvite;
+
 // ================= AUTOMOD =================
 
 const isCommand = message.content.startsWith(prefix);
@@ -978,7 +994,7 @@ if (protectedWord) {
 }
 
 // normal blacklist = bypass role ignored
-if (!isCommand && !isBypass) {
+if (!isCommand && !isBypass && !allowDiscordInvite) {
 
   const word = containsBlacklistedWord(
     message.content,
