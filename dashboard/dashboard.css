@@ -180,3 +180,46 @@ button:hover {
     padding: 18px;
   }
 }
+
+/* ================= EMBED PAGE ================= */
+
+.embed-box {
+  max-width: 700px;
+  margin: auto;
+}
+
+.embed-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.embed-form textarea {
+  background: #0b1020;
+  color: white;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 14px;
+  min-height: 180px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.embed-preview {
+  margin-top: 20px;
+  border-left: 4px solid #5865f2;
+  background: #2b2d31;
+  border-radius: 0 12px 12px 0;
+  padding: 16px;
+}
+
+.embed-preview-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.embed-preview-description {
+  color: #dbdee1;
+  white-space: pre-wrap;
+}

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+  <title>Embed Sender</title>
+
+  <link rel="stylesheet" href="dashboard.css">
+
+</head>
+
+<body>
+
+<div class="box">
+
+  <h1>Send Embed</h1>
+
+  <input
+    id="guildId"
+    placeholder="Guild ID"
+  >
+
+  <input
+    id="channelId"
+    placeholder="Channel ID"
+  >
+
+  <input
+    id="title"
+    placeholder="Embed Title (optional)"
+  >
+
+  <textarea
+    id="description"
+    placeholder="Embed Description"
+  ></textarea>
+
+  <input
+    id="ping"
+    placeholder="@everyone or <@&roleid>"
+  >
+
+  <input
+    id="color"
+    placeholder="#5865F2"
+  >
+
+  <button onclick="sendEmbed()">
+    Send Embed
+  </button>
+
+</div>
+
+<script>
+
+async function sendEmbed() {
+
+  const res = await fetch("/api/send-embed", {
+
+    method: "POST",
+
+    headers: {
+      "Content-Type": "application/json"
+    },
+
+    body: JSON.stringify({
+
+      guildId:
+        document.getElementById("guildId").value,
+
+      channelId:
+        document.getElementById("channelId").value,
+
+      title:
+        document.getElementById("title").value,
+
+      description:
+        document.getElementById("description").value,
+
+      ping:
+        document.getElementById("ping").value,
+
+      color:
+        document.getElementById("color").value
+    })
+  });
+
+  if (res.ok) {
+
+    alert("Embed sent");
+
+  } else {
+
+    alert("Failed");
+  }
+}
+
+</script>
+
+</body>
+</html>
