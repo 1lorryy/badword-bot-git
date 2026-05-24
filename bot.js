@@ -871,8 +871,19 @@ embed.setFooter({ text: "🔥 DASHBOARD Bot" });
 return message.reply({ embeds: [embed] });
   }
 
-  // ================= AI FALLBACK CHAT =================
-const aiReply = await generateAiReply(message, message.content);
+ // ================= AI FALLBACK CHAT =================
+
+const replied = message.reference
+  ? await message.channel.messages
+      .fetch(message.reference.messageId)
+      .catch(() => null)
+  : null;
+
+const context = replied
+  ? `Previous message: ${replied.content}\nUser reply: ${message.content}`
+  : message.content;
+
+const aiReply = await generateAiReply(message, context);
 
 if (aiReply) {
   return message.reply({
@@ -933,31 +944,50 @@ function startBot() {
     if (!message.content) return;
 
     // ================= REPLY TO BOT AI =================
-    if (message.reference && message.reference.messageId) {
-      const replied = await message.channel.messages
-        .fetch(message.reference.messageId)
-        .catch(() => null);
+if (message.reference && message.reference.messageId) {
 
-      if (replied && replied.author.id === client.user.id) {
-        const aiReply = await generateAiReply(message, message.content);
+  const replied = await message.channel.messages
+    .fetch(message.reference.messageId)
+    .catch(() => null);
 
-        if (aiReply) {
-          return message.reply({
-            content: aiReply,
-            allowedMentions: {
-              parse: [],
-              repliedUser: false
-            }
-          });
+  if (replied && replied.author.id === client.user.id) {
+
+    // previous bot message
+    const previousBotReply = replied.content || "";
+
+    // user's new reply
+    const userReply = message.content;
+
+    // build conversation context
+    const aiPrompt = `
+Previous bot message:
+${previousBotReply}
+
+User replied:
+${userReply}
+
+Reply naturally and continue the same conversation topic.
+`;
+
+    const aiReply = await generateAiReply(message, aiPrompt);
+
+    if (aiReply) {
+      return message.reply({
+        content: aiReply,
+        allowedMentions: {
+          parse: [],
+          repliedUser: false
         }
-      }
+      });
     }
+  }
+}
 
-    const data = getGuildData(message.guild.id);
-    const prefix = data.prefix || DEFAULT_PREFIX;
+const data = getGuildData(message.guild.id);
+const prefix = data.prefix || DEFAULT_PREFIX;
 
-    await handleAfkMentionsAndReturn(message, prefix);
-
+await handleAfkMentionsAndReturn(message, prefix);
+    
 // ================= BYPASS ROLE DISCORD INVITE ALLOW =================
 
 const bypassRoleId = "1492630307650666546";
