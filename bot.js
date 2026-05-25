@@ -120,6 +120,9 @@ if (!store[guildId].customCommands || typeof store[guildId].customCommands !== "
   if (!store[guildId].warnings || typeof store[guildId].warnings !== "object") {
     store[guildId].warnings = {};
   }
+  if (!store[guildId].modStats || typeof store[guildId].modStats !== "object") {
+  store[guildId].modStats = {};
+}
 
   if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
 
@@ -432,6 +435,19 @@ if (command === "slowmode") {
       date: new Date().toISOString()
     });
 
+// ================= MOD STATS SAVE =================
+
+if (!data.modStats[message.author.id]) {
+  data.modStats[message.author.id] = {
+    warns: 0,
+    mutes: 0,
+    kicks: 0,
+    bans: 0
+  };
+}
+
+data.modStats[message.author.id].warns++;
+
     saveData();
 
     const embed = new EmbedBuilder()
@@ -552,6 +568,18 @@ if (command === "slowmode") {
 
     await member.timeout(durationMs, reason);
 
+if (!data.modStats[message.author.id]) {
+  data.modStats[message.author.id] = {
+    warns: 0,
+    mutes: 0,
+    kicks: 0,
+    bans: 0
+  };
+}
+
+data.modStats[message.author.id].mutes++;
+saveData();
+
     const embed = new EmbedBuilder()
       .setTitle("🔇 User Muted")
       .setColor(0x3b82f6)
@@ -624,6 +652,19 @@ if (command === "kick") {
 
   await member.send({ embeds: [embed] }).catch(() => null);
   await member.kick(reason);
+
+if (!data.modStats[message.author.id]) {
+  data.modStats[message.author.id] = {
+    warns: 0,
+    mutes: 0,
+    kicks: 0,
+    bans: 0
+  };
+}
+
+data.modStats[message.author.id].kicks++;
+saveData();
+
   await sendModLog(embed);
 
   return message.reply(`👢 Kicked ${member.user.tag}`);
@@ -676,6 +717,19 @@ if (command === "ban") {
 
   await member.send({ embeds: [embed] }).catch(() => null);
   await member.ban({ reason });
+
+if (!data.modStats[message.author.id]) {
+  data.modStats[message.author.id] = {
+    warns: 0,
+    mutes: 0,
+    kicks: 0,
+    bans: 0
+  };
+}
+
+data.modStats[message.author.id].bans++;
+saveData();
+
   await sendModLog(embed);
 
   return message.reply(`🔨 Banned ${member.user.tag}`);
@@ -840,6 +894,53 @@ if (command === "ban") {
     });
   }
 
+// ================= MOD STATS =================
+
+if (command === "modstats") {
+
+  const member =
+    (await findTargetMember(message, args)) ||
+    message.member;
+
+  const stats = data.modStats[member.id] || {
+    warns: 0,
+    mutes: 0,
+    kicks: 0,
+    bans: 0
+  };
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📊 Mod Stats • ${member.user.tag}`)
+    .setColor(0x5865f2)
+    .addFields(
+      {
+        name: "⚠️ Warns",
+        value: String(stats.warns || 0),
+        inline: true
+      },
+      {
+        name: "🔇 Mutes",
+        value: String(stats.mutes || 0),
+        inline: true
+      },
+      {
+        name: "👢 Kicks",
+        value: String(stats.kicks || 0),
+        inline: true
+      },
+      {
+        name: "🔨 Bans",
+        value: String(stats.bans || 0),
+        inline: true
+      }
+    )
+    .setTimestamp();
+
+  return message.reply({
+    embeds: [embed]
+  });
+}
+
   // ================= HELP =================
   if (command === "help") {
     const embed = new EmbedBuilder()
@@ -847,7 +948,7 @@ if (command === "ban") {
   .setColor(0x5865f2)
   .setDescription(`Prefix: \`${prefix}\``)
   .addFields(
-    { name: "🛡️ Moderation", value: `\`${prefix}warn\` • \`${prefix}modlogs\` • \`${prefix}mute\` • \`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}warnings\` • \`${prefix}unwarn\` • \`${prefix}unmute\` • \`${prefix}unban\` • \`${prefix}purge\``, inline: false },
+    { name: "🛡️ Moderation", value: `\`${prefix}warn\` • \`${prefix}modstats\` • \`${prefix}modlogs\` • \`${prefix}mute\` • \`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}warnings\` • \`${prefix}unwarn\` • \`${prefix}unmute\` • \`${prefix}unban\` • \`${prefix}purge\``, inline: false },
     { name: "⚙️ Server", value: `\`${prefix}setprefix\` • \`${prefix}role\` • \`${prefix}setnick\` • \`${prefix}purchase\``, inline: false },
     { name: "🚫 AutoMod", value: `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``, inline: false },
     { name: "🏆 Auction", value: `\`${prefix}auction start\` • \`${prefix}bid\` • \`${prefix}auction end\``, inline: false },
@@ -871,19 +972,8 @@ embed.setFooter({ text: "🔥 DASHBOARD Bot" });
 return message.reply({ embeds: [embed] });
   }
 
- // ================= AI FALLBACK CHAT =================
-
-const replied = message.reference
-  ? await message.channel.messages
-      .fetch(message.reference.messageId)
-      .catch(() => null)
-  : null;
-
-const context = replied
-  ? `Previous message: ${replied.content}\nUser reply: ${message.content}`
-  : message.content;
-
-const aiReply = await generateAiReply(message, context);
+  // ================= AI FALLBACK CHAT =================
+const aiReply = await generateAiReply(message, message.content);
 
 if (aiReply) {
   return message.reply({
@@ -944,50 +1034,31 @@ function startBot() {
     if (!message.content) return;
 
     // ================= REPLY TO BOT AI =================
-if (message.reference && message.reference.messageId) {
+    if (message.reference && message.reference.messageId) {
+      const replied = await message.channel.messages
+        .fetch(message.reference.messageId)
+        .catch(() => null);
 
-  const replied = await message.channel.messages
-    .fetch(message.reference.messageId)
-    .catch(() => null);
+      if (replied && replied.author.id === client.user.id) {
+        const aiReply = await generateAiReply(message, message.content);
 
-  if (replied && replied.author.id === client.user.id) {
-
-    // previous bot message
-    const previousBotReply = replied.content || "";
-
-    // user's new reply
-    const userReply = message.content;
-
-    // build conversation context
-    const aiPrompt = `
-Previous bot message:
-${previousBotReply}
-
-User replied:
-${userReply}
-
-Reply naturally and continue the same conversation topic.
-`;
-
-    const aiReply = await generateAiReply(message, aiPrompt);
-
-    if (aiReply) {
-      return message.reply({
-        content: aiReply,
-        allowedMentions: {
-          parse: [],
-          repliedUser: false
+        if (aiReply) {
+          return message.reply({
+            content: aiReply,
+            allowedMentions: {
+              parse: [],
+              repliedUser: false
+            }
+          });
         }
-      });
+      }
     }
-  }
-}
 
-const data = getGuildData(message.guild.id);
-const prefix = data.prefix || DEFAULT_PREFIX;
+    const data = getGuildData(message.guild.id);
+    const prefix = data.prefix || DEFAULT_PREFIX;
 
-await handleAfkMentionsAndReturn(message, prefix);
-    
+    await handleAfkMentionsAndReturn(message, prefix);
+
 // ================= BYPASS ROLE DISCORD INVITE ALLOW =================
 
 const bypassRoleId = "1492630307650666546";
