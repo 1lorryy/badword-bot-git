@@ -4,7 +4,7 @@ const bodyParser = require("body-parser");
 
 const { EmbedBuilder } = require("discord.js");
 
-const { getClient } = require("../index");
+const { getClient } = require("../bot");
 
 const app = express();
 
