@@ -2,52 +2,33 @@
 <html>
 
 <head>
-
-  <title>Embed Sender</title>
-
+  <title>Embed Builder</title>
   <link rel="stylesheet" href="dashboard.css">
-
 </head>
 
 <body>
 
 <div class="box">
 
-  <h1>Send Embed</h1>
+<h1>Embed Builder</h1>
 
-  <input
-    id="guildId"
-    placeholder="Guild ID"
-  >
+<input id="channel" placeholder="Channel ID">
 
-  <input
-    id="channelId"
-    placeholder="Channel ID"
-  >
+<input id="title" placeholder="Embed Title">
 
-  <input
-    id="title"
-    placeholder="Embed Title (optional)"
-  >
+<textarea id="description" placeholder="Embed Description"></textarea>
 
-  <textarea
-    id="description"
-    placeholder="Embed Description"
-  ></textarea>
+<input id="color" placeholder="#5865F2">
 
-  <input
-    id="ping"
-    placeholder="@everyone or <@&roleid>"
-  >
+<input id="footer" placeholder="Footer Text">
 
-  <input
-    id="color"
-    placeholder="#5865F2"
-  >
+<input id="image" placeholder="Image URL">
 
-  <button onclick="sendEmbed()">
-    Send Embed
-  </button>
+<input id="thumbnail" placeholder="Thumbnail URL">
+
+<textarea id="content" placeholder="@everyone or normal text"></textarea>
+
+<button onclick="sendEmbed()">Send Embed</button>
 
 </div>
 
@@ -55,7 +36,7 @@
 
 async function sendEmbed() {
 
-  const res = await fetch("/api/send-embed", {
+  const res = await fetch("/send-embed", {
 
     method: "POST",
 
@@ -65,11 +46,8 @@ async function sendEmbed() {
 
     body: JSON.stringify({
 
-      guildId:
-        document.getElementById("guildId").value,
-
       channelId:
-        document.getElementById("channelId").value,
+        document.getElementById("channel").value,
 
       title:
         document.getElementById("title").value,
@@ -77,22 +55,24 @@ async function sendEmbed() {
       description:
         document.getElementById("description").value,
 
-      ping:
-        document.getElementById("ping").value,
-
       color:
-        document.getElementById("color").value
+        document.getElementById("color").value,
+
+      footer:
+        document.getElementById("footer").value,
+
+      image:
+        document.getElementById("image").value,
+
+      thumbnail:
+        document.getElementById("thumbnail").value,
+
+      content:
+        document.getElementById("content").value
     })
   });
 
-  if (res.ok) {
-
-    alert("Embed sent");
-
-  } else {
-
-    alert("Failed");
-  }
+  alert("Embed sent.");
 }
 
 </script>
