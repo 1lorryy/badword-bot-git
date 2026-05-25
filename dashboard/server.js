@@ -1,65 +1,52 @@
 const express = require("express");
+const path = require("path");
+const bodyParser = require("body-parser");
 
-const { getClient } = require("../bot");
+const { EmbedBuilder } = require("discord.js");
+
+const { getClient } = require("../index");
 
 const app = express();
 
-app.use(express.json());
+app.use(bodyParser.json());
 
 app.use(express.static(__dirname));
 
-// ================= SEND EMBED =================
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "embed.html"));
+});
 
-app.post("/api/send-embed", async (req, res) => {
+app.post("/send-embed", async (req, res) => {
 
   try {
 
+    const client = getClient();
+
     const {
-      guildId,
       channelId,
       title,
       description,
       color,
-      ping
+      footer,
+      image,
+      thumbnail,
+      content
     } = req.body;
 
-    const client = getClient();
+    const channel = await client.channels.fetch(channelId);
 
-    const guild = client.guilds.cache.get(guildId);
+    const embed = new EmbedBuilder()
+      .setColor(color || "#5865F2");
 
-    if (!guild) {
-      return res.status(404).json({
-        error: "Guild not found"
-      });
-    }
-
-    const channel = guild.channels.cache.get(channelId);
-
-    if (!channel || !channel.isTextBased()) {
-      return res.status(404).json({
-        error: "Channel not found"
-      });
-    }
-
-    const embed = {
-      color: parseInt(
-        (color || "#5865F2").replace("#", ""),
-        16
-      ),
-
-      description: description || ""
-    };
-
-    if (title?.trim()) {
-      embed.title = title;
-    }
+    if (title) embed.setTitle(title);
+    if (description) embed.setDescription(description);
+    if (footer) embed.setFooter({ text: footer });
+    if (image) embed.setImage(image);
+    if (thumbnail) embed.setThumbnail(thumbnail);
 
     await channel.send({
-      content: ping || "",
-      embeds: [embed],
-      allowedMentions: {
-        parse: ["users", "roles", "everyone"]
-      }
+      content: content || "",
+      embeds: [embed]
     });
 
     res.json({
@@ -71,12 +58,10 @@ app.post("/api/send-embed", async (req, res) => {
     console.error(err);
 
     res.status(500).json({
-      error: "Failed"
+      error: "failed"
     });
   }
 });
-
-// ================= START =================
 
 app.listen(3000, () => {
   console.log("Dashboard running on port 3000");
