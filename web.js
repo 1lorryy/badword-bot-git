@@ -287,6 +287,48 @@ function renderPage({ req, guildId, tab, title, content }) {
   `;
 }
 
+// ================= LAYOUT =================
+function renderPage({ req, guildId, tab, title, content }) {
+  const sidebarBase = guildId ? `/dashboard/${guildId}` : "#";
+  const user = req?.session?.user;
+
+  return `
+  <html>
+    <head>
+      <title>${escapeHtml(title)}</title>
+      <link rel="stylesheet" href="/dashboard.css" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+    </head>
+    <body>
+      <div class="layout">
+        <aside class="sidebar">
+          <div class="brand">⚙️ DonQuixote Bot</div>
+          ${guildId ? `
+            <a class="nav ${tab === "words" ? "active" : ""}" href="${sidebarBase}/words">🚫 AutoMod Words</a>
+            <a class="nav ${tab === "links" ? "active" : ""}" href="${sidebarBase}/links">🔗 Blocked Links</a>
+            <a class="nav ${tab === "prefix" ? "active" : ""}" href="${sidebarBase}/prefix">⚙️ Prefix</a>
+            <a class="nav ${tab === "warnings" ? "active" : ""}" href="${sidebarBase}/warnings">⚠️ Warnings</a>
+            <a class="nav ${tab === "custom" ? "active" : ""}" href="${sidebarBase}/custom">💬 Custom Commands</a>
+            <a class="nav ${tab === "purchase" ? "active" : ""}" href="${sidebarBase}/purchase">🛒 Purchase Links</a>
+            <a class="nav ${tab === "info" ? "active" : ""}" href="${sidebarBase}/info">📊 Info</a>
+          ` : ""}
+          <a class="nav" href="/">Servers</a>
+          <a class="nav" href="/logout">Logout</a>
+        </aside>
+
+        <main class="content">
+          <div class="topbar">
+            <div class="title">${escapeHtml(title)}</div>
+            <div>${user ? `Logged in as ${escapeHtml(user.username)}` : ""}</div>
+          </div>
+          ${content}
+        </main>
+      </div>
+    </body>
+  </html>
+  `;
+}
+
 function renderGuildSelect(req) {
   const guilds = getAllowedGuilds(req);
 
@@ -304,6 +346,17 @@ function renderGuildSelect(req) {
     </div>
   `;
 }
+
+app.get("/", requireLogin, (req, res) => {
+  res.send(renderPage({
+    req,
+    guildId: null,
+    tab: "",
+    title: "Dashboard",
+    content: renderGuildSelect(req)
+  }));
+});
+
 
 app.get("/", requireLogin, (req, res) => {
   res.send(renderPage({

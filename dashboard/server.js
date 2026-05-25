@@ -4,7 +4,7 @@ const bodyParser = require("body-parser");
 
 const { EmbedBuilder } = require("discord.js");
 
-const { getClient } = require("../bot");
+const { getClient } = require("../index");
 
 const app = express();
 
@@ -12,7 +12,7 @@ app.use(bodyParser.json());
 
 app.use(express.static(__dirname));
 
-app.get("/", (req, res) => {
+app.get("/embed", (req, res) => {
   res.sendFile(path.join(__dirname, "embed.html"));
 });
 
