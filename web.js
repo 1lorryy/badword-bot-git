@@ -6,6 +6,7 @@ const path = require("path");
 const { getClient } = require("./bot");
 
 const app = express();
+app.use(express.static(path.join(__dirname, "dashboard")));
 const PORT = Number(process.env.WEB_PORT || process.env.PORT || 3000);
 
 const CLIENT_ID = process.env.CLIENT_ID;

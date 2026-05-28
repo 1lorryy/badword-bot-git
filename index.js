@@ -10,4 +10,3 @@ if (process.env.ENABLE_WEB === "true") {
 }
 
 // DASHBOARD
-require("./dashboard/server");

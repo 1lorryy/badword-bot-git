@@ -6,10 +6,10 @@ const DATA_FILE = path.join(__dirname, "..", "guild-data.json");
 
 const DEFAULT_PURCHASE_LINKS = {
   classes: [
-    { name: "Economy", url: "https://www.roblox.com/game-pass/1856306289/ECONOMY" },
-    { name: "Premium Economy", url: "https://www.roblox.com/game-pass/1856298285/ECONOMY-PLUS" },
-    { name: "Business Class", url: "https://www.roblox.com/game-pass/1854202242/BUSSINESS-CLASS" },
-    { name: "First Class", url: "https://www.roblox.com/game-pass/1856222269/FIRST-CLASS" }
+    { name: "Economy", url: "https://www.roblox.com/game-pass/" },
+    { name: "Premium Economy", url: "https://www.roblox.com/game-pass/" },
+    { name: "Business Class", url: "https://www.roblox.com/game-pass/" },
+    { name: "First Class", url: "https://www.roblox.com/game-pass/" }
   ],
   ads6h: [
     { name: "Drops Ping", url: "https://www.roblox.com/game-pass/1809387047/Drops-Ping-6H" },
@@ -74,7 +74,7 @@ async function handleBuyCommand(message, args, prefix, canManageGuild) {
     .setDescription("Select the upgrade or add-on you want below.")
     .addFields(
       {
-        name: "✈️ Classes",
+        name: "✈️ Classes - coming soon!",
         value: renderLinks(links.classes)
       },
       {
