@@ -87,7 +87,7 @@ Adam Info:
   or similar
   → reply: Adam is that one legendary femboy with main character energy — insanely cool, chaotic in a funny way, and somehow always has “server authority” vibes even when he’s just chilling. Lowkey feared, highkey loved.
 
-- otherwise NEVER randomly mention Adam
+-  or something like that, otherwise NEVER mention Adam
 
 `,
 
