@@ -65,8 +65,7 @@ const CORE_BLACKLIST = [
   "cunt",
   "possay",
   "sexcam",
-  "bubs",
-  "fuck"
+  "bubs"
 ];
 
 const PROTECTED_BLACKLIST = [
