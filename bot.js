@@ -796,6 +796,25 @@ saveData();
       return message.reply("That role is higher than or equal to my highest role.");
     }
 
+// cannot manage yourself with higher/equal roles
+if (
+  role.position >= message.member.roles.highest.position
+) {
+  return message.reply(
+    "❌ You cannot give/remove a role equal or higher than your highest role."
+  );
+}
+
+// cannot edit users with equal/higher top role
+if (
+  member.roles.highest.position >=
+  message.member.roles.highest.position
+) {
+  return message.reply(
+    "❌ You cannot manage this user's roles."
+  );
+}
+
     if (member.roles.cache.has(role.id)) {
       await member.roles.remove(role);
       return message.reply(`✅ Removed **${role.name}** from ${member.user.tag}`);
