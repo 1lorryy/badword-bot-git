@@ -56,7 +56,6 @@ const CORE_BLACKLIST = [
   "boobs",
   "penis",
   "dick",
-  "fuck",
   "idgaf",
   "motherfuck",
   "motherfucker",
