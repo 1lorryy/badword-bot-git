@@ -1077,16 +1077,17 @@ function startBot() {
         .catch(() => null);
 
       if (replied && replied.author.id === client.user.id) {
-        let aiReply = null;
 
-try {
-  aiReply = await generateAiReply(
-    message,
-    message.content
-  );
-} catch (err) {
-  console.error("AI reply error:", err);
-}
+  let aiReply = null;
+
+  try {
+    aiReply = await generateAiReply(
+      message,
+      message.content
+    );
+  } catch (err) {
+    console.error("Reply AI error:", err);
+  }
 
 if (aiReply) {
           return message.reply({
