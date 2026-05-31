@@ -99,15 +99,23 @@ function getGuildData(guildId) {
   store = loadData();
 
   if (!store[guildId]) {
-    store[guildId] = {
-      prefix: DEFAULT_PREFIX,
-      words: [],
-      blockedLinks: [],
-      customCommands: {},
-      warnings: {}
-    };
-    saveData();
-  }
+  store[guildId] = {
+    prefix: DEFAULT_PREFIX,
+    words: [],
+    blockedLinks: [],
+    customCommands: {},
+    warnings: {},
+    modStats: {},
+    purchaseLinks: {
+      classes: [],
+      ads6h: [],
+      ads24h: [],
+      extras: []
+    }
+  };
+
+  saveData();
+}
 
   if (!Array.isArray(store[guildId].words)) store[guildId].words = [];
 if (!Array.isArray(store[guildId].blockedLinks)) store[guildId].blockedLinks = [];
@@ -118,6 +126,21 @@ if (!store[guildId].customCommands || typeof store[guildId].customCommands !== "
   if (!store[guildId].warnings || typeof store[guildId].warnings !== "object") {
     store[guildId].warnings = {};
   }
+if (!store[guildId].purchaseLinks || typeof store[guildId].purchaseLinks !== "object") {
+  store[guildId].purchaseLinks = {
+    classes: [],
+    ads6h: [],
+    ads24h: [],
+    extras: []
+  };
+}
+
+for (const key of ["classes", "ads6h", "ads24h", "extras"]) {
+  if (!Array.isArray(store[guildId].purchaseLinks[key])) {
+    store[guildId].purchaseLinks[key] = [];
+  }
+}
+  
   if (!store[guildId].modStats || typeof store[guildId].modStats !== "object") {
   store[guildId].modStats = {};
 }
