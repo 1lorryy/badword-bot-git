@@ -813,11 +813,11 @@ if (command === "role") {
     );
   }
 
-  await member.roles.add(role);
+ await member.roles.add(role);
   return message.reply(
     `✅ Added **${role.name}** to ${member.user.tag}`
   );
-}}
+}
 
   // ================= BLACKLIST ADD =================
   if (command === "bl" || command === "blacklist") {
