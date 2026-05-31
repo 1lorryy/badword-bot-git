@@ -1077,9 +1077,18 @@ function startBot() {
         .catch(() => null);
 
       if (replied && replied.author.id === client.user.id) {
-        const aiReply = await generateAiReply(message, message.content);
+        let aiReply = null;
 
-        if (aiReply) {
+try {
+  aiReply = await generateAiReply(
+    message,
+    message.content
+  );
+} catch (err) {
+  console.error("AI reply error:", err);
+}
+
+if (aiReply) {
           return message.reply({
             content: aiReply,
             allowedMentions: {
