@@ -769,58 +769,55 @@ saveData();
   }
 
   // ================= ROLE =================
-  if (command === "role") {
-    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+if (command === "role") {
+  if (!canManageGuild(message)) return message.reply("❌ No permission.");
 
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return message.reply("I need Manage Roles permission.");
-    }
-
-    const member = await findTargetMember(message, args);
-    if (!member) return message.reply(`Usage: \`${prefix}role @user role\``);
-
-    const roleInput = args.slice(1).join(" ").trim();
-    if (!roleInput) return message.reply(`Usage: \`${prefix}role @user role\``);
-
-    const role =
-      message.mentions.roles.first() ||
-      message.guild.roles.cache.get(roleInput.replace(/[<@&>]/g, "")) ||
-      message.guild.roles.cache.find(r => r.name.toLowerCase() === roleInput.toLowerCase());
-
-    if (!role) return message.reply("Role not found.");
-    if (role.managed) return message.reply("I cannot manage that role.");
-
-    if (role.position >= message.guild.members.me.roles.highest.position) {
-      return message.reply("That role is higher than or equal to my highest role.");
-    }
-
-// cannot manage yourself with higher/equal roles
-if (
-  role.position >= message.member.roles.highest.position
-) {
-  return message.reply(
-    "❌ You cannot give/remove a role equal or higher than your highest role."
-  );
-}
-
-// cannot edit users with equal/higher top role
-if (
-  member.roles.highest.position >=
-  message.member.roles.highest.position
-) {
-  return message.reply(
-    "❌ You cannot manage this user's roles."
-  );
-}
-
-    if (member.roles.cache.has(role.id)) {
-      await member.roles.remove(role);
-      return message.reply(`✅ Removed **${role.name}** from ${member.user.tag}`);
-    }
-
-    await member.roles.add(role);
-    return message.reply(`✅ Added **${role.name}** to ${member.user.tag}`);
+  if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+    return message.reply("I need Manage Roles permission.");
   }
+
+  const member = await findTargetMember(message, args);
+  if (!member) return message.reply(`Usage: \`${prefix}role @user role\``);
+
+  const roleInput = args.slice(1).join(" ").trim();
+  if (!roleInput) return message.reply(`Usage: \`${prefix}role @user role\``);
+
+  const role =
+    message.mentions.roles.first() ||
+    message.guild.roles.cache.get(roleInput.replace(/[<@&>]/g, "")) ||
+    message.guild.roles.cache.find(
+      r => r.name.toLowerCase() === roleInput.toLowerCase()
+    );
+
+  if (!role) return message.reply("Role not found.");
+  if (role.managed) return message.reply("I cannot manage that role.");
+
+  // Bot hierarchy check
+  if (role.position >= message.guild.members.me.roles.highest.position) {
+    return message.reply(
+      "❌ That role is higher than or equal to my highest role."
+    );
+  }
+
+  // Staff cannot give roles equal or higher than their own highest role
+  if (role.position >= message.member.roles.highest.position) {
+    return message.reply(
+      "❌ You cannot give/remove a role equal or higher than your highest role."
+    );
+  }
+
+  if (member.roles.cache.has(role.id)) {
+    await member.roles.remove(role);
+    return message.reply(
+      `✅ Removed **${role.name}** from ${member.user.tag}`
+    );
+  }
+
+  await member.roles.add(role);
+  return message.reply(
+    `✅ Added **${role.name}** to ${member.user.tag}`
+  );
+}}
 
   // ================= BLACKLIST ADD =================
   if (command === "bl" || command === "blacklist") {
