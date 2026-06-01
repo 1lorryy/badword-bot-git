@@ -1010,8 +1010,24 @@ return message.reply({ embeds: [embed] });
   }
 
   // ================= AI FALLBACK CHAT =================
-const aiReply = await generateAiReply(message, message.content);
+const messages = await message.channel.messages.fetch({
+  limit: 30
+});
 
+const history = [...messages.values()]
+  .reverse()
+  .filter(m => !m.author.bot)
+  .map(m => ({
+    author: m.author.username,
+    content: m.content
+  }));
+
+const aiReply = await generateAiReply(
+  message,
+  message.content,
+  history
+);
+  
 if (aiReply) {
   return message.reply({
     content: aiReply,
@@ -1080,14 +1096,27 @@ function startBot() {
 
   let aiReply = null;
 
-  try {
-    aiReply = await generateAiReply(
-      message,
-      message.content
-    );
-  } catch (err) {
-    console.error("Reply AI error:", err);
-  }
+try {
+  const messages = await message.channel.messages.fetch({
+    limit: 30
+  });
+
+  const history = [...messages.values()]
+    .reverse()
+    .filter(m => !m.author.bot)
+    .map(m => ({
+      author: m.author.username,
+      content: m.content
+    }));
+
+  aiReply = await generateAiReply(
+    message,
+    message.content,
+    history
+  );
+} catch (err) {
+  console.error("Reply AI error:", err);
+}
 
 if (aiReply) {
           return message.reply({
