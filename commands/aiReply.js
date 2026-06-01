@@ -136,7 +136,8 @@ Adam Info:
 
     input: `
 Recent channel history:
-
+1481561361044607047
+  
 ${historyText}
 
 Current message:
