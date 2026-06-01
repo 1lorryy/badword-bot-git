@@ -1,44 +1,44 @@
-const { handleChannelToolsCommand } = require("./commands/channelTools"); [cite: 195]
-const { handleBuyCommand } = require("./commands/buy"); [cite: 195]
-const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk"); [cite: 195]
-const { handleAuctionCommand } = require("./commands/auction"); [cite: 196]
-const { handleModLogsCommand } = require("./commands/modlogs"); [cite: 196]
-const { generateAiReply } = require("./commands/aiReply"); [cite: 196]
-const fs = require("fs"); [cite: 197]
-const path = require("path"); [cite: 197]
+const { handleChannelToolsCommand } = require("./commands/channelTools");
+const { handleBuyCommand } = require("./commands/buy");
+const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
+const { handleAuctionCommand } = require("./commands/auction");
+const { handleModLogsCommand } = require("./commands/modlogs");
+const { generateAiReply } = require("./commands/aiReply");
+const fs = require("fs");
+const path = require("path");
 
 const {
   Client,
   GatewayIntentBits,
   PermissionsBitField,
   EmbedBuilder,
-} = require("discord.js"); [cite: 197]
+} = require("discord.js");
 
-const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json"); [cite: 198]
+const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json");
 
-const DEFAULT_PREFIX = process.env.DEFAULT_PREFIX || "?"; [cite: 198]
-const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || "1492845794192134245"; [cite: 198]
-const BYPASS_ROLE_IDS = ( [cite: 199]
+const DEFAULT_PREFIX = process.env.DEFAULT_PREFIX || "?";
+const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || "1492845794192134245";
+const BYPASS_ROLE_IDS = (
   process.env.BYPASS_ROLE_IDS || ""
 )
   .split(",")
   .map(id => id.trim())
-  .filter(Boolean); [cite: 199]
+  .filter(Boolean);
 
-const STAFF_ROLE_ID = "1481370041420087474"; [cite: 199]
-const MOD_ROLE_ID = "1481370041432932379"; [cite: 200]
-const MAIN_ADMIN_ROLE_ID = "1481370041441189959"; [cite: 200]
+const STAFF_ROLE_ID = "1481370041420087474";
+const MOD_ROLE_ID = "1481370041432932379";
+const MAIN_ADMIN_ROLE_ID = "1481370041441189959";
 
-const BLOCKED_LINKS = [ [cite: 200]
+const BLOCKED_LINKS = [
   "onlyfans.com",
   "pornhub.com",
   "xvideos.com",
   "xnxx.com",
   "xhamster.com",
   "redtube.com"
-]; [cite: 200]
+];
 
-const CORE_BLACKLIST = [ [cite: 201]
+const CORE_BLACKLIST = [
   "ass",
   "nigga",
   "nigger",
@@ -64,9 +64,9 @@ const CORE_BLACKLIST = [ [cite: 201]
   "possay",
   "sexcam",
   "bubs"
-]; [cite: 201]
+];
 
-const PROTECTED_BLACKLIST = [ [cite: 202]
+const PROTECTED_BLACKLIST = [
   "nigga",
   "nigger",
   "nga",
@@ -74,947 +74,947 @@ const PROTECTED_BLACKLIST = [ [cite: 202]
   "faggot",
   "fagot",
   "tard",
-]; [cite: 202]
+];
 
-let client; [cite: 202]
+let client;
 
 // ================= DATA SAVE =================
-function loadData() { [cite: 203]
+function loadData() {
   try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8")); [cite: 203]
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
-    return {}; [cite: 204]
+    return {};
   }
 }
 
-let store = loadData(); [cite: 204]
+let store = loadData();
 
-function saveData() { [cite: 205]
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true }); [cite: 205]
-  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2)); [cite: 205]
+function saveData() {
+  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
 }
 
-function getGuildData(guildId) { [cite: 205]
-  store = loadData(); [cite: 205]
-  if (!store[guildId]) { [cite: 206]
+function getGuildData(guildId) {
+  store = loadData();
+  if (!store[guildId]) {
     store[guildId] = {
-      prefix: DEFAULT_PREFIX, [cite: 206]
-      words: [], [cite: 206]
-      blockedLinks: [], [cite: 206]
-      customCommands: {}, [cite: 206]
-      warnings: {}, [cite: 206]
-      cooldowns: {}, // Initialize database spot for tracking systems [cite: 371]
-      modStats: {}, [cite: 206]
-      purchaseLinks: { [cite: 206]
-        classes: [], [cite: 206]
-        ads6h: [], [cite: 206]
-        ads24h: [], [cite: 206]
-        extras: [] [cite: 206]
+      prefix: DEFAULT_PREFIX,
+      words: [],
+      blockedLinks: [],
+      customCommands: {},
+      warnings: {},
+      cooldowns: {}, 
+      modStats: {},
+      purchaseLinks: {
+        classes: [],
+        ads6h: [],
+        ads24h: [],
+        extras: []
       }
     };
-    saveData(); [cite: 207]
+    saveData();
   }
 
-  if (!Array.isArray(store[guildId].words)) store[guildId].words = []; [cite: 207]
-  if (!Array.isArray(store[guildId].blockedLinks)) store[guildId].blockedLinks = []; [cite: 207]
+  if (!Array.isArray(store[guildId].words)) store[guildId].words = [];
+  if (!Array.isArray(store[guildId].blockedLinks)) store[guildId].blockedLinks = [];
   
-  if (!store[guildId].customCommands || typeof store[guildId].customCommands !== "object") { [cite: 208]
-    store[guildId].customCommands = {}; [cite: 208]
+  if (!store[guildId].customCommands || typeof store[guildId].customCommands !== "object") {
+    store[guildId].customCommands = {};
   }
-  if (!store[guildId].warnings || typeof store[guildId].warnings !== "object") { [cite: 209]
-    store[guildId].warnings = {}; [cite: 209]
-  }
-
-  // Inject tracking system safeguard [cite: 371]
-  if (!store[guildId].cooldowns || typeof store[guildId].cooldowns !== "object") { [cite: 371, 372]
-    store[guildId].cooldowns = {}; [cite: 371, 372]
+  if (!store[guildId].warnings || typeof store[guildId].warnings !== "object") {
+    store[guildId].warnings = {};
   }
 
-  if (!store[guildId].purchaseLinks || typeof store[guildId].purchaseLinks !== "object") { [cite: 210]
-    store[guildId].purchaseLinks = { [cite: 210]
-      classes: [], [cite: 210]
-      ads6h: [], [cite: 210]
-      ads24h: [], [cite: 210]
-      extras: [] [cite: 210]
+  if (!store[guildId].cooldowns || typeof store[guildId].cooldowns !== "object") {
+    store[guildId].cooldowns = {};
+  }
+
+  if (!store[guildId].purchaseLinks || typeof store[guildId].purchaseLinks !== "object") {
+    store[guildId].purchaseLinks = {
+      classes: [],
+      ads6h: [],
+      ads24h: [],
+      extras: []
     };
   }
 
-  for (const key of ["classes", "ads6h", "ads24h", "extras"]) { [cite: 211]
-    if (!Array.isArray(store[guildId].purchaseLinks[key])) { [cite: 211]
-      store[guildId].purchaseLinks[key] = []; [cite: 211]
+  for (const key of ["classes", "ads6h", "ads24h", "extras"]) {
+    if (!Array.isArray(store[guildId].purchaseLinks[key])) {
+      store[guildId].purchaseLinks[key] = [];
     }
   }
   
-  if (!store[guildId].modStats || typeof store[guildId].modStats !== "object") { [cite: 212]
-    store[guildId].modStats = {}; [cite: 212]
+  if (!store[guildId].modStats || typeof store[guildId].modStats !== "object") {
+    store[guildId].modStats = {};
   }
 
-  if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX; [cite: 213]
+  if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
 
-  return store[guildId]; [cite: 213]
+  return store[guildId];
 }
 
 // ================= HELPERS =================
-async function deleteAfter(msg, ms = 5000) { [cite: 213]
-  if (!msg) return; [cite: 213]
-  setTimeout(() => msg.delete().catch(() => null), ms); [cite: 214]
+async function deleteAfter(msg, ms = 5000) {
+  if (!msg) return;
+  setTimeout(() => msg.delete().catch(() => null), ms);
 }
 
-function canManageGuild(message) { [cite: 214]
-  if (!message.member) return false; [cite: 214]
-  return ( [cite: 215]
-    message.member.permissions.has(PermissionsBitField.Flags.Administrator) || [cite: 215]
-    message.member.permissions.has(PermissionsBitField.Flags.ManageChannels) || [cite: 215]
-    message.member.roles.cache.has(MAIN_ADMIN_ROLE_ID) || [cite: 215]
-    message.member.roles.cache.has(STAFF_ROLE_ID) || [cite: 215]
-    message.member.roles.cache.has(MOD_ROLE_ID) [cite: 215]
+function canManageGuild(message) {
+  if (!message.member) return false;
+  return (
+    message.member.permissions.has(PermissionsBitField.Flags.Administrator) ||
+    message.member.permissions.has(PermissionsBitField.Flags.ManageChannels) ||
+    message.member.roles.cache.has(MAIN_ADMIN_ROLE_ID) ||
+    message.member.roles.cache.has(STAFF_ROLE_ID) ||
+    message.member.roles.cache.has(MOD_ROLE_ID)
   );
 }
 
-function canBanUsers(message) { [cite: 216]
-  if (!message.member) return false; [cite: 216]
+function canBanUsers(message) {
+  if (!message.member) return false;
 
-  const roles = message.member.roles.cache; [cite: 216]
-  return ( [cite: 217]
-    message.member.permissions.has(PermissionsBitField.Flags.Administrator) || [cite: 217]
-    roles.has(MAIN_ADMIN_ROLE_ID) [cite: 217]
+  const roles = message.member.roles.cache;
+  return (
+    message.member.permissions.has(PermissionsBitField.Flags.Administrator) ||
+    roles.has(MAIN_ADMIN_ROLE_ID)
   );
 }
 
-function isStaffMember(member) { [cite: 218]
-  return ( [cite: 218]
-    member.roles.cache.has(STAFF_ROLE_ID) || [cite: 218]
-    member.roles.cache.has(MOD_ROLE_ID) || [cite: 218]
-    member.roles.cache.has(MAIN_ADMIN_ROLE_ID) || [cite: 218]
-    member.permissions.has(PermissionsBitField.Flags.Administrator) [cite: 218]
+// Check if a member is a staff member
+function isStaffMember(member) {
+  return (
+    member.roles.cache.has(STAFF_ROLE_ID) ||
+    member.roles.cache.has(MOD_ROLE_ID) ||
+    member.roles.cache.has(MAIN_ADMIN_ROLE_ID) ||
+    member.permissions.has(PermissionsBitField.Flags.Administrator)
   );
 }
 
-function hasBypassRole(message) { [cite: 219]
-  return message.member?.roles?.cache?.some(role => [cite: 219]
-    BYPASS_ROLE_IDS.includes(role.id) [cite: 220]
+function hasBypassRole(message) {
+  return message.member?.roles?.cache?.some(role =>
+    BYPASS_ROLE_IDS.includes(role.id)
   );
 }
 
-async function findTargetMember(message, args) { [cite: 220]
-  const mention = message.mentions.members.first(); [cite: 220]
-  if (mention) return mention; [cite: 220]
+async function findTargetMember(message, args) {
+  const mention = message.mentions.members.first();
+  if (mention) return mention;
 
-  const input = args[0]; [cite: 220]
-  if (!input) return null; [cite: 221]
+  const input = args[0];
+  if (!input) return null;
 
-  const clean = input.replace(/^@/, ""); [cite: 221]
-  const byId = await message.guild.members [cite: 222]
-    .fetch(clean) [cite: 222]
-    .catch(() => null); [cite: 222]
-  if (byId) return byId; [cite: 223]
+  const clean = input.replace(/^@/, "");
+  const byId = await message.guild.members
+    .fetch(clean)
+    .catch(() => null);
+  if (byId) return byId;
 
-  const search = clean.toLowerCase(); [cite: 223]
+  const search = clean.toLowerCase();
 
-  let found = message.guild.members.cache.find( [cite: 223]
-    m => [cite: 223]
-      m.user.username.toLowerCase() === search || [cite: 223]
-      m.displayName.toLowerCase() === search || [cite: 223]
-      m.user.tag.toLowerCase() === search [cite: 223]
+  let found = message.guild.members.cache.find(
+    m =>
+      m.user.username.toLowerCase() === search ||
+      m.displayName.toLowerCase() === search ||
+      m.user.tag.toLowerCase() === search
   );
-  if (found) return found; [cite: 224]
+  if (found) return found;
 
-  found = message.guild.members.cache.find( [cite: 224]
-    m => [cite: 224]
-      m.user.username.toLowerCase().includes(search) || [cite: 224]
-      m.displayName.toLowerCase().includes(search) [cite: 224]
+  found = message.guild.members.cache.find(
+    m =>
+      m.user.username.toLowerCase().includes(search) ||
+      m.displayName.toLowerCase().includes(search)
   );
-  return found || null; [cite: 225]
+  return found || null;
 }
 
-function parseDuration(input) { [cite: 225]
-  if (!input) return null; [cite: 225]
-  const match = String(input) [cite: 226]
-    .toLowerCase() [cite: 226]
-    .match(/^(\d+)(s|sec|m|min|h|hr|d|day)$/); [cite: 226]
+function parseDuration(input) {
+  if (!input) return null;
+  const match = String(input)
+    .toLowerCase()
+    .match(/^(\d+)(s|sec|m|min|h|hr|d|day)$/);
 
-  if (!match) return null; [cite: 226]
-  const amount = parseInt(match[1], 10); [cite: 227]
-  const unit = match[2]; [cite: 227]
+  if (!match) return null;
+  const amount = parseInt(match[1], 10);
+  const unit = match[2];
 
-  if (unit === "s" || unit === "sec") return amount * 1000; [cite: 227]
-  if (unit === "m" || unit === "min") return amount * 60 * 1000; [cite: 228]
-  if (unit === "h" || unit === "hr") return amount * 60 * 60 * 1000; [cite: 229]
-  if (unit === "d" || unit === "day") return amount * 24 * 60 * 60 * 1000; [cite: 230]
+  if (unit === "s" || unit === "sec") return amount * 1000;
+  if (unit === "m" || unit === "min") return amount * 60 * 1000;
+  if (unit === "h" || unit === "hr") return amount * 60 * 60 * 1000;
+  if (unit === "d" || unit === "day") return amount * 24 * 60 * 60 * 1000;
 
-  return null; [cite: 230]
+  return null;
 }
 
-function escapeRegex(text) { [cite: 231]
-  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); [cite: 231]
+function escapeRegex(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function containsBlacklistedWord(content, words) { [cite: 231]
-  const text = content.toLowerCase(); [cite: 231]
-  for (const word of words) { [cite: 232]
-    const clean = String(word).toLowerCase().trim(); [cite: 232]
-    if (!clean) continue; [cite: 232]
-    const letters = clean [cite: 233]
-      .split("") [cite: 233]
-      .map(escapeRegex) [cite: 233]
-      .join("[\\s._-]*"); [cite: 233]
-    const regex = new RegExp( [cite: 234]
-      `(^|[^a-z0-9])${letters}([^a-z0-9]|$)`, [cite: 234]
-      "i" [cite: 234]
+function containsBlacklistedWord(content, words) {
+  const text = content.toLowerCase();
+  for (const word of words) {
+    const clean = String(word).toLowerCase().trim();
+    if (!clean) continue;
+    const letters = clean
+      .split("")
+      .map(escapeRegex)
+      .join("[\\s._-]*");
+    const regex = new RegExp(
+      `(^|[^a-z0-9])${letters}([^a-z0-9]|$)`,
+      "i"
     );
-    if (regex.test(text)) return word; [cite: 235]
+    if (regex.test(text)) return word;
   }
 
-  const link = BLOCKED_LINKS.find(l => text.includes(l)); [cite: 235]
-  if (link) return link; [cite: 235]
+  const link = BLOCKED_LINKS.find(l => text.includes(l));
+  if (link) return link;
 
-  return null; [cite: 236]
+  return null;
 }
 
-async function sendAutomodLog(message, word) { [cite: 236]
-  const log = await message.guild.channels [cite: 236]
-    .fetch(LOG_CHANNEL_ID) [cite: 237]
-    .catch(() => null); [cite: 237]
-  if (!log || !log.isTextBased()) return; [cite: 237]
+async function sendAutomodLog(message, word) {
+  const log = await message.guild.channels
+    .fetch(LOG_CHANNEL_ID)
+    .catch(() => null);
+  if (!log || !log.isTextBased()) return;
 
-  const embed = new EmbedBuilder() [cite: 237]
-    .setTitle("🚫 Blacklisted Message Deleted") [cite: 237]
-    .setColor(0xef4444) [cite: 237]
+  const embed = new EmbedBuilder()
+    .setTitle("🚫 Blacklisted Message Deleted")
+    .setColor(0xef4444)
     .addFields(
-      { name: "User", value: `${message.author.tag}`, inline: true }, [cite: 237]
-      { name: "Channel", value: `${message.channel}`, inline: true }, [cite: 237]
-      { name: "Matched", value: `\`${word}\``, inline: true }, [cite: 238]
-      { name: "Message", value: message.content.slice(0, 1000), inline: false } [cite: 238]
+      { name: "User", value: `${message.author.tag}`, inline: true },
+      { name: "Channel", value: `${message.channel}`, inline: true },
+      { name: "Matched", value: `\`${word}\``, inline: true },
+      { name: "Message", value: message.content.slice(0, 1000), inline: false }
     )
-    .setTimestamp(); [cite: 238]
-  await log.send({ embeds: [embed] }).catch(() => null); [cite: 239]
+    .setTimestamp();
+  await log.send({ embeds: [embed] }).catch(() => null);
 }
 
-async function sendModLog(embed) { [cite: 239]
-  const log = await client.channels [cite: 239]
-    .fetch(LOG_CHANNEL_ID) [cite: 240]
-    .catch(() => null); [cite: 240]
-  if (!log || !log.isTextBased()) return; [cite: 240]
+async function sendModLog(embed) {
+  const log = await client.channels
+    .fetch(LOG_CHANNEL_ID)
+    .catch(() => null);
+  if (!log || !log.isTextBased()) return;
 
-  await log.send({ embeds: [embed] }).catch(() => null); [cite: 241]
+  await log.send({ embeds: [embed] }).catch(() => null);
 }
 
 // ================= COMMANDS =================
-async function handleCommands(message) { [cite: 241]
-  const data = getGuildData(message.guild.id); [cite: 241]
-  const prefix = data.prefix || DEFAULT_PREFIX; [cite: 241]
-  if (!message.content.startsWith(prefix)) return false; [cite: 242]
+async function handleCommands(message) {
+  const data = getGuildData(message.guild.id);
+  const prefix = data.prefix || DEFAULT_PREFIX;
+  if (!message.content.startsWith(prefix)) return false;
 
-  const args = message.content.slice(prefix.length).trim().split(/\s+/); [cite: 242]
-  const command = (args.shift() || "").toLowerCase(); [cite: 242]
-  if (!command) return true; [cite: 242]
+  const args = message.content.slice(prefix.length).trim().split(/\s+/);
+  const command = (args.shift() || "").toLowerCase();
+  if (!command) return true;
 
   // ================= CUSTOM COMMANDS =================
-  if (data.customCommands?.[command]) { [cite: 243]
-    const custom = data.customCommands[command]; [cite: 243]
-    if (typeof custom === "object" && custom.ai === true) { [cite: 244]
-      let aiReply = null; [cite: 244]
+  if (data.customCommands?.[command]) {
+    const custom = data.customCommands[command];
+    if (typeof custom === "object" && custom.ai === true) {
+      let aiReply = null;
       try {
-        aiReply = await generateAiReply(message, message.content); [cite: 245]
+        aiReply = await generateAiReply(message, message.content);
       } catch (err) {
-        console.error("AI unavailable:", err.code || err.message); [cite: 245]
-        return true; [cite: 245]
+        console.error("AI unavailable:", err.code || err.message);
+        return true;
       }
 
-      if (!aiReply) return message.reply("AI unavailable rn."); [cite: 246]
-      return message.channel.send({ [cite: 247]
-        content: aiReply, [cite: 247]
-        allowedMentions: { parse: [] } [cite: 247]
+      if (!aiReply) return message.reply("AI unavailable rn.");
+      return message.channel.send({
+        content: aiReply,
+        allowedMentions: { parse: [] }
       });
     }
 
-    const response = typeof custom === "string" ? custom : custom.response || "No response set."; [cite: 248, 249]
-    const allowPings = typeof custom === "object" && custom.allowPings === true; [cite: 250]
-    if (allowPings) { [cite: 251]
-      return message.reply({ [cite: 251]
-        content: response, [cite: 251]
-        allowedMentions: { repliedUser: true } [cite: 251]
+    const response = typeof custom === "string" ? custom : custom.response || "No response set.";
+    const allowPings = typeof custom === "object" && custom.allowPings === true;
+    if (allowPings) {
+      return message.reply({
+        content: response,
+        allowedMentions: { repliedUser: true }
       });
     }
 
-    return message.channel.send({ [cite: 252]
-      content: response, [cite: 252]
-      allowedMentions: { parse: [] } [cite: 252]
+    return message.channel.send({
+      content: response,
+      allowedMentions: { parse: [] }
     });
   }
 
   // ================= AFK / AUCTION / CHANNEL TOOLS =================
-  if (command === "slowmode") { [cite: 253]
-    return handleChannelToolsCommand(message, args, prefix, command, canManageGuild); [cite: 253]
+  if (command === "slowmode") {
+    return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
   }
-  if (command === "purchase") return handleBuyCommand(message, args, prefix, canManageGuild); [cite: 254]
-  if (command === "afk") return handleAfkCommand(message, args, prefix); [cite: 254]
-  if (command === "auction") return handleAuctionCommand(message, args, prefix); [cite: 255]
-  if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix); [cite: 255]
-  if (command === "modlogs") return handleModLogsCommand(message, args, prefix, getGuildData); [cite: 256]
+  if (command === "purchase") return handleBuyCommand(message, args, prefix, canManageGuild);
+  if (command === "afk") return handleAfkCommand(message, args, prefix);
+  if (command === "auction") return handleAuctionCommand(message, args, prefix);
+  if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
+  if (command === "modlogs") return handleModLogsCommand(message, args, prefix, getGuildData);
 
   // ================= PING =================
-  if (command === "ping") { [cite: 257]
-    const msg = await message.reply("🏓 Pinging...").catch(() => null); [cite: 257]
-    if (!msg) return true; [cite: 258]
+  if (command === "ping") {
+    const msg = await message.reply("🏓 Pinging...").catch(() => null);
+    if (!msg) return true;
 
-    const latency = msg.createdTimestamp - message.createdTimestamp; [cite: 258]
-    const api = Math.round(client.ws.ping); [cite: 258]
-    return msg.edit(`🏓 Pong!\n📨 Message: \`${latency}ms\`\n🌐 API: \`${api}ms\``).catch(() => null); [cite: 259]
+    const latency = msg.createdTimestamp - message.createdTimestamp;
+    const api = Math.round(client.ws.ping);
+    return msg.edit(`🏓 Pong!\n📨 Message: \`${latency}ms\`\n🌐 API: \`${api}ms\``).catch(() => null);
   }
 
   // ================= PREFIX =================
-  if (command === "prefix") { [cite: 259]
-    return message.reply(`Current prefix: \`${prefix}\``); [cite: 259]
+  if (command === "prefix") {
+    return message.reply(`Current prefix: \`${prefix}\``);
   }
 
-  if (command === "setprefix") { [cite: 260]
-    if (!canBanUsers(message)) { [cite: 260]
-      return message.reply("❌ Only admin+ can change prefix."); [cite: 260]
+  if (command === "setprefix") {
+    if (!canBanUsers(message)) {
+      return message.reply("❌ Only admin+ can change prefix.");
     }
 
-    const newPrefix = args[0]; [cite: 261]
-    if (!newPrefix || newPrefix.length > 3) { [cite: 261]
-      return message.reply(`Usage: \`${prefix}setprefix ?\``); [cite: 261]
+    const newPrefix = args[0];
+    if (!newPrefix || newPrefix.length > 3) {
+      return message.reply(`Usage: \`${prefix}setprefix ?\``);
     }
 
-    data.prefix = newPrefix; [cite: 262]
-    saveData(); [cite: 262]
+    data.prefix = newPrefix;
+    saveData();
 
-    return message.reply(`✅ Prefix updated to \`${newPrefix}\``); [cite: 262]
+    return message.reply(`✅ Prefix updated to \`${newPrefix}\``);
   }
 
   // ================= WARN =================
-  if (command === "warn") { [cite: 263]
-    if (!canManageGuild(message)) return message.reply("❌ No permission."); [cite: 264]
-    const member = await findTargetMember(message, args); [cite: 264]
-    if (!member) return message.reply(`Usage: \`${prefix}warn @user reason\``); [cite: 264]
+  if (command === "warn") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}warn @user reason\``);
 
-    const reason = args.slice(1).join(" ") || "No reason"; [cite: 264, 265]
-    const warnId = Date.now().toString(); [cite: 265]
+    const reason = args.slice(1).join(" ") || "No reason";
+    const warnId = Date.now().toString();
 
-    if (!data.warnings[member.id]) data.warnings[member.id] = []; [cite: 265]
-    data.warnings[member.id].push({ [cite: 266]
-      id: warnId, [cite: 266]
-      reason, [cite: 266]
-      mod: message.author.id, [cite: 266]
-      date: new Date().toISOString() [cite: 266]
+    if (!data.warnings[member.id]) data.warnings[member.id] = [];
+    data.warnings[member.id].push({
+      id: warnId,
+      reason,
+      mod: message.author.id,
+      date: new Date().toISOString()
     });
 
-    if (!data.modStats[message.author.id]) { [cite: 267]
-      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 }; [cite: 267]
+    if (!data.modStats[message.author.id]) {
+      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
     }
-    data.modStats[message.author.id].warns++; [cite: 268]
-    saveData(); [cite: 268]
+    data.modStats[message.author.id].warns++;
+    saveData();
 
-    const embed = new EmbedBuilder() [cite: 268]
-      .setTitle("⚠️ User Warned") [cite: 268]
-      .setColor(0xf59e0b) [cite: 268]
+    const embed = new EmbedBuilder()
+      .setTitle("⚠️ User Warned")
+      .setColor(0xf59e0b)
       .addFields(
-        { name: "User", value: `${member.user.tag}`, inline: true }, [cite: 268]
-        { name: "Moderator", value: `${message.author.tag}`, inline: true }, [cite: 268]
-        { name: "Reason", value: reason, inline: false }, [cite: 268]
-        { name: "Warn ID", value: `\`${warnId}\``, inline: true } [cite: 268]
+        { name: "User", value: `${member.user.tag}`, inline: true },
+        { name: "Moderator", value: `${message.author.tag}`, inline: true },
+        { name: "Reason", value: reason, inline: false },
+        { name: "Warn ID", value: `\`${warnId}\``, inline: true }
       )
-      .setTimestamp(); [cite: 268]
-    await sendModLog(embed); [cite: 269]
-    await member.send({ embeds: [embed] }).catch(() => null); [cite: 269]
+      .setTimestamp();
+    await sendModLog(embed);
+    await member.send({ embeds: [embed] }).catch(() => null);
 
-    return message.reply(`✅ Warned ${member.user.tag}\nWarn ID: \`${warnId}\``); [cite: 269]
+    return message.reply(`✅ Warned ${member.user.tag}\nWarn ID: \`${warnId}\``);
   }
 
   // ================= WARNINGS =================
-  if (command === "warnings") { [cite: 270]
-    const member = await findTargetMember(message, args) || message.member; [cite: 270, 271]
-    const warnings = data.warnings[member.id] || []; [cite: 271]
+  if (command === "warnings") {
+    const member = await findTargetMember(message, args) || message.member;
+    const warnings = data.warnings[member.id] || [];
 
-    if (!warnings.length) return message.reply(`${member.user.tag} has no warnings.`); [cite: 271]
-    const list = warnings [cite: 272]
-      .slice(-10) [cite: 272]
-      .map((w, i) => `${i + 1}. ID: \`${w.id}\`\nReason: ${w.reason}`) [cite: 272]
-      .join("\n\n"); [cite: 272]
-    const ids = warnings.map(w => `\`${w.id}\``).join("\n"); [cite: 273]
+    if (!warnings.length) return message.reply(`${member.user.tag} has no warnings.`);
+    const list = warnings
+      .slice(-10)
+      .map((w, i) => `${i + 1}. ID: \`${w.id}\`\nReason: ${w.reason}`)
+      .join("\n\n");
+    const ids = warnings.map(w => `\`${w.id}\``).join("\n");
 
-    const embed = new EmbedBuilder() [cite: 273]
-      .setTitle(`Warnings for ${member.user.tag}`) [cite: 273]
-      .setColor(0xf59e0b) [cite: 273]
-      .setDescription(list.slice(0, 4000)); [cite: 273]
-    return message.reply({ content: ids, embeds: [embed] }); [cite: 274]
+    const embed = new EmbedBuilder()
+      .setTitle(`Warnings for ${member.user.tag}`)
+      .setColor(0xf59e0b)
+      .setDescription(list.slice(0, 4000));
+    return message.reply({ content: ids, embeds: [embed] });
   }
 
   // ================= UNWARN =================
-  if (command === "unwarn") { [cite: 274]
-    if (!canManageGuild(message)) return message.reply("❌ No permission."); [cite: 275]
-    const member = await findTargetMember(message, args); [cite: 275]
-    const warnId = args[1]; [cite: 275]
+  if (command === "unwarn") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    const member = await findTargetMember(message, args);
+    const warnId = args[1];
 
-    if (!member || !warnId) return message.reply(`Usage: \`${prefix}unwarn @user warnId\``); [cite: 275]
-    const warnings = data.warnings[member.id] || []; [cite: 276]
-    const before = warnings.length; [cite: 276]
+    if (!member || !warnId) return message.reply(`Usage: \`${prefix}unwarn @user warnId\``);
+    const warnings = data.warnings[member.id] || [];
+    const before = warnings.length;
 
-    data.warnings[member.id] = warnings.filter(w => w.id !== warnId); [cite: 276]
-    saveData(); [cite: 276]
-    if (before === data.warnings[member.id].length) return message.reply("Warn ID not found."); [cite: 277]
-    return message.reply(`✅ Removed warning \`${warnId}\``); [cite: 278]
+    data.warnings[member.id] = warnings.filter(w => w.id !== warnId);
+    saveData();
+    if (before === data.warnings[member.id].length) return message.reply("Warn ID not found.");
+    return message.reply(`✅ Removed warning \`${warnId}\``);
   }
 
   // ================= SETNICK =================
-  if (command === "setnick") { [cite: 278]
-    if (!canManageGuild(message)) return message.reply("❌ No permission."); [cite: 279]
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames)) { [cite: 279]
-      return message.reply("❌ I need Manage Nicknames permission."); [cite: 280]
+  if (command === "setnick") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames)) {
+      return message.reply("❌ I need Manage Nicknames permission.");
     }
 
-    const member = await findTargetMember(message, args); [cite: 280]
-    if (!member) return message.reply(`Usage: \`${prefix}setnick @user new nickname\``); [cite: 280]
-    if (!member.manageable) { [cite: 281]
-      return message.reply("❌ I cannot change this user's nickname. Their role may be higher than mine."); [cite: 282]
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}setnick @user new nickname\``);
+    if (!member.manageable) {
+      return message.reply("❌ I cannot change this user's nickname. Their role may be higher than mine.");
     }
 
-    const newNick = message.reference ? args.join(" ").trim() : args.slice(1).join(" ").trim(); [cite: 282, 283]
-    if (!newNick) return message.reply(`Usage: \`${prefix}setnick @user new nickname\``); [cite: 283]
-    if (newNick.length > 32) return message.reply("❌ Nickname max length is 32 characters."); [cite: 284]
+    const newNick = message.reference ? args.join(" ").trim() : args.slice(1).join(" ").trim();
+    if (!newNick) return message.reply(`Usage: \`${prefix}setnick @user new nickname\``);
+    if (newNick.length > 32) return message.reply("❌ Nickname max length is 32 characters.");
 
-    await member.setNickname(newNick, `Changed by ${message.author.tag}`); [cite: 284]
-    const embed = new EmbedBuilder() [cite: 285]
-      .setTitle("✏️ Nickname Changed") [cite: 285]
-      .setColor(0x5865f2) [cite: 285]
+    await member.setNickname(newNick, `Changed by ${message.author.tag}`);
+    const embed = new EmbedBuilder()
+      .setTitle("✏️ Nickname Changed")
+      .setColor(0x5865f2)
       .addFields(
-        { name: "User", value: `${member.user.tag}`, inline: true }, [cite: 285]
-        { name: "Moderator", value: `${message.author.tag}`, inline: true }, [cite: 285]
-        { name: "New Nickname", value: newNick, inline: false } [cite: 285]
+        { name: "User", value: `${member.user.tag}`, inline: true },
+        { name: "Moderator", value: `${message.author.tag}`, inline: true },
+        { name: "New Nickname", value: newNick, inline: false }
       )
-      .setTimestamp(); [cite: 286]
-    await sendModLog(embed); [cite: 286]
+      .setTimestamp();
+    await sendModLog(embed);
 
-    return message.reply(`✅ Changed nickname for ${member.user.tag} to **${newNick}**`); [cite: 287]
+    return message.reply(`✅ Changed nickname for ${member.user.tag} to **${newNick}**`);
   }
 
   // ================= MUTE =================
-  if (command === "mute" || command === "timeout") { [cite: 287]
-    if (!canManageGuild(message)) return message.reply("❌ No permission."); [cite: 288]
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ModerateMembers)) { [cite: 288]
-      return message.reply("I need Moderate Members permission."); [cite: 289]
+  if (command === "mute" || command === "timeout") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
+      return message.reply("I need Moderate Members permission.");
     }
 
-    const member = await findTargetMember(message, args); [cite: 289]
-    if (!member) return message.reply(`Usage: \`${prefix}mute @user 1min reason\``); [cite: 290]
-    const durationText = args[1]; [cite: 290]
-    const durationMs = parseDuration(durationText); [cite: 290]
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}mute @user 1min reason\``);
+    const durationText = args[1];
+    const durationMs = parseDuration(durationText);
 
-    if (!durationMs) return message.reply("Use time like `10s`, `1min`, `1h`, `1d`."); [cite: 290]
-    if (durationMs > 14 * 24 * 60 * 60 * 1000) return message.reply("Max mute is 14 days."); [cite: 291]
-    const reason = args.slice(2).join(" ") || "No reason"; [cite: 292]
+    if (!durationMs) return message.reply("Use time like `10s`, `1min`, `1h`, `1d`.");
+    if (durationMs > 14 * 24 * 60 * 60 * 1000) return message.reply("Max mute is 14 days.");
+    const reason = args.slice(2).join(" ") || "No reason";
 
-    await member.timeout(durationMs, reason); [cite: 292]
-    if (!data.modStats[message.author.id]) { [cite: 293]
-      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 }; [cite: 293]
+    await member.timeout(durationMs, reason);
+    if (!data.modStats[message.author.id]) {
+      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
     }
-    data.modStats[message.author.id].mutes++; [cite: 294]
-    saveData(); [cite: 294]
+    data.modStats[message.author.id].mutes++;
+    saveData();
 
-    const embed = new EmbedBuilder() [cite: 294]
-      .setTitle("🔇 User Muted") [cite: 294]
-      .setColor(0x3b82f6) [cite: 294]
+    const embed = new EmbedBuilder()
+      .setTitle("🔇 User Muted")
+      .setColor(0x3b82f6)
       .addFields(
-        { name: "User", value: `${member.user.tag}`, inline: true }, [cite: 294]
-        { name: "Duration", value: durationText, inline: true }, [cite: 294]
-        { name: "Reason", value: reason, inline: false } [cite: 294]
+        { name: "User", value: `${member.user.tag}`, inline: true },
+        { name: "Duration", value: durationText, inline: true },
+        { name: "Reason", value: reason, inline: false }
       )
-      .setTimestamp(); [cite: 294]
-    await sendModLog(embed); [cite: 295]
-    return message.reply(`🔇 Muted ${member.user.tag} for ${durationText}`); [cite: 295]
+      .setTimestamp();
+    await sendModLog(embed);
+    return message.reply(`🔇 Muted ${member.user.tag} for ${durationText}`);
   }
 
   // ================= UNMUTE =================
-  if (command === "unmute") { [cite: 295]
-    if (!canManageGuild(message)) return message.reply("❌ No permission."); [cite: 296]
-    const member = await findTargetMember(message, args); [cite: 296]
-    if (!member) return message.reply(`Usage: \`${prefix}unmute @user\``); [cite: 296]
+  if (command === "unmute") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}unmute @user\``);
 
-    await member.timeout(null); [cite: 296]
-    return message.reply(`🔊 Unmuted ${member.user.tag}`); [cite: 297]
+    await member.timeout(null);
+    return message.reply(`🔊 Unmuted ${member.user.tag}`);
   }
 
   // ================= KICK =================
-  if (command === "kick") { [cite: 297]
-    if (!args[0]) return message.reply(`Usage: \`${prefix}kick @user reason\``); [cite: 297, 298]
-    if (!canManageGuild(message)) return message.reply("❌ No permission."); [cite: 298, 299]
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.KickMembers)) { [cite: 299]
-      return message.reply("❌ I need Kick Members permission."); [cite: 300]
+  if (command === "kick") {
+    if (!args[0]) return message.reply(`Usage: \`${prefix}kick @user reason\``);
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.KickMembers)) {
+      return message.reply("❌ I need Kick Members permission.");
     }
 
-    const member = await findTargetMember(message, args); [cite: 300]
-    if (!member) return message.reply(`Usage: \`${prefix}kick @user reason\``); [cite: 300, 301]
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}kick @user reason\``);
 
-    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.kickable) { [cite: 301]
-      return; [cite: 302]
+    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.kickable) {
+      return;
     }
 
-    const reason = args.slice(1).join(" ") || "No reason"; [cite: 302]
-    const embed = new EmbedBuilder() [cite: 303]
-      .setTitle("👢 User Kicked") [cite: 303]
-      .setColor(0xef4444) [cite: 303]
+    const reason = args.slice(1).join(" ") || "No reason";
+    const embed = new EmbedBuilder()
+      .setTitle("👢 User Kicked")
+      .setColor(0xef4444)
       .addFields(
-        { name: "User", value: `${member.user.tag}`, inline: true }, [cite: 303]
-        { name: "Moderator", value: `${message.author.tag}`, inline: true }, [cite: 303]
-        { name: "Reason", value: reason, inline: false } [cite: 303]
+        { name: "User", value: `${member.user.tag}`, inline: true },
+        { name: "Moderator", value: `${message.author.tag}`, inline: true },
+        { name: "Reason", value: reason, inline: false }
       )
-      .setTimestamp(); [cite: 304]
+      .setTimestamp();
 
-    await member.send({ embeds: [embed] }).catch(() => null); [cite: 304]
-    await member.kick(reason); [cite: 304]
+    await member.send({ embeds: [embed] }).catch(() => null);
+    await member.kick(reason);
 
-    if (!data.modStats[message.author.id]) { [cite: 304]
-      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 }; [cite: 304]
+    if (!data.modStats[message.author.id]) {
+      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
     }
-    data.modStats[message.author.id].kicks++; [cite: 305]
-    saveData(); [cite: 305]
-    await sendModLog(embed); [cite: 305]
+    data.modStats[message.author.id].kicks++;
+    saveData();
+    await sendModLog(embed);
 
-    return message.reply(`👢 Kicked ${member.user.tag}`); [cite: 305]
+    return message.reply(`👢 Kicked ${member.user.tag}`);
   }
 
   // ================= BAN =================
-  if (command === "ban") { [cite: 305]
-    if (!args[0]) return message.reply(`Usage: \`${prefix}ban @user reason\``); [cite: 305, 306]
-    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can ban."); [cite: 306, 307]
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) { [cite: 307]
-      return message.reply("❌ I need Ban Members permission."); [cite: 308]
+  if (command === "ban") {
+    if (!args[0]) return message.reply(`Usage: \`${prefix}ban @user reason\``);
+    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can ban.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) {
+      return message.reply("❌ I need Ban Members permission.");
     }
 
-    const member = await findTargetMember(message, args); [cite: 308]
-    if (!member) return message.reply(`Usage: \`${prefix}ban @user reason\``); [cite: 309]
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}ban @user reason\``);
 
-    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.bannable) { [cite: 309]
-      return; [cite: 310]
+    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.bannable) {
+      return;
     }
 
-    const reason = args.slice(1).join(" ") || "No reason"; [cite: 310]
-    const embed = new EmbedBuilder() [cite: 311]
-      .setTitle("🔨 User Banned") [cite: 311]
-      .setColor(0xef4444) [cite: 311]
+    const reason = args.slice(1).join(" ") || "No reason";
+    const embed = new EmbedBuilder()
+      .setTitle("🔨 User Banned")
+      .setColor(0xef4444)
       .addFields(
-        { name: "User", value: `${member.user.tag}`, inline: true }, [cite: 311]
-        { name: "Moderator", value: `${message.author.tag}`, inline: true }, [cite: 311]
-        { name: "Reason", value: reason, inline: false } [cite: 311]
+        { name: "User", value: `${member.user.tag}`, inline: true },
+        { name: "Moderator", value: `${message.author.tag}`, inline: true },
+        { name: "Reason", value: reason, inline: false }
       )
-      .setTimestamp(); [cite: 312]
+      .setTimestamp();
 
-    await member.send({ embeds: [embed] }).catch(() => null); [cite: 312]
-    await member.ban({ reason }); [cite: 312]
+    await member.send({ embeds: [embed] }).catch(() => null);
+    await member.ban({ reason });
 
-    if (!data.modStats[message.author.id]) { [cite: 313]
-      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 }; [cite: 313]
+    if (!data.modStats[message.author.id]) {
+      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
     }
-    data.modStats[message.author.id].bans++; [cite: 314]
-    saveData(); [cite: 314]
-    await sendModLog(embed); [cite: 314]
+    data.modStats[message.author.id].bans++;
+    saveData();
+    await sendModLog(embed);
 
-    return message.reply(`🔨 Banned ${member.user.tag}`); [cite: 314]
+    return message.reply(`🔨 Banned ${member.user.tag}`);
   }
 
   // ================= UNBAN =================
-  if (command === "unban") { [cite: 314]
-    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can unban."); [cite: 314, 315]
-    const userId = args[0]; [cite: 315]
-    if (!userId) return message.reply(`Usage: \`${prefix}unban userId reason\``); [cite: 315]
+  if (command === "unban") {
+    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can unban.");
+    const userId = args[0];
+    if (!userId) return message.reply(`Usage: \`${prefix}unban userId reason\``);
 
-    const reason = args.slice(1).join(" ") || "No reason"; [cite: 315, 316]
-    await message.guild.members.unban(userId, reason).catch(() => null); [cite: 316]
-    return message.reply(`✅ Unbanned \`${userId}\``); [cite: 316]
+    const reason = args.slice(1).join(" ") || "No reason";
+    await message.guild.members.unban(userId, reason).catch(() => null);
+    return message.reply(`✅ Unbanned \`${userId}\``);
   }
 
   // ================= PURGE =================
-  if (command === "purge") { [cite: 316]
-    if (!canManageGuild(message)) return message.reply("❌ No permission."); [cite: 317]
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) { [cite: 317]
-      return message.reply("I need Manage Messages permission."); [cite: 318]
+  if (command === "purge") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+      return message.reply("I need Manage Messages permission.");
     }
 
-    const amount = parseInt(args[0], 10); [cite: 318]
-    if (!Number.isInteger(amount) || amount < 1 || amount > 100) { [cite: 318]
-      return message.reply(`Usage: \`${prefix}purge 1\``); [cite: 319]
+    const amount = parseInt(args[0], 10);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
+      return message.reply(`Usage: \`${prefix}purge 1\``);
     }
 
-    const deleted = await message.channel.bulkDelete(amount, true).catch(() => null); [cite: 319]
-    if (!deleted) return message.reply("Could not purge messages."); [cite: 319, 320]
-    const msg = await message.channel.send(`✅ Purged ${deleted.size} messages.`); [cite: 320]
-    await deleteAfter(msg); [cite: 320]
-    await deleteAfter(message); [cite: 321]
-    return true; [cite: 321]
+    const deleted = await message.channel.bulkDelete(amount, true).catch(() => null);
+    if (!deleted) return message.reply("Could not purge messages.");
+    const msg = await message.channel.send(`✅ Purged ${deleted.size} messages.`);
+    await deleteAfter(msg);
+    await deleteAfter(message);
+    return true;
   }
 
   // ================= ROLE =================
-  if (command === "role") { [cite: 321]
-    if (!canManageGuild(message)) return message.reply("❌ No permission."); [cite: 322]
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) { [cite: 322]
-      return message.reply("I need Manage Roles permission."); [cite: 322]
+  if (command === "role") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+      return message.reply("I need Manage Roles permission.");
     }
 
-    const member = await findTargetMember(message, args); [cite: 322]
-    if (!member) return message.reply(`Usage: \`${prefix}role @user role\``); [cite: 323]
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}role @user role\``);
 
-    const roleInput = args.slice(1).join(" ").trim(); [cite: 323]
-    if (!roleInput) return message.reply(`Usage: \`${prefix}role @user role\``); [cite: 323]
-    const role = [cite: 324]
-      message.mentions.roles.first() || [cite: 324]
-      message.guild.roles.cache.get(roleInput.replace(/[<@&>]/g, "")) || [cite: 324]
-      message.guild.roles.cache.find( [cite: 325]
-        r => r.name.toLowerCase() === roleInput.toLowerCase() [cite: 325]
-      ); [cite: 325]
+    const roleInput = args.slice(1).join(" ").trim();
+    if (!roleInput) return message.reply(`Usage: \`${prefix}role @user role\``);
+    const role =
+      message.mentions.roles.first() ||
+      message.guild.roles.cache.get(roleInput.replace(/[<@&>]/g, "")) ||
+      message.guild.roles.cache.find(
+        r => r.name.toLowerCase() === roleInput.toLowerCase()
+      );
 
-    if (!role) return message.reply("Role not found."); [cite: 326]
-    if (role.managed) return message.reply("I cannot manage that role."); [cite: 326]
-    if (role.position >= message.guild.members.me.roles.highest.position) { [cite: 327]
-      return message.reply("❌ That role is higher than or equal to my highest role."); [cite: 328]
+    if (!role) return message.reply("Role not found.");
+    if (role.managed) return message.reply("I cannot manage that role.");
+    if (role.position >= message.guild.members.me.roles.highest.position) {
+      return message.reply("❌ That role is higher than or equal to my highest role.");
     }
-    if (role.position >= message.member.roles.highest.position) { [cite: 328]
-      return message.reply("❌ You cannot give/remove a role equal or higher than your highest role."); [cite: 329]
-    }
-
-    if (member.roles.cache.has(role.id)) { [cite: 329]
-      await member.roles.remove(role); [cite: 329]
-      return message.reply(`✅ Removed **${role.name}** from ${member.user.tag}`); [cite: 330]
+    if (role.position >= message.member.roles.highest.position) {
+      return message.reply("❌ You cannot give/remove a role equal or higher than your highest role.");
     }
 
-    await member.roles.add(role); [cite: 330]
-    return message.reply(`✅ Added **${role.name}** to ${member.user.tag}`); [cite: 331]
+    if (member.roles.cache.has(role.id)) {
+      await member.roles.remove(role);
+      return message.reply(`✅ Removed **${role.name}** from ${member.user.tag}`);
+    }
+
+    await member.roles.add(role);
+    return message.reply(`✅ Added **${role.name}** to ${member.user.tag}`);
   }
 
   // ================= BLACKLIST ADD =================
-  if (command === "bl" || command === "blacklist") { [cite: 332]
-    if (!canManageGuild(message)) return message.reply("❌ No permission."); [cite: 333]
-    const word = args.join(" ").trim().toLowerCase(); [cite: 333]
-    if (!word) return message.reply(`Usage: \`${prefix}bl word\``); [cite: 334]
-    if (CORE_BLACKLIST.includes(word) || data.words.includes(word)) { [cite: 334]
-      const reply = await message.reply(`⚠️ \`${word}\` is already blacklisted.`); [cite: 334, 335]
-      await deleteAfter(reply); [cite: 335]
-      await deleteAfter(message); [cite: 335]
-      return true; [cite: 335]
+  if (command === "bl" || command === "blacklist") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    const word = args.join(" ").trim().toLowerCase();
+    if (!word) return message.reply(`Usage: \`${prefix}bl word\``);
+    if (CORE_BLACKLIST.includes(word) || data.words.includes(word)) {
+      const reply = await message.reply(`⚠️ \`${word}\` is already blacklisted.`);
+      await deleteAfter(reply);
+      await deleteAfter(message);
+      return true;
     }
 
-    data.words.push(word); [cite: 335]
-    saveData(); [cite: 336]
-    const reply = await message.reply({ [cite: 336]
+    data.words.push(word);
+    saveData();
+    const reply = await message.reply({
       embeds: [
-        new EmbedBuilder() [cite: 336]
-          .setTitle("🚫 Word Blacklisted") [cite: 336]
-          .setColor(0xef4444) [cite: 336]
-          .setDescription(`Added \`${word}\` to the blacklist.`) [cite: 336]
-          .setFooter({ text: "AutoMod updated" }) [cite: 336]
-          .setTimestamp() [cite: 336]
+        new EmbedBuilder()
+          .setTitle("🚫 Word Blacklisted")
+          .setColor(0xef4444)
+          .setDescription(`Added \`${word}\` to the blacklist.`)
+          .setFooter({ text: "AutoMod updated" })
+          .setTimestamp()
       ]
-    }).catch(() => null); [cite: 336]
-    await deleteAfter(reply); [cite: 337]
-    await deleteAfter(message); [cite: 337]
-    return true; [cite: 337]
+    }).catch(() => null);
+    await deleteAfter(reply);
+    await deleteAfter(message);
+    return true;
   }
 
   // ================= BLACKLIST REMOVE =================
-  if (command === "unbl" || command === "unblacklist") { [cite: 337]
-    if (!canManageGuild(message)) return message.reply("❌ No permission."); [cite: 338]
-    const word = args.join(" ").trim().toLowerCase(); [cite: 338]
-    if (!word) return message.reply(`Usage: \`${prefix}unbl word\``); [cite: 339]
-    if (CORE_BLACKLIST.includes(word)) { [cite: 339]
-      const reply = await message.reply(`❌ \`${word}\` is protected and cannot be removed.`); [cite: 339, 340]
-      await deleteAfter(reply); [cite: 340]
-      await deleteAfter(message); [cite: 340]
-      return true; [cite: 340]
+  if (command === "unbl" || command === "unblacklist") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    const word = args.join(" ").trim().toLowerCase();
+    if (!word) return message.reply(`Usage: \`${prefix}unbl word\``);
+    if (CORE_BLACKLIST.includes(word)) {
+      const reply = await message.reply(`❌ \`${word}\` is protected and cannot be removed.`);
+      await deleteAfter(reply);
+      await deleteAfter(message);
+      return true;
     }
 
-    const before = data.words.length; [cite: 340]
-    data.words = data.words.filter(w => w !== word); [cite: 341]
-    saveData(); [cite: 341]
+    const before = data.words.length;
+    data.words = data.words.filter(w => w !== word);
+    saveData();
 
-    if (before === data.words.length) { [cite: 341]
-      const reply = await message.reply(`⚠️ \`${word}\` was not found in blacklist.`); [cite: 341, 342]
-      await deleteAfter(reply); [cite: 342]
-      await deleteAfter(message); [cite: 342]
-      return true; [cite: 342]
+    if (before === data.words.length) {
+      const reply = await message.reply(`⚠️ \`${word}\` was not found in blacklist.`);
+      await deleteAfter(reply);
+      await deleteAfter(message);
+      return true;
     }
 
-    const reply = await message.reply({ [cite: 342]
+    const reply = await message.reply({
       embeds: [
-        new EmbedBuilder() [cite: 342]
-          .setTitle("✅ Word Removed") [cite: 342]
-          .setColor(0x22c55e) [cite: 342]
-          .setDescription(`Removed \`${word}\` from the blacklist.`) [cite: 342]
-          .setFooter({ text: "AutoMod updated" }) [cite: 342]
-          .setTimestamp() [cite: 342]
+        new EmbedBuilder()
+          .setTitle("✅ Word Removed")
+          .setColor(0x22c55e)
+          .setDescription(`Removed \`${word}\` from the blacklist.`)
+          .setFooter({ text: "AutoMod updated" })
+          .setTimestamp()
       ]
-    }).catch(() => null); [cite: 343]
+    }).catch(() => null);
 
-    await deleteAfter(reply); [cite: 343]
-    await deleteAfter(message); [cite: 343]
-    return true; [cite: 343]
+    await deleteAfter(reply);
+    await deleteAfter(message);
+    return true;
   }
 
   // ================= BLACKLIST WORDS =================
-  if (command === "words") { [cite: 343]
-    const allWords = [...new Set([...CORE_BLACKLIST, ...data.words])]; [cite: 344]
-    return message.reply({ [cite: 344]
+  if (command === "words") {
+    const allWords = [...new Set([...CORE_BLACKLIST, ...data.words])];
+    return message.reply({
       embeds: [
-        new EmbedBuilder() [cite: 344]
-          .setTitle("🚫 Blacklisted Words") [cite: 344]
-          .setColor(0x5865f2) [cite: 344]
-          .setDescription(allWords.map(w => `\`${w}\``).join(", ").slice(0, 4000)) [cite: 344]
-          .setFooter({ text: `${allWords.length} word(s) blocked` }) [cite: 345]
+        new EmbedBuilder()
+          .setTitle("🚫 Blacklisted Words")
+          .setColor(0x5865f2)
+          .setDescription(allWords.map(w => `\`${w}\``).join(", ").slice(0, 4000))
+          .setFooter({ text: `${allWords.length} word(s) blocked` })
       ]
     });
   }
 
   // ================= MOD STATS =================
-  if (command === "modstats") { [cite: 345]
-    const member = (await findTargetMember(message, args)) || message.member; [cite: 345, 346]
-    const stats = data.modStats[member.id] || { warns: 0, mutes: 0, kicks: 0, bans: 0 }; [cite: 346, 347]
+  if (command === "modstats") {
+    const member = (await findTargetMember(message, args)) || message.member;
+    const stats = data.modStats[member.id] || { warns: 0, mutes: 0, kicks: 0, bans: 0 };
 
-    const embed = new EmbedBuilder() [cite: 347]
-      .setTitle(`📊 Mod Stats • ${member.user.tag}`) [cite: 347]
-      .setColor(0x5865f2) [cite: 347]
+    const embed = new EmbedBuilder()
+      .setTitle(`📊 Mod Stats • ${member.user.tag}`)
+      .setColor(0x5865f2)
       .addFields(
-        { name: "⚠️ Warns", value: String(stats.warns || 0), inline: true }, [cite: 348]
-        { name: "🔇 Mutes", value: String(stats.mutes || 0), inline: true }, [cite: 348]
-        { name: "👢 Kicks", value: String(stats.kicks || 0), inline: true }, [cite: 348]
-        { name: "🔨 Bans", value: String(stats.bans || 0), inline: true } [cite: 348]
+        { name: "⚠️ Warns", value: String(stats.warns || 0), inline: true },
+        { name: "🔇 Mutes", value: String(stats.mutes || 0), inline: true },
+        { name: "👢 Kicks", value: String(stats.kicks || 0), inline: true },
+        { name: "🔨 Bans", value: String(stats.bans || 0), inline: true }
       )
-      .setTimestamp(); [cite: 349]
-    return message.reply({ embeds: [embed] }); [cite: 349]
+      .setTimestamp();
+    return message.reply({ embeds: [embed] });
   }
 
   // ================= HELP =================
-  if (command === "help") { [cite: 349]
-    const embed = new EmbedBuilder() [cite: 349]
-      .setTitle("🔥 Commands") [cite: 350]
-      .setColor(0x5865f2) [cite: 350]
-      .setDescription(`Prefix: \`${prefix}\``) [cite: 350]
+  if (command === "help") {
+    const embed = new EmbedBuilder()
+      .setTitle("🔥 Commands")
+      .setColor(0x5865f2)
+      .setDescription(`Prefix: \`${prefix}\``)
       .addFields(
-        { name: "🛡️ Moderation", value: `\`${prefix}warn\` • \`${prefix}modstats\` • \`${prefix}modlogs\` • \`${prefix}mute\` • \`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}warnings\` • \`${prefix}unwarn\` • \`${prefix}unmute\` • \`${prefix}unban\` • \`${prefix}purge\``, inline: false }, [cite: 350]
-        { name: "🎨 Image Generation", value: `\`${prefix}generate\` • \`${prefix}draw\` • \`${prefix}image\` *(1-hour user cooldown)*`, inline: false }, [cite: 370, 371]
-        { name: "⚙️ Server", value: `\`${prefix}setprefix\` • \`${prefix}role\` • \`${prefix}setnick\` • \`${prefix}purchase\``, inline: false }, [cite: 350]
-        { name: "🚫 AutoMod", value: `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``, inline: false }, [cite: 350]
-        { name: "🏆 Auction", value: `\`${prefix}auction start\` • \`${prefix}bid\` • \`${prefix}auction end\``, inline: false }, [cite: 351]
-        { name: "🔒 Channels", value: `\`${prefix}slowmode\``, inline: false }, [cite: 351]
-        { name: "💤 Utility", value: `\`${prefix}afk\` • \`${prefix}ping\``, inline: false } [cite: 351]
+        { name: "🛡️ Moderation", value: `\`${prefix}warn\` • \`${prefix}modstats\` • \`${prefix}modlogs\` • \`${prefix}mute\` • \`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}warnings\` • \`${prefix}unwarn\` • \`${prefix}unmute\` • \`${prefix}unban\` • \`${prefix}purge\``, inline: false },
+        { name: "🎨 Image Generation", value: `\`${prefix}generate\` • \`${prefix}draw\` • \`${prefix}image\` *(1-hour user cooldown)*`, inline: false },
+        { name: "⚙️ Server", value: `\`${prefix}setprefix\` • \`${prefix}role\` • \`${prefix}setnick\` • \`${prefix}purchase\``, inline: false },
+        { name: "🚫 AutoMod", value: `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``, inline: false },
+        { name: "🏆 Auction", value: `\`${prefix}auction start\` • \`${prefix}bid\` • \`${prefix}auction end\``, inline: false },
+        { name: "🔒 Channels", value: `\`${prefix}slowmode\``, inline: false },
+        { name: "💤 Utility", value: `\`${prefix}afk\` • \`${prefix}ping\``, inline: false }
       );
 
-    if (data.customCommands && Object.keys(data.customCommands).length) { [cite: 351]
+    if (data.customCommands && Object.keys(data.customCommands).length) {
       embed.addFields({
-        name: "💬 Custom Commands", [cite: 351]
-        value: Object.keys(data.customCommands) [cite: 351]
-          .map(cmd => `\`${cmd}\` / \`${prefix}${cmd}\``) [cite: 352]
-          .join(" • ") [cite: 352]
-          .slice(0, 1000), [cite: 352]
-        inline: false [cite: 352]
+        name: "💬 Custom Commands",
+        value: Object.keys(data.customCommands)
+          .map(cmd => `\`${cmd}\` / \`${prefix}${cmd}\``)
+          .join(" • ")
+          .slice(0, 1000),
+        inline: false
       });
     }
 
-    embed.setFooter({ text: "🔥 DASHBOARD Bot" }); [cite: 352]
-    return message.reply({ embeds: [embed] }); [cite: 352]
+    embed.setFooter({ text: "🔥 DASHBOARD Bot" });
+    return message.reply({ embeds: [embed] });
   }
 
   // ================= AI FALLBACK CHAT =================
-  const messages = await message.channel.messages.fetch({ limit: 30 }); [cite: 353, 361]
-  const history = [...messages.values()] [cite: 354]
-    .reverse() [cite: 354]
-    .filter(m => !m.author.bot) [cite: 354]
+  const messages = await message.channel.messages.fetch({ limit: 30 });
+  const history = [...messages.values()]
+    .reverse()
+    .filter(m => !m.author.bot)
     .map(m => ({
-      author: m.author.username, [cite: 354]
-      content: m.content [cite: 354]
+      author: m.author.username,
+      content: m.content
     }));
-  const aiReply = await generateAiReply(message, message.content, history); [cite: 355]
-  if (aiReply) { [cite: 356]
-    return message.reply({ [cite: 356]
-      content: aiReply, [cite: 356]
-      allowedMentions: { parse: [], repliedUser: false } [cite: 356]
+  const aiReply = await generateAiReply(message, message.content, history);
+  if (aiReply) {
+    return message.reply({
+      content: aiReply,
+      allowedMentions: { parse: [], repliedUser: false }
     });
   }
 
-  return true; [cite: 357]
+  return true;
 }
 
 // ================= BOT START =================
-function startBot() { [cite: 357]
-  client = new Client({ [cite: 357]
-    intents: [ [cite: 357]
-      GatewayIntentBits.Guilds, [cite: 357]
-      GatewayIntentBits.GuildMessages, [cite: 357]
-      GatewayIntentBits.GuildMembers, [cite: 357]
-      GatewayIntentBits.MessageContent [cite: 357]
+function startBot() {
+  client = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.MessageContent
     ]
   });
 
-  client.once("ready", async () => { [cite: 358]
-    console.log(`Ready as ${client.user.tag}`); [cite: 358]
+  client.once("ready", async () => {
+    console.log(`Ready as ${client.user.tag}`);
 
-    for (const guild of client.guilds.cache.values()) { [cite: 358]
-      const me = guild.members.me; [cite: 358]
-      if (!me?.permissions.has(PermissionsBitField.Flags.ManageNicknames)) continue; [cite: 358]
+    for (const guild of client.guilds.cache.values()) {
+      const me = guild.members.me;
+      if (!me?.permissions.has(PermissionsBitField.Flags.ManageNicknames)) continue;
 
-      const members = await guild.members.fetch().catch(() => null); [cite: 358]
-      if (!members) continue; [cite: 358]
+      const members = await guild.members.fetch().catch(() => null);
+      if (!members) continue;
 
-      for (const member of members.values()) { [cite: 358]
-        if (member.user.bot) continue; [cite: 358]
-        if (!member.manageable) continue; [cite: 358]
+      for (const member of members.values()) {
+        if (member.user.bot) continue;
+        if (!member.manageable) continue;
 
-        const nick = member.nickname; [cite: 359]
-        if (!nick || !nick.startsWith("[AFK] ")) continue; [cite: 359]
+        const nick = member.nickname;
+        if (!nick || !nick.startsWith("[AFK] ")) continue;
 
-        const cleanNick = nick.replace(/^\[AFK\]\s*/i, "").slice(0, 32); [cite: 359]
-        await member [cite: 359]
-          .setNickname(cleanNick || null, "Bot restarted - clearing AFK nickname") [cite: 359]
-          .catch(() => null); [cite: 359]
+        const cleanNick = nick.replace(/^\[AFK\]\s*/i, "").slice(0, 32);
+        await member
+          .setNickname(cleanNick || null, "Bot restarted - clearing AFK nickname")
+          .catch(() => null);
       }
     }
   });
 
-  client.on("messageCreate", async (message) => { [cite: 360]
+  client.on("messageCreate", async (message) => {
     try {
-      if (message.author.bot) return; [cite: 360]
-      if (!message.guild) return; [cite: 360]
-      if (!message.content) return; [cite: 360]
+      if (message.author.bot) return;
+      if (!message.guild) return;
+      if (!message.content) return;
 
-      const data = getGuildData(message.guild.id); [cite: 363]
-      const prefix = data.prefix || DEFAULT_PREFIX; [cite: 364]
+      const data = getGuildData(message.guild.id);
+      const prefix = data.prefix || DEFAULT_PREFIX;
 
       // ================= REPLY TO BOT AI =================
-      if (message.reference && message.reference.messageId) { [cite: 360]
-        const replied = await message.channel.messages [cite: 360]
-          .fetch(message.reference.messageId) [cite: 360]
-          .catch(() => null); [cite: 360]
+      if (message.reference && message.reference.messageId) {
+        const replied = await message.channel.messages
+          .fetch(message.reference.messageId)
+          .catch(() => null);
 
-        if (replied && replied.author.id === client.user.id) { [cite: 360]
-          let aiReply = null; [cite: 360]
+        if (replied && replied.author.id === client.user.id) {
+          let aiReply = null;
           try {
-            const messages = await message.channel.messages.fetch({ limit: 30 }); [cite: 360, 361]
-            const history = [...messages.values()] [cite: 361]
-              .reverse() [cite: 361]
-              .filter(m => !m.author.bot) [cite: 361]
+            const messages = await message.channel.messages.fetch({ limit: 30 });
+            const history = [...messages.values()]
+              .reverse()
+              .filter(m => !m.author.bot)
               .map(m => ({
-                author: m.author.username, [cite: 361]
-                content: m.content [cite: 361]
+                author: m.author.username,
+                content: m.content
               }));
 
-            aiReply = await generateAiReply(message, message.content, history); [cite: 361]
+            aiReply = await generateAiReply(message, message.content, history);
           } catch (err) {
-            console.error("Reply AI error:", err); [cite: 361]
+            console.error("Reply AI error:", err);
           }
 
-          if (aiReply) { [cite: 361]
-            return message.reply({ [cite: 361]
-              content: aiReply, [cite: 361]
-              allowedMentions: { parse: [], repliedUser: false } [cite: 362]
+          if (aiReply) {
+            return message.reply({
+              content: aiReply,
+              allowedMentions: { parse: [], repliedUser: false }
             });
           }
         }
       }
 
-      await handleAfkMentionsAndReturn(message, prefix); [cite: 364]
+      await handleAfkMentionsAndReturn(message, prefix);
 
       // ================= BYPASS ROLE DISCORD INVITE ALLOW =================
-      const bypassRoleId = "1492630307650666546"; [cite: 364]
-      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false; [cite: 364]
-      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi; [cite: 364]
-      const containsDiscordInvite = discordInviteRegex.test(message.content); [cite: 364]
-      const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite; [cite: 364]
+      const bypassRoleId = "1492630307650666546";
+      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
+      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
+      const containsDiscordInvite = discordInviteRegex.test(message.content);
+      const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
 
       // ================= AUTOMOD =================
-      const isCommand = message.content.startsWith(prefix); [cite: 365]
-      const isBypass = typeof hasBypassRole === "function" ? hasBypassRole(message) : false; [cite: 365]
+      const isCommand = message.content.startsWith(prefix);
+      const isBypass = typeof hasBypassRole === "function" ? hasBypassRole(message) : false;
 
-      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST); [cite: 365]
-      if (protectedWord) { [cite: 366]
-        await message.delete().catch(() => null); [cite: 366]
-        await sendAutomodLog(message, protectedWord); [cite: 366]
-        return; [cite: 366]
+      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+      if (protectedWord) {
+        await message.delete().catch(() => null);
+        await sendAutomodLog(message, protectedWord);
+        return;
       }
 
-      if (!isCommand && !isBypass && !allowDiscordInvite) { [cite: 367]
-        const word = containsBlacklistedWord( [cite: 367]
+      if (!isCommand && !isBypass && !allowDiscordInvite) {
+        const word = containsBlacklistedWord(
           message.content,
-          [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])] [cite: 367]
+          [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]
         );
-        if (word) { [cite: 368]
-          await message.delete().catch(() => null); [cite: 368]
-          await sendAutomodLog(message, word); [cite: 368]
-          return; [cite: 368]
+        if (word) {
+          await message.delete().catch(() => null);
+          await sendAutomodLog(message, word);
+          return;
         }
       }
 
       // ================= IMAGE GENERATION 1-HOUR COOLDOWN CHECK =================
-      if (isCommand) { [cite: 369]
-        const args = message.content.slice(prefix.length).trim().split(/\s+/); [cite: 369]
-        const commandName = (args.shift() || "").toLowerCase(); [cite: 370]
+      if (isCommand) {
+        const args = message.content.slice(prefix.length).trim().split(/\s+/);
+        const commandName = (args.shift() || "").toLowerCase();
 
-        if (commandName === "generate" || commandName === "draw" || commandName === "image") { [cite: 370]
-          const currentTime = Date.now(); [cite: 370]
-          const oneHourMs = 60 * 60 * 1000; [cite: 371]
+        if (commandName === "generate" || commandName === "draw" || commandName === "image") {
+          const currentTime = Date.now();
+          const oneHourMs = 60 * 60 * 1000;
 
-          if (!data.cooldowns) data.cooldowns = {}; [cite: 371]
-          if (!data.cooldowns.imagegen) data.cooldowns.imagegen = {}; [cite: 372]
+          if (!data.cooldowns) data.cooldowns = {};
+          if (!data.cooldowns.imagegen) data.cooldowns.imagegen = {};
 
-          const lastUsedTime = data.cooldowns.imagegen[message.author.id] || 0; [cite: 372]
-          const timePassed = currentTime - lastUsedTime; [cite: 372]
+          const lastUsedTime = data.cooldowns.imagegen[message.author.id] || 0;
+          const timePassed = currentTime - lastUsedTime;
 
-          if (timePassed < oneHourMs) { [cite: 373]
-            const timeLeftMs = oneHourMs - timePassed; [cite: 373]
-            const minutesLeft = Math.floor(timeLeftMs / (60 * 1000)); [cite: 374]
-            const secondsLeft = Math.floor((timeLeftMs % (60 * 1000)) / 1000); [cite: 374]
+          if (timePassed < oneHourMs) {
+            const timeLeftMs = oneHourMs - timePassed;
+            const minutesLeft = Math.floor(timeLeftMs / (60 * 1000));
+            const secondsLeft = Math.floor((timeLeftMs % (60 * 1000)) / 1000);
 
-            const reply = await message.reply( [cite: 375]
-              `❌ **${message.author.username}**, AI image generation has a **1-hour cooldown**.\n⏳ Please wait **${minutesLeft}m ${secondsLeft}s** before generating another image.` [cite: 375]
+            const reply = await message.reply(
+              `❌ **${message.author.username}**, AI image generation has a **1-hour cooldown**.\n⏳ Please wait **${minutesLeft}m ${secondsLeft}s** before generating another image.`
             );
-            if (typeof deleteAfter === "function") { [cite: 376]
-              return deleteAfter(reply, 8000); [cite: 376]
+            if (typeof deleteAfter === "function") {
+              return deleteAfter(reply, 8000);
             }
-            return; [cite: 377]
+            return;
           }
 
-          data.cooldowns.imagegen[message.author.id] = currentTime; [cite: 379]
-          saveData(); [cite: 379]
+          data.cooldowns.imagegen[message.author.id] = currentTime;
+          saveData();
         }
       }
 
       // ================= PREFIX COMMANDS =================
-      const usedCommand = await handleCommands(message); [cite: 380]
+      const usedCommand = await handleCommands(message);
 
       // ================= CUSTOM COMMANDS WITHOUT PREFIX =================
-      if (!usedCommand) { [cite: 381]
-        const freshData = getGuildData(message.guild.id); [cite: 381]
-        const msg = message.content.toLowerCase().trim(); [cite: 382]
-        const custom = freshData.customCommands?.[msg]; [cite: 382]
+      if (!usedCommand) {
+        const freshData = getGuildData(message.guild.id);
+        const msg = message.content.toLowerCase().trim();
+        const custom = freshData.customCommands?.[msg];
 
-        if (custom) { [cite: 382]
-          const response = typeof custom === "string" ? custom : custom.response || "No response set."; [cite: 382, 383]
-          const allowPings = typeof custom === "object" && custom.allowPings === true; [cite: 384]
-          if (allowPings) { [cite: 385]
-            return message.reply({ [cite: 385]
-              content: response, [cite: 385]
-              allowedMentions: { repliedUser: true } [cite: 385]
+        if (custom) {
+          const response = typeof custom === "string" ? custom : custom.response || "No response set.";
+          const allowPings = typeof custom === "object" && custom.allowPings === true;
+          if (allowPings) {
+            return message.reply({
+              content: response,
+              allowedMentions: { repliedUser: true }
             });
           }
 
-          return message.channel.send({ [cite: 386]
-            content: response, [cite: 386]
-            allowedMentions: { parse: [] } [cite: 386]
+          return message.channel.send({
+            content: response,
+            allowedMentions: { parse: [] }
           });
         }
       }
     } catch (err) {
-      console.error("Bot error:", err); [cite: 387]
+      console.error("Bot error:", err);
     }
   });
 
   // ================= BOT INITIATION =================
-  client.login(process.env.DISCORD_TOKEN); [cite: 388]
+  client.login(process.env.DISCORD_TOKEN);
 }
 
-function getClient() { [cite: 388]
-  return client; [cite: 388]
+function getClient() {
+  return client;
 }
 
-module.exports = { [cite: 388]
-  startBot, [cite: 388]
-  getClient [cite: 388]
+module.exports = {
+  startBot,
+  getClient
 };
