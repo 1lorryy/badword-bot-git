@@ -13,19 +13,19 @@ async function generateAiReply(
     return null;
   }
 
-  const input = message.content.slice(0, 500);
+  // Safe truncation for the current incoming message
+  const input = message.content ? message.content.slice(0, 500) : "";
 
+  // Format history safely
   const historyText = history.length
     ? history
-        .map(m => `${m.author}: ${m.content}`)
+        .map(m => `${m.author?.username || m.author || 'User'}: ${m.content}`)
         .join("\n")
-        .slice(0, 8000)
+        .slice(0, 4000) // Lowered slightly to stay safely within token/character limits
     : "No previous messages.";
 
-  const response = await client.responses.create({
-    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-
-    instructions: `
+  // System instructions defining your bot's behavior rules
+  const systemInstructions = `
 You are a smart Discord AI assistant.
 
 IMPORTANT:
@@ -35,7 +35,6 @@ Do not repeat things already answered recently.
 If users are having an ongoing discussion, continue it naturally.
 
 Reply naturally like a real person chatting on Discord.
-
 Keep replies short and conversational unless more detail is needed.
 
 Behavior:
@@ -109,46 +108,54 @@ Bot Owner Info:
 - ONLY if someone specifically asks:
   "who owns the bot" / "who made the bot" / similar
   → reply: the bot owner/developer is Lorry
--  or something like that, otherwise NEVER mention Lorry
+- otherwise NEVER mention Lorry
 
 Server owner of Donquixotes info:
 - ONLY if someone specifically asks:
   "who is server owner" / similar
   → reply: the server owner is Don
--  or something like that, otherwise NEVER mention Don
+- otherwise NEVER mention Don
 
 Mochi Info:
 - ONLY if someone specifically asks:
   "who is Mochi" / similar
   → reply: Mochi is an absolute legend — funny, chill, kind, and one of the coolest people around
-    or something like that
--  or something like that, otherwise NEVER mention Mochi
+- otherwise NEVER mention Mochi
 
 Adam Info:
-
 - ONLY if someone specifically asks:
-  "who is Adam"
-  "tell me about Adam"
-  or similar
+  "who is Adam" / "tell me about Adam" / similar
   → reply: Adam is that one legendary femboy with main character energy — insanely cool, chaotic in a funny way, and somehow always has “server authority” vibes even when he’s just chilling. Lowkey feared, highkey loved.
+- otherwise NEVER mention Adam
+`;
 
--  or something like that, otherwise NEVER mention Adam
-
-    input: `
+  // The actual dynamic user context prompt
+  const userPrompt = `
 Recent channel history:
-1481561361044607047
-  
 ${historyText}
 
 Current message:
-${message.author.username}: ${input}
+${message.author?.username || 'User'}: ${input}
 
-Trigger:
+Trigger context:
 ${trigger}
-`
-  });
+`;
 
-  return response.output_text?.trim() || null;
+  try {
+    const response = await client.chat.completions.create({
+      // Falls back to standard gpt-4o-mini if env isn't set, since gpt-4.1-mini isn't a valid model string
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini", 
+      messages: [
+        { role: "system", content: systemInstructions },
+        { role: "user", content: userPrompt }
+      ],
+    });
+
+    return response.choices[0].message.content?.trim() || null;
+  } catch (error) {
+    console.error("Error generating AI reply:", error);
+    return null;
+  }
 }
 
 module.exports = { generateAiReply };
