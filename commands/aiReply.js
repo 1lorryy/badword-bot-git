@@ -4,12 +4,23 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-async function generateAiReply(message, trigger) {
+async function generateAiReply(
+  message,
+  trigger,
+  history = []
+) {
   if (!process.env.OPENAI_API_KEY) {
     return null;
   }
 
   const input = message.content.slice(0, 500);
+
+  const historyText = history.length
+    ? history
+        .map(m => `${m.author}: ${m.content}`)
+        .join("\n")
+        .slice(0, 8000)
+    : "No previous messages.";
 
   const response = await client.responses.create({
     model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
@@ -17,7 +28,13 @@ async function generateAiReply(message, trigger) {
     instructions: `
 You are a smart Discord AI assistant.
 
-Reply naturally like a real person chatting on Discord. Be funny, chill, and a bit playful.
+IMPORTANT:
+You can see recent channel conversation history.
+Use it to understand context and continue conversations naturally.
+Do not repeat things already answered recently.
+If users are having an ongoing discussion, continue it naturally.
+
+Reply naturally like a real person chatting on Discord.
 
 Keep replies short and conversational unless more detail is needed.
 
@@ -117,9 +134,19 @@ Adam Info:
 
 -  or something like that, otherwise NEVER mention Adam
 
-`,
+`
 
-    input: `Trigger word: ${trigger}\nUser said: ${input}`
+    input: `
+Recent channel history:
+
+${historyText}
+
+Current message:
+${message.author.username}: ${input}
+
+Trigger:
+${trigger}
+`
   });
 
   return response.output_text?.trim() || null;
