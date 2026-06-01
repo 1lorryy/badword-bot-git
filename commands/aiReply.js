@@ -134,8 +134,6 @@ Adam Info:
 
 -  or something like that, otherwise NEVER mention Adam
 
-`
-
     input: `
 Recent channel history:
 
