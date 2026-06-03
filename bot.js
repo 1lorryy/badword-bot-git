@@ -899,10 +899,19 @@ if (command === "help") {
 
     .setTimestamp();
 
-  if (data.customCommands && Object.keys(data.customCommands).length) {
+if (data.customCommands && Object.keys(data.customCommands).length) {
     embed.addFields({
       name: "💬 Custom Commands",
-      value: Object.keys(data.custom
+      value: Object.keys(data.customCommands)
+        .map(cmd => `\`${prefix}${cmd}\``)
+        .join(" • ")
+        .slice(0, 1000),
+      inline: false
+    });
+  }
+
+  return message.reply({ embeds: [embed] });
+}
 
   // ================= AI FALLBACK CHAT =================
   const messages = await message.channel.messages.fetch({ limit: 30 });
