@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 
-// This creates a timers.json right inside your commands folder to remember them
+// Creates a timers.json right inside your commands folder to remember them across restarts
 const DATA_FILE = path.join(__dirname, "timers.json");
 
 function loadTimers() {
@@ -40,29 +40,8 @@ function parseTime(input) {
   }
 }
 
-function format(ms) {
-  let totalSeconds = Math.floor(ms / 1000);
-  if (totalSeconds <= 0) return "0s";
-
-  const days = Math.floor(totalSeconds / 86400);
-  totalSeconds %= 86400;
-
-  const hours = Math.floor(totalSeconds / 3600);
-  totalSeconds %= 3600;
-
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-
-  const parts = [];
-  if (days) parts.push(`${days}d`);
-  if (hours) parts.push(`${hours}h`);
-  if (minutes) parts.push(`${minutes}m`);
-  if (seconds || parts.length === 0) parts.push(`${seconds}s`);
-
-  return parts.join(" ");
-}
-
 function startTimerLoop(client) {
+  // Checks every 2.5 seconds if any timers have finished in the database
   setInterval(async () => {
     let timers = loadTimers();
     const now = Date.now();
@@ -87,7 +66,7 @@ function startTimerLoop(client) {
               }
             }
 
-            // Pings the user across channels cleanly
+            // Clean cross-channel ping notification
             await channel.send({
               content: `🚨 <@${timer.authorId}>, your timer for **${timer.timerName}** is up!`
             }).catch(() => {});
@@ -98,19 +77,6 @@ function startTimerLoop(client) {
 
         timers.splice(i, 1);
         changed = true;
-      } else {
-        // Updates the embed countdown every 5 seconds so it doesn't lag/rate-limit the bot
-        if (timer.messageId && Math.floor(now / 1000) % 5 === 0) {
-          try {
-            const channel = await client.channels.fetch(timer.channelId).catch(() => null);
-            const originalMsg = await channel.messages.fetch(timer.messageId).catch(() => null);
-            if (originalMsg && originalMsg.embeds[0]) {
-              const currentEmbed = EmbedBuilder.from(originalMsg.embeds[0]);
-              currentEmbed.setDescription(format(timer.endTime - now));
-              await originalMsg.edit({ embeds: [currentEmbed] }).catch(() => {});
-            }
-          } catch (e) {}
-        }
       }
     }
 
@@ -122,18 +88,24 @@ function startTimerLoop(client) {
 
 async function handleTimerCommand(message, args) {
   const timeInput = args[0];
-  if (!timeInput) return message.reply("Usage: `?timer 1h`");
+  if (!timeInput) return message.reply("Usage: `?timer 1h [Optional Name]`");
 
   const duration = parseTime(timeInput);
-  if (!duration) return message.reply("Use: `10s`, `5m`, `1h`, `1d`");
+  if (!duration) return message.reply("Use formats like: `10s`, `5m`, `1h`, `1d`");
 
   const timerName = args.slice(1).join(" ") || "Timer";
   const endTime = Date.now() + duration;
 
+  // Convert milliseconds to seconds for Discord's Unix format
+  const unixSeconds = Math.floor(endTime / 1000);
+  
+  // This special format <t:UNIX:R> forces Discord to render a dynamic real-time countdown (e.g. "in 5 minutes", "in 43 seconds")
+  const liveCountdownTag = `<t:${unixSeconds}:R> (<t:${unixSeconds}:T>)`;
+
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle(`⏳ ${timerName}`)
-    .setDescription(format(duration));
+    .setDescription(`Ends: ${liveCountdownTag}`);
 
   const timerMessage = await message.channel.send({ embeds: [embed] });
 
@@ -150,7 +122,7 @@ async function handleTimerCommand(message, args) {
 
 function initTimers(client) {
   startTimerLoop(client);
-  console.log("⏰ Persistent timer loop initialized.");
+  console.log("⏰ Real-time dynamic timer system initialized.");
 }
 
 module.exports = {
