@@ -1,4 +1,4 @@
-const { initTimers, handleTimerCommand } = require("./commands/timer.js");[cite: 2]
+const { initTimers, handleTimerCommand } = require("./commands/timer.js");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handleBuyCommand } = require("./commands/buy");
 const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
