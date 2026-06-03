@@ -81,11 +81,16 @@ async function handleTimerCommand(message, args) {
       const finishedEmbed = new EmbedBuilder()
         .setColor(0x22c55e)
         .setTitle("⏰ Timer Finished")
-        .setDescription(`Your timer for **${timerName}** has ended.`); // Changed this since they are pinged outside now
+        .setDescription(`Your timer for **${timerName}** has ended.`);
 
-      return timerMessage.edit({
-        content: `${message.author}`, // <--- Pings the user outside the embed here
+      // Updates the original embed block to show it's done
+      await timerMessage.edit({
         embeds: [finishedEmbed]
+      }).catch(() => {});
+
+      // Sends a brand new message to trigger the actual notification/ping across channels
+      return message.channel.send({
+        content: `🚨 ${message.author}, your timer for **${timerName}** is up!`
       }).catch(() => {});
     }
 
