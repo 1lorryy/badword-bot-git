@@ -345,8 +345,8 @@ async function handleCommands(message) {
     });
   }
 
-  // ================= IMAGE / DRAW / GENERATE COMMAND ROUTER =================
-  if (command === "generate" || command === "draw" || command === "image") {
+  // ================= IMAGE COMMAND ROUTER =================
+  if (command === "image") {
     return handleImageGeneration(message, args, prefix);
   }
 
@@ -858,10 +858,7 @@ async function handleCommands(message) {
         },
         {
           name: "🎨 AI Images",
-          value:
-            `\`${prefix}generate\`\n` +
-            `\`${prefix}draw\`\n` +
-            `\`${prefix}image\``,
+          value: `\`${prefix}image\``,
           inline: false
         },
         {
