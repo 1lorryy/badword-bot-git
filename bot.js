@@ -835,35 +835,74 @@ if (command === "setnick") {
   }
 
   // ================= HELP =================
-  if (command === "help") {
-    const embed = new EmbedBuilder()
-      .setTitle("🔥 Commands")
-      .setColor(0x5865f2)
-      .setDescription(`Prefix: \`${prefix}\``)
-      .addFields(
-        { name: "🛡️ Moderation", value: `\`${prefix}warn\` • \`${prefix}modstats\` • \`${prefix}modlogs\` • \`${prefix}mute\` • \`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}warnings\` • \`${prefix}unwarn\` • \`${prefix}unmute\` • \`${prefix}unban\` • \`${prefix}purge\``, inline: false },
-        { name: "🎨 Image Generation", value: `\`${prefix}generate\` • \`${prefix}draw\` • \`${prefix}image\` *(1-hour user cooldown)*`, inline: false },
-        { name: "⚙️ Server", value: `\`${prefix}setprefix\` • \`${prefix}role\` • \`${prefix}setnick\` • \`${prefix}purchase\``, inline: false },
-        { name: "🚫 AutoMod", value: `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``, inline: false },
-        { name: "🏆 Auction", value: `\`${prefix}auction start\` • \`${prefix}bid\` • \`${prefix}auction end\``, inline: false },
-        { name: "🔒 Channels", value: `\`${prefix}slowmode\``, inline: false },
-        { name: "💤 Utility", value: `\`${prefix}afk\` • \`${prefix}timer 1h\` • \`${prefix}ping\``, inline: false }
-      );
+if (command === "help") {
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle("🔥 Dashboard Bot Commands")
+    .setDescription(`Current Prefix: \`${prefix}\``)
 
-    if (data.customCommands && Object.keys(data.customCommands).length) {
-      embed.addFields({
-        name: "💬 Custom Commands",
-        value: Object.keys(data.customCommands)
-          .map(cmd => `\`${cmd}\` / \`${prefix}${cmd}\``)
-          .join(" • ")
-          .slice(0, 1000),
+    .addFields(
+      {
+        name: "🛡️ Moderation",
+        value:
+          `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
+          `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
+          `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
+          `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\``,
         inline: false
-      });
-    }
+      },
+      {
+        name: "🎨 AI Images",
+        value:
+          `\`${prefix}generate\`\n` +
+          `\`${prefix}draw\`\n` +
+          `\`${prefix}image\`\n` +
+          `⏳ 1 hour cooldown`,
+        inline: false
+      },
+      {
+        name: "⚙️ Server",
+        value:
+          `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
+          `\`${prefix}role\` • \`${prefix}purchase\``,
+        inline: false
+      },
+      {
+        name: "🚫 AutoMod",
+        value:
+          `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``,
+        inline: false
+      },
+      {
+        name: "🏆 Auction",
+        value:
+          `\`${prefix}auction\` • \`${prefix}bid\``,
+        inline: false
+      },
+      {
+        name: "🔒 Channels",
+        value:
+          `\`${prefix}slowmode\``,
+        inline: false
+      },
+      {
+        name: "💤 Utility",
+        value:
+          `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\``,
+        inline: false
+      }
+    )
 
-    embed.setFooter({ text: "🔥 DASHBOARD Bot" });
-    return message.reply({ embeds: [embed] });
-  }
+    .setFooter({
+      text: "🔥 Don Bot"
+    })
+
+    .setTimestamp();
+
+  if (data.customCommands && Object.keys(data.customCommands).length) {
+    embed.addFields({
+      name: "💬 Custom Commands",
+      value: Object.keys(data.custom
 
   // ================= AI FALLBACK CHAT =================
   const messages = await message.channel.messages.fetch({ limit: 30 });
