@@ -6,6 +6,8 @@ const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk
 const { handleAuctionCommand } = require("./commands/auction");
 const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
+// If your image generation code is inside commands/image.js, uncomment the line below:
+// const { handleImageCommand } = require("./commands/image"); 
 const fs = require("fs");
 const path = require("path");
 
@@ -343,6 +345,15 @@ async function handleCommands(message) {
       content: response,
       allowedMentions: { parse: [] }
     });
+  }
+
+  // ================= IMAGE / DRAW / GENERATE COMMAND ROUTER =================
+  if (command === "generate" || command === "draw" || command === "image") {
+    // If you have a separate command handler file, we can call it here:
+    // return handleImageCommand(message, args);
+    
+    // Temporarily telling the user we are routing it right
+    return message.reply(`🖼️ Image requested! Prompt: *${args.join(" ")}*\n*(Send me your image code file so we can generate the actual image!)*`);
   }
 
   // ================= AFK / AUCTION / CHANNEL TOOLS =================
@@ -856,8 +867,7 @@ async function handleCommands(message) {
           value:
             `\`${prefix}generate\`\n` +
             `\`${prefix}draw\`\n` +
-            `\`${prefix}image\`\n` +
-            `⏳ 1 hour cooldown`,
+            `\`${prefix}image\``,
           inline: false
         },
         {
@@ -1040,38 +1050,6 @@ function startBot() {
           await message.delete().catch(() => null);
           await sendAutomodLog(message, word);
           return;
-        }
-      }
-
-      // ================= IMAGE GENERATION 1-HOUR COOLDOWN CHECK =================
-      if (isCommand) {
-        const args = message.content.slice(prefix.length).trim().split(/\s+/);
-        const commandName = (args.shift() || "").toLowerCase();
-
-        if (commandName === "generate" || commandName === "draw" || commandName === "image") {
-          const currentTime = Date.now();
-          const oneHourMs = 60 * 60 * 1000;
-
-          if (!data.cooldowns) data.cooldowns = {};
-          if (!data.cooldowns.imagegen) data.cooldowns.imagegen = {};
-          const lastUsedTime = data.cooldowns.imagegen[message.author.id] || 0;
-          const timePassed = currentTime - lastUsedTime;
-
-          if (timePassed < oneHourMs) {
-            const timeLeftMs = oneHourMs - timePassed;
-            const minutesLeft = Math.floor(timeLeftMs / (60 * 1000));
-            const secondsLeft = Math.floor((timeLeftMs % (60 * 1000)) / 1000);
-            const reply = await message.reply(
-              `❌ **${message.author.username}**, AI image generation has a **1-hour cooldown**.\n⏳ Please wait **${minutesLeft}m ${secondsLeft}s** before generating another image.`
-            );
-            if (typeof deleteAfter === "function") {
-              return deleteAfter(reply, 8000);
-            }
-            return;
-          }
-
-          data.cooldowns.imagegen[message.author.id] = currentTime;
-          saveData();
         }
       }
 
