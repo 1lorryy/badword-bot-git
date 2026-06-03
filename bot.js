@@ -1,3 +1,4 @@
+const { initTimers } = require("./commands/timer.js");
 const { handleTimerCommand } = require("./commands/timer");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handleBuyCommand } = require("./commands/buy");
@@ -346,7 +347,7 @@ async function handleCommands(message) {
 
   // ================= AFK / AUCTION / CHANNEL TOOLS =================
   if (command === "timer") {
-  return handleTimerCommand(message, args);
+    return handleTimerCommand(message, args);
   }
   if (command === "slowmode") {
     return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
@@ -463,84 +464,84 @@ async function handleCommands(message) {
   }
 
   // ================= SETNICK =================
-if (command === "setnick") {
-  if (!canManageGuild(message)) {
-    return message.reply("❌ No permission.");
-  }
+  if (command === "setnick") {
+    if (!canManageGuild(message)) {
+      return message.reply("❌ No permission.");
+    }
 
-  if (
-    !message.guild.members.me.permissions.has(
-      PermissionsBitField.Flags.ManageNicknames
-    )
-  ) {
-    return message.reply(
-      "❌ I need Manage Nicknames permission."
-    );
-  }
-
-  const member = await findTargetMember(message, args);
-
-  if (!member) {
-    return message.reply(
-      `Usage: \`${prefix}setnick @user new nickname\``
-    );
-  }
-
-  const newNick = args.slice(1).join(" ").trim();
-
-  if (!newNick) {
-    return message.reply(
-      `Usage: \`${prefix}setnick @user new nickname\``
-    );
-  }
-
-  if (newNick.length > 32) {
-    return message.reply(
-      "❌ Nickname max length is 32 characters."
-    );
-  }
-
-  try {
-    await member.setNickname(
-      newNick,
-      `Changed by ${message.author.tag}`
-    );
-
-    const embed = new EmbedBuilder()
-      .setTitle("✏️ Nickname Changed")
-      .setColor(0x5865f2)
-      .addFields(
-        {
-          name: "User",
-          value: `${member.user.tag}`,
-          inline: true
-        },
-        {
-          name: "Moderator",
-          value: `${message.author.tag}`,
-          inline: true
-        },
-        {
-          name: "New Nickname",
-          value: newNick,
-          inline: false
-        }
+    if (
+      !message.guild.members.me.permissions.has(
+        PermissionsBitField.Flags.ManageNicknames
       )
-      .setTimestamp();
+    ) {
+      return message.reply(
+        "❌ I need Manage Nicknames permission."
+      );
+    }
 
-    await sendModLog(embed);
+    const member = await findTargetMember(message, args);
 
-    return message.reply(
-      `✅ Changed nickname for ${member.user.tag} to **${newNick}**`
-    );
-  } catch (err) {
-    console.error("Setnick error:", err);
+    if (!member) {
+      return message.reply(
+        `Usage: \`${prefix}setnick @user new nickname\``
+      );
+    }
 
-    return message.reply(
-      "❌ I cannot change that nickname. My role must be above the target user's highest role."
-    );
+    const newNick = args.slice(1).join(" ").trim();
+
+    if (!newNick) {
+      return message.reply(
+        `Usage: \`${prefix}setnick @user new nickname\``
+      );
+    }
+
+    if (newNick.length > 32) {
+      return message.reply(
+        "❌ Nickname max length is 32 characters."
+      );
+    }
+
+    try {
+      await member.setNickname(
+        newNick,
+        `Changed by ${message.author.tag}`
+      );
+
+      const embed = new EmbedBuilder()
+        .setTitle("✏️ Nickname Changed")
+        .setColor(0x5865f2)
+        .addFields(
+          {
+            name: "User",
+            value: `${member.user.tag}`,
+            inline: true
+          },
+          {
+            name: "Moderator",
+            value: `${message.author.tag}`,
+            inline: true
+          },
+          {
+            name: "New Nickname",
+            value: newNick,
+            inline: false
+          }
+        )
+        .setTimestamp();
+
+      await sendModLog(embed);
+
+      return message.reply(
+        `✅ Changed nickname for ${member.user.tag} to **${newNick}**`
+      );
+    } catch (err) {
+      console.error("Setnick error:", err);
+
+      return message.reply(
+        "❌ I cannot change that nickname. My role must be above the target user's highest role."
+      );
+    }
   }
-}
 
   // ================= MUTE =================
   if (command === "mute" || command === "timeout") {
@@ -835,83 +836,80 @@ if (command === "setnick") {
   }
 
   // ================= HELP =================
-if (command === "help") {
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle("🔥 Dashboard Bot Commands")
-    .setDescription(`Current Prefix: \`${prefix}\``)
+  if (command === "help") {
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle("🔥 Dashboard Bot Commands")
+      .setDescription(`Current Prefix: \`${prefix}\``)
+      .addFields(
+        {
+          name: "🛡️ Moderation",
+          value:
+            `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
+            `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
+            `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
+            `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\``,
+          inline: false
+        },
+        {
+          name: "🎨 AI Images",
+          value:
+            `\`${prefix}generate\`\n` +
+            `\`${prefix}draw\`\n` +
+            `\`${prefix}image\`\n` +
+            `⏳ 1 hour cooldown`,
+          inline: false
+        },
+        {
+          name: "⚙️ Server",
+          value:
+            `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
+            `\`${prefix}role\` • \`${prefix}purchase\``,
+          inline: false
+        },
+        {
+          name: "🚫 AutoMod",
+          value:
+            `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``,
+          inline: false
+        },
+        {
+          name: "🏆 Auction",
+          value:
+            `\`${prefix}auction\` • \`${prefix}bid\``,
+          inline: false
+        },
+        {
+          name: "🔒 Channels",
+          value:
+            `\`${prefix}slowmode\``,
+          inline: false
+        },
+        {
+          name: "💤 Utility",
+          value:
+            `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\``,
+          inline: false
+        }
+      )
+      .setFooter({
+        text: "🔥 Don Bot"
+      })
+      .setTimestamp();
 
-    .addFields(
-      {
-        name: "🛡️ Moderation",
-        value:
-          `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
-          `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
-          `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
-          `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\``,
+    if (data.customCommands && Object.keys(data.customCommands).length) {
+      embed.addFields({
+        name: "💬 Custom Commands",
+        value: Object.keys(data.customCommands)
+          .map(cmd => `\`${prefix}${cmd}\``)
+          .join(" • ")
+          .slice(0, 1000),
         inline: false
-      },
-      {
-        name: "🎨 AI Images",
-        value:
-          `\`${prefix}generate\`\n` +
-          `\`${prefix}draw\`\n` +
-          `\`${prefix}image\`\n` +
-          `⏳ 1 hour cooldown`,
-        inline: false
-      },
-      {
-        name: "⚙️ Server",
-        value:
-          `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
-          `\`${prefix}role\` • \`${prefix}purchase\``,
-        inline: false
-      },
-      {
-        name: "🚫 AutoMod",
-        value:
-          `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``,
-        inline: false
-      },
-      {
-        name: "🏆 Auction",
-        value:
-          `\`${prefix}auction\` • \`${prefix}bid\``,
-        inline: false
-      },
-      {
-        name: "🔒 Channels",
-        value:
-          `\`${prefix}slowmode\``,
-        inline: false
-      },
-      {
-        name: "💤 Utility",
-        value:
-          `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\``,
-        inline: false
-      }
-    )
+      });
+    }
 
-    .setFooter({
-      text: "🔥 Don Bot"
-    })
-
-    .setTimestamp();
-
-if (data.customCommands && Object.keys(data.customCommands).length) {
-    embed.addFields({
-      name: "💬 Custom Commands",
-      value: Object.keys(data.customCommands)
-        .map(cmd => `\`${prefix}${cmd}\``)
-        .join(" • ")
-        .slice(0, 1000),
-      inline: false
-    });
+    return message.reply({ embeds: [embed] });
   }
-
-  return message.reply({ embeds: [embed] });
-}
 
   // ================= AI FALLBACK CHAT =================
   const messages = await message.channel.messages.fetch({ limit: 30 });
@@ -946,6 +944,9 @@ function startBot() {
 
   client.once("ready", async () => {
     console.log(`Ready as ${client.user.tag}`);
+
+    // START ACTIVE TIMERS TRACKING ON INITIALIZATION
+    initTimers(client);
 
     for (const guild of client.guilds.cache.values()) {
       const me = guild.members.me;
@@ -1053,7 +1054,6 @@ function startBot() {
 
           if (!data.cooldowns) data.cooldowns = {};
           if (!data.cooldowns.imagegen) data.cooldowns.imagegen = {};
-
           const lastUsedTime = data.cooldowns.imagegen[message.author.id] || 0;
           const timePassed = currentTime - lastUsedTime;
 
@@ -1061,7 +1061,6 @@ function startBot() {
             const timeLeftMs = oneHourMs - timePassed;
             const minutesLeft = Math.floor(timeLeftMs / (60 * 1000));
             const secondsLeft = Math.floor((timeLeftMs % (60 * 1000)) / 1000);
-
             const reply = await message.reply(
               `❌ **${message.author.username}**, AI image generation has a **1-hour cooldown**.\n⏳ Please wait **${minutesLeft}m ${secondsLeft}s** before generating another image.`
             );
