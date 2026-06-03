@@ -1,3 +1,4 @@
+const { handleTimerCommand } = require("./commands/timer");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handleBuyCommand } = require("./commands/buy");
 const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
@@ -344,6 +345,9 @@ async function handleCommands(message) {
   }
 
   // ================= AFK / AUCTION / CHANNEL TOOLS =================
+  if (command === "timer") {
+  return handleTimerCommand(message, args);
+  }
   if (command === "slowmode") {
     return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
   }
@@ -843,7 +847,7 @@ if (command === "setnick") {
         { name: "🚫 AutoMod", value: `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``, inline: false },
         { name: "🏆 Auction", value: `\`${prefix}auction start\` • \`${prefix}bid\` • \`${prefix}auction end\``, inline: false },
         { name: "🔒 Channels", value: `\`${prefix}slowmode\``, inline: false },
-        { name: "💤 Utility", value: `\`${prefix}afk\` • \`${prefix}ping\``, inline: false }
+        { name: "💤 Utility", value: `\`${prefix}afk\` • \`${prefix}timer 1h\` • \`${prefix}ping\``, inline: false }
       );
 
     if (data.customCommands && Object.keys(data.customCommands).length) {
