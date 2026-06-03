@@ -1,13 +1,11 @@
-const { initTimers } = require("./commands/timer.js");
-const { handleTimerCommand } = require("./commands/timer");
+const { initTimers, handleTimerCommand } = require("./commands/timer.js");[cite: 2]
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handleBuyCommand } = require("./commands/buy");
 const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
 const { handleAuctionCommand } = require("./commands/auction");
 const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
-// If your image generation code is inside commands/image.js, uncomment the line below:
-// const { handleImageCommand } = require("./commands/image"); 
+const { handleImageGeneration } = require("./commands/imageGen.js");
 const fs = require("fs");
 const path = require("path");
 
@@ -349,11 +347,7 @@ async function handleCommands(message) {
 
   // ================= IMAGE / DRAW / GENERATE COMMAND ROUTER =================
   if (command === "generate" || command === "draw" || command === "image") {
-    // If you have a separate command handler file, we can call it here:
-    // return handleImageCommand(message, args);
-    
-    // Temporarily telling the user we are routing it right
-    return message.reply(`🖼️ Image requested! Prompt: *${args.join(" ")}*\n*(Send me your image code file so we can generate the actual image!)*`);
+    return handleImageGeneration(message, args, prefix);
   }
 
   // ================= AFK / AUCTION / CHANNEL TOOLS =================
