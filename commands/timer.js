@@ -81,9 +81,10 @@ async function handleTimerCommand(message, args) {
       const finishedEmbed = new EmbedBuilder()
         .setColor(0x22c55e)
         .setTitle("⏰ Timer Finished")
-        .setDescription(`${message.author}`);
+        .setDescription(`Your timer for **${timerName}** has ended.`); // Changed this since they are pinged outside now
 
       return timerMessage.edit({
+        content: `${message.author}`, // <--- Pings the user outside the embed here
         embeds: [finishedEmbed]
       }).catch(() => {});
     }
