@@ -1,13 +1,12 @@
-// commands/imageGen.js
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
 
-// Cooldown configuration (e.g., 3 hours = 3 * 60 * 60 * 1000 milliseconds)
+// Cooldown configuration (Disabled for testing)
 const COOLDOWN_DURATION = 3 * 60 * 60 * 1000; 
 
 async function handleImageGeneration(message, args, prefix) {
-  const prompt = args.join(" ");
+  const prompt = args.join(" ").trim();
   if (!prompt) {
     return message.reply(`❌ Please provide a prompt! Usage: \`${prefix}generate a futuristic city\``);
   }
@@ -31,7 +30,7 @@ async function handleImageGeneration(message, args, prefix) {
   const userCooldowns = store[guildId].cooldowns;
   const now = Date.now();
 
-  // 2. Cooldown check
+  /* ================= COOLDOWN REMOVED FOR TESTING =================
   if (userCooldowns[userId]) {
     const expirationTime = userCooldowns[userId] + COOLDOWN_DURATION;
     if (now < expirationTime) {
@@ -45,19 +44,21 @@ async function handleImageGeneration(message, args, prefix) {
       );
     }
   }
+  ================================================================== */
 
   // 3. Trigger a loading state so the user knows it's working
   const loadingMessage = await message.reply("🎨 Generating your image... please wait a moment.");
 
   try {
     // 4. Request the image from an API 
-    // (Using a placeholder free endpoint structure. Swap with your OpenAI / Midjourney API call)
     const encodedPrompt = encodeURIComponent(prompt);
-    const imageUrl = `https://pollinations.ai/p/${encodedPrompt}?width=1024&height=1024&seed=${Math.floor(Math.random() * 100000)}`;
+    // Fixed URL syntax for pollinations.ai base image generation
+    const imageUrl = `https://image.pollinations.ai/p/${encodedPrompt}?width=1024&height=1024&seed=${Math.floor(Math.random() * 100000)}&nologo=true`;
 
-    // 5. Save the new timestamp to enforce the anti-spam block
+    /* ================= COOLDOWN SAVE DISABLED FOR TESTING =================
     userCooldowns[userId] = now;
     fs.writeFileSync(dataFile, JSON.stringify(store, null, 2));
+    ================================================================== */
 
     // 6. Return the finished artwork to the channel
     const embed = new EmbedBuilder()
@@ -65,7 +66,7 @@ async function handleImageGeneration(message, args, prefix) {
       .setDescription(`**Prompt:** ${prompt}`)
       .setImage(imageUrl)
       .setColor(0x5865f2)
-      .setFooter({ text: `Requested by ${message.author.tag} • 3h Cooldown Applied` })
+      .setFooter({ text: `Requested by ${message.author.username} • Cooldown Disabled for testing` })
       .setTimestamp();
 
     await loadingMessage.delete().catch(() => null);
@@ -73,7 +74,8 @@ async function handleImageGeneration(message, args, prefix) {
 
   } catch (error) {
     console.error("Image generation failed:", error);
-    await loadingMessage.edit("❌ Something went wrong while generating your image.").catch(() => null);
+    await loadingMessage.delete().catch(() => null);
+    return message.channel.send("❌ Something went wrong while generating your image.").catch(() => null);
   }
 }
 
