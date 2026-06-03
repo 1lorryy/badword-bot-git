@@ -459,36 +459,84 @@ async function handleCommands(message) {
   }
 
   // ================= SETNICK =================
-  if (command === "setnick") {
-    if (!canManageGuild(message)) return message.reply("❌ No permission.");
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames)) {
-      return message.reply("❌ I need Manage Nicknames permission.");
-    }
+if (command === "setnick") {
+  if (!canManageGuild(message)) {
+    return message.reply("❌ No permission.");
+  }
 
-    const member = await findTargetMember(message, args);
-    if (!member) return message.reply(`Usage: \`${prefix}setnick @user new nickname\``);
-    if (!member.manageable) {
-      return message.reply("❌ I cannot change this user's nickname. Their role may be higher than mine.");
-    }
+  if (
+    !message.guild.members.me.permissions.has(
+      PermissionsBitField.Flags.ManageNicknames
+    )
+  ) {
+    return message.reply(
+      "❌ I need Manage Nicknames permission."
+    );
+  }
 
-    const newNick = message.reference ? args.join(" ").trim() : args.slice(1).join(" ").trim();
-    if (!newNick) return message.reply(`Usage: \`${prefix}setnick @user new nickname\``);
-    if (newNick.length > 32) return message.reply("❌ Nickname max length is 32 characters.");
+  const member = await findTargetMember(message, args);
 
-    await member.setNickname(newNick, `Changed by ${message.author.tag}`);
+  if (!member) {
+    return message.reply(
+      `Usage: \`${prefix}setnick @user new nickname\``
+    );
+  }
+
+  const newNick = args.slice(1).join(" ").trim();
+
+  if (!newNick) {
+    return message.reply(
+      `Usage: \`${prefix}setnick @user new nickname\``
+    );
+  }
+
+  if (newNick.length > 32) {
+    return message.reply(
+      "❌ Nickname max length is 32 characters."
+    );
+  }
+
+  try {
+    await member.setNickname(
+      newNick,
+      `Changed by ${message.author.tag}`
+    );
+
     const embed = new EmbedBuilder()
       .setTitle("✏️ Nickname Changed")
       .setColor(0x5865f2)
       .addFields(
-        { name: "User", value: `${member.user.tag}`, inline: true },
-        { name: "Moderator", value: `${message.author.tag}`, inline: true },
-        { name: "New Nickname", value: newNick, inline: false }
+        {
+          name: "User",
+          value: `${member.user.tag}`,
+          inline: true
+        },
+        {
+          name: "Moderator",
+          value: `${message.author.tag}`,
+          inline: true
+        },
+        {
+          name: "New Nickname",
+          value: newNick,
+          inline: false
+        }
       )
       .setTimestamp();
+
     await sendModLog(embed);
 
-    return message.reply(`✅ Changed nickname for ${member.user.tag} to **${newNick}**`);
+    return message.reply(
+      `✅ Changed nickname for ${member.user.tag} to **${newNick}**`
+    );
+  } catch (err) {
+    console.error("Setnick error:", err);
+
+    return message.reply(
+      "❌ I cannot change that nickname. My role must be above the target user's highest role."
+    );
   }
+}
 
   // ================= MUTE =================
   if (command === "mute" || command === "timeout") {
