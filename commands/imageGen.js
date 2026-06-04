@@ -1,41 +1,77 @@
-const fs = require("fs");
-const path = require("path");
-const { EmbedBuilder } = require("discord.js");
-
+const { AttachmentBuilder } = require("discord.js");
+const OpenAI = require("openai");
+const axios = require("axios");
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+const BLOCKED_WORDS = [
+  "porn",
+  "nsfw",
+  "nude",
+  "nudity",
+  "sex",
+  "sexual",
+  "penis",
+  "dick",
+  "vagina",
+  "pussy",
+  "boobs",
+  "breasts",
+  "fetish",
+  "cum",
+  "rape",
+  "racist",
+  "hitler",
+  "nazi",
+  "kkk",
+  "gore",
+  "beheading",
+  "decapitation",
+  "self harm",
+  "suicide"
+];
 async function handleImageGeneration(message, args, prefix) {
   const prompt = args.join(" ").trim();
   if (!prompt) {
-    return message.reply(`❌ Please provide a prompt! Usage: \`${prefix}image a futuristic city\``);
+    return message.reply(
+      `Usage: \`${prefix}image <prompt>\`\nExample: \`${prefix}image futuristic city at night\``
+    );
   }
-
-  // Trigger a loading state so the user knows it's working
-  const loadingMessage = await message.reply("🎨 Generating your image... please wait a moment.");
-
+  const lowerPrompt = prompt.toLowerCase();
+  const blocked = BLOCKED_WORDS.find(word =>
+    lowerPrompt.includes(word)
+  );
+  if (blocked) {
+    return message.reply(
+      "❌ That prompt is not allowed."
+    );
+  }
+  const loading = await message.reply(
+    "🎨 Generating image... Please wait."
+  );
   try {
-    // Encode the prompt cleanly for URL formatting
-    const encodedPrompt = encodeURIComponent(prompt);
-    
-    // We append a random seed to bypass cache and enforce a raw direct image rendering stream
-    const seed = Math.floor(Math.random() * 100000);
-    const imageUrl = `https://image.pollinations.ai/p/${encodedPrompt}?width=1024&height=1024&seed=${seed}&nologo=true`;
-
-    // Return the finished artwork to the channel in a beautiful custom embed
-    const embed = new EmbedBuilder()
-      .setTitle("✨ AI Art Generated")
-      .setDescription(`**Prompt:** ${prompt}`)
-      .setImage(imageUrl)
-      .setColor(0x5865f2)
-      .setFooter({ text: `Requested by ${message.author.username} • Don Bot` })
-      .setTimestamp();
-
-    await loadingMessage.delete().catch(() => null);
-    return message.channel.send({ embeds: [embed] });
-
-  } catch (error) {
-    console.error("Image generation failed:", error);
-    await loadingMessage.delete().catch(() => null);
-    return message.channel.send("❌ Something went wrong while generating your image.").catch(() => null);
+    const result = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt,
+      size: "1024x1024"
+    });
+    const imageBase64 = result.data[0].b64_json;
+    const buffer = Buffer.from(imageBase64, "base64");
+    const attachment = new AttachmentBuilder(buffer, {
+      name: "generated.png"
+    });
+    await loading.delete().catch(() => null);
+    return message.channel.send({
+      content: `🖼️ **Prompt:** ${prompt}`,
+      files: [attachment]
+    });
+  } catch (err) {
+    console.error("Image generation error:", err);
+    await loading.edit(
+      "❌ Failed to generate image."
+    ).catch(() => null);
   }
 }
-
-module.exports = { handleImageGeneration };
+module.exports = {
+  handleImageGeneration
+};
