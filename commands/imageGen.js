@@ -1,6 +1,5 @@
 const { AttachmentBuilder } = require("discord.js");
 const OpenAI = require("openai");
-const axios = require("axios");
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
