@@ -1,3 +1,4 @@
+console.log("OPENAI KEY FOUND:", !!process.env.OPENAI_API_KEY);
 const { AttachmentBuilder } = require("discord.js");
 const OpenAI = require("openai");
 const openai = new OpenAI({
