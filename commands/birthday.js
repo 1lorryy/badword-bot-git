@@ -104,7 +104,10 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
         description += `**${globalIndex}.** <@${user.uid}> • **${padMonth}/${padDay}** (${countdown})\n`;
       });
 
-      embed.setDescription(description || "No birthdays found.");
+      // Appends the setup instruction command cleanly right below the user list
+      description += `\n🔹 *Use \`${prefix}bday set MM DD\` to add your birthday!*`;
+
+      embed.setDescription(description);
       return embed;
     };
 
