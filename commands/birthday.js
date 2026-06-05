@@ -1,4 +1,10 @@
-const { PermissionsBitField, EmbedBuilder } = require("discord.js");
+const { 
+  PermissionsBitField, 
+  EmbedBuilder, 
+  ActionRowBuilder, 
+  ButtonBuilder, 
+  ButtonStyle 
+} = require("discord.js");
 
 const BIRTHDAY_ROLE_ID = "1512121400624812072";
 // Your allowed channels whitelist preserved
@@ -46,7 +52,7 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
     return message.reply(`✅ Birthday set to **${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}**!`);
   }
 
-  // Beautiful Top 5 Dynamic Embed System
+  // Interactive Pagination Embed System
   if (sub === "closest" || sub === "list") {
     const bdays = Object.entries(data.birthdays || {});
     if (!bdays.length) return message.reply("❌ No birthdays registered yet.");
@@ -72,27 +78,88 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
     // Sort closest to furthest away
     birthdayList.sort((a, b) => a.diffDays - b.diffDays);
 
-    // Limit to Top 5 
-    const top5 = birthdayList.slice(0, 5);
+    const itemsPerPage = 10; // Max 10 per page
+    const totalPages = Math.ceil(birthdayList.length / itemsPerPage);
+    let currentPage = 0;
 
-    const embed = new EmbedBuilder()
-      .setTitle("🎂 Upcoming Server Birthdays")
-      .setColor(0x5865f2)
-      .setFooter({ text: "Use ?bday set MM DD to join" })
-      .setTimestamp();
+    // Helper to generate the current page's embed layout
+    const generateEmbed = (page) => {
+      const start = page * itemsPerPage;
+      const end = start + itemsPerPage;
+      const pageItems = birthdayList.slice(start, end);
 
-    let description = "";
-    top5.forEach((user, index) => {
-      const padDay = String(user.day).padStart(2, '0');
-      const padMonth = String(user.month).padStart(2, '0');
-      const countdown = user.diffDays === 0 ? "🎉 **TODAY!**" : `In **${user.diffDays}** days`;
-      
-      // Displayed as MM/DD
-      description += `**${index + 1}.** <@${user.uid}> • **${padMonth}/${padDay}** (${countdown})\n`;
+      const embed = new EmbedBuilder()
+        .setTitle("🎂 Upcoming Server Birthdays")
+        .setColor(0x5865f2)
+        .setFooter({ text: `Page ${page + 1} of ${totalPages} • Total Registered Users: ${birthdayList.length}` })
+        .setTimestamp();
+
+      let description = "";
+      pageItems.forEach((user, index) => {
+        const globalIndex = start + index + 1;
+        const padDay = String(user.day).padStart(2, '0');
+        const padMonth = String(user.month).padStart(2, '0');
+        const countdown = user.diffDays === 0 ? "🎉 **TODAY!**" : `In **${user.diffDays}** days`;
+        
+        description += `**${globalIndex}.** <@${user.uid}> • **${padMonth}/${padDay}** (${countdown})\n`;
+      });
+
+      embed.setDescription(description || "No birthdays found.");
+      return embed;
+    };
+
+    // Helper to generate interactive button row
+    const generateButtons = (page) => {
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("prev_page")
+          .setLabel("⬅️ Prev")
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(page === 0),
+        new ButtonBuilder()
+          .setCustomId("next_page")
+          .setLabel("Next ➡️")
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(page === totalPages - 1)
+      );
+    };
+
+    // Send initial response
+    const embedMessage = await message.reply({
+      embeds: [generateEmbed(currentPage)],
+      components: totalPages > 1 ? [generateButtons(currentPage)] : []
     });
 
-    embed.setDescription(description);
-    return message.reply({ embeds: [embed] });
+    // If pagination buttons are required, listen for interactions
+    if (totalPages > 1) {
+      const collector = embedMessage.createMessageComponentCollector({
+        filter: (i) => i.user.id === message.author.id, // Only responds to the command executor
+        time: 90000 // 1.5-minute timeout window
+      });
+
+      collector.on("collect", async (interaction) => {
+        if (interaction.customId === "prev_page") {
+          currentPage--;
+        } else if (interaction.customId === "next_page") {
+          currentPage++;
+        }
+        
+        await interaction.update({
+          embeds: [generateEmbed(currentPage)],
+          components: [generateButtons(currentPage)]
+        });
+      });
+
+      collector.on("end", () => {
+        // Gracefully grey-out buttons when interactive session expires
+        const disabledRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("prev_page").setLabel("⬅️ Prev").setStyle(ButtonStyle.Primary).setDisabled(true),
+          new ButtonBuilder().setCustomId("next_page").setLabel("Next ➡️").setStyle(ButtonStyle.Primary).setDisabled(true)
+        );
+        embedMessage.edit({ components: [disabledRow] }).catch(() => null);
+      });
+    }
+    return;
   }
 
   const targetId = message.mentions.users.first()?.id || args[0]?.replace(/[<@!>]/g, "") || message.author.id;
@@ -100,7 +167,6 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
   if (!bday) {
     return message.reply(targetId === message.author.id ? `❌ You haven't set your birthday yet! Use \`${prefix}bday set MM DD\`` : "❌ No birthday found for this user.");
   }
-  // Displayed as MM/DD
   return message.reply(`🎂 ${targetId === message.author.id ? "Your" : `<@${targetId}>'s`} birthday is **${String(bday.month).padStart(2, '0')}/${String(bday.day).padStart(2, '0')}**.`);
 }
 
