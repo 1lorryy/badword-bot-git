@@ -22,9 +22,17 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
   const sub = args[0]?.toLowerCase();
 
   if (sub === "set") {
-    const [d, m] = args[1]?.split("-").map(Number) || [];
-    if (!d || !m || m < 1 || m > 12 || d < 1 || d > 31) {
-      return message.reply(`❌ Use: \`${prefix}bday set DD-MM\``);
+    // Smart Parser: Extracts any 2 numbers from the arguments (e.g., "12 25", "12/25", "12-25")
+    const matches = args.slice(1).join(" ").match(/\d+/g);
+    if (!matches || matches.length < 2) {
+      return message.reply(`❌ Use: \`${prefix}bday set MM DD\` (e.g., \`${prefix}bday set 12 25\`)`);
+    }
+
+    const m = Number(matches[0]);
+    const d = Number(matches[1]);
+
+    if (m < 1 || m > 12 || d < 1 || d > 31) {
+      return message.reply(`❌ Invalid Date! Use: \`${prefix}bday set MM DD\` (Month 1-12, Day 1-31)`);
     }
 
     const existing = data.birthdays[message.author.id];
@@ -35,7 +43,7 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
 
     data.birthdays[message.author.id] = { day: d, month: m, lastUpdated: Date.now() };
     saveData();
-    return message.reply(`✅ Birthday set to **${String(d).padStart(2, '0')}-${String(m).padStart(2, '0')}**!`);
+    return message.reply(`✅ Birthday set to **${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}**!`);
   }
 
   // Beautiful Top 5 Dynamic Embed System
@@ -70,7 +78,7 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
     const embed = new EmbedBuilder()
       .setTitle("🎂 Upcoming Server Birthdays")
       .setColor(0x5865f2)
-      .setFooter({ text: "Use ?bday set DD-MM to join" })
+      .setFooter({ text: "Use ?bday set MM DD to join" })
       .setTimestamp();
 
     let description = "";
@@ -79,7 +87,8 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
       const padMonth = String(user.month).padStart(2, '0');
       const countdown = user.diffDays === 0 ? "🎉 **TODAY!**" : `In **${user.diffDays}** days`;
       
-      description += `**${index + 1}.** <@${user.uid}> • **${padDay}-${padMonth}** (${countdown})\n`;
+      // Displayed as MM/DD
+      description += `**${index + 1}.** <@${user.uid}> • **${padMonth}/${padDay}** (${countdown})\n`;
     });
 
     embed.setDescription(description);
@@ -89,9 +98,10 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
   const targetId = message.mentions.users.first()?.id || args[0]?.replace(/[<@!>]/g, "") || message.author.id;
   const bday = data.birthdays?.[targetId];
   if (!bday) {
-    return message.reply(targetId === message.author.id ? `❌ You haven't set your birthday yet! Use \`${prefix}bday set DD-MM\`` : "❌ No birthday found for this user.");
+    return message.reply(targetId === message.author.id ? `❌ You haven't set your birthday yet! Use \`${prefix}bday set MM DD\`` : "❌ No birthday found for this user.");
   }
-  return message.reply(`🎂 ${targetId === message.author.id ? "Your" : `<@${targetId}>'s`} birthday is **${String(bday.day).padStart(2, '0')}-${String(bday.month).padStart(2, '0')}**.`);
+  // Displayed as MM/DD
+  return message.reply(`🎂 ${targetId === message.author.id ? "Your" : `<@${targetId}>'s`} birthday is **${String(bday.month).padStart(2, '0')}/${String(bday.day).padStart(2, '0')}**.`);
 }
 
 async function checkBirthdays(client, getGuildData, saveData) {
