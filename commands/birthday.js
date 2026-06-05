@@ -1,7 +1,7 @@
-const { PermissionsBitField } = require("discord.js");
+const { PermissionsBitField, EmbedBuilder } = require("discord.js");
 
 const BIRTHDAY_ROLE_ID = "1512121400624812072";
-// Your allowed channels whitelist
+// Your allowed channels whitelist preserved
 const ALLOWED_CHANNELS = ["1481370051264254259", "1481370050597228656", "1499888577738309633"];
 
 let processedToday = new Set();
@@ -38,23 +38,52 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
     return message.reply(`✅ Birthday set to **${String(d).padStart(2, '0')}-${String(m).padStart(2, '0')}**!`);
   }
 
-  if (sub === "closest") {
+  // Beautiful Top 5 Dynamic Embed System
+  if (sub === "closest" || sub === "list") {
     const bdays = Object.entries(data.birthdays || {});
     if (!bdays.length) return message.reply("❌ No birthdays registered yet.");
 
     const now = new Date();
-    let closest = null;
-    let min = Infinity;
+    const todayMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    let birthdayList = [];
 
     for (const [uid, b] of bdays) {
       let tgt = new Date(Date.UTC(now.getUTCFullYear(), b.month - 1, b.day));
-      if (tgt < now) tgt.setUTCFullYear(now.getUTCFullYear() + 1);
-      if (tgt - now < min) {
-        min = tgt - now;
-        closest = { uid, b };
+      
+      // If the birthday already happened earlier this year, look at next year's date
+      if (tgt < todayMidnight) {
+        tgt.setUTCFullYear(now.getUTCFullYear() + 1);
       }
+      
+      const diffTime = tgt.getTime() - todayMidnight.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      birthdayList.push({ uid, day: b.day, month: b.month, diffDays });
     }
-    return message.reply(`🎂 Closest birthday: <@${closest.uid}> on **${String(closest.b.day).padStart(2, '0')}-${String(closest.b.month).padStart(2, '0')}** (In **${Math.ceil(min / 86400000)}** days!).`);
+
+    // Sort closest to furthest away
+    birthdayList.sort((a, b) => a.diffDays - b.diffDays);
+
+    // Limit to Top 5 
+    const top5 = birthdayList.slice(0, 5);
+
+    const embed = new EmbedBuilder()
+      .setTitle("🎂 Upcoming Server Birthdays")
+      .setColor(0x5865f2)
+      .setFooter({ text: "Use ?bday set DD-MM to join" })
+      .setTimestamp();
+
+    let description = "";
+    top5.forEach((user, index) => {
+      const padDay = String(user.day).padStart(2, '0');
+      const padMonth = String(user.month).padStart(2, '0');
+      const countdown = user.diffDays === 0 ? "🎉 **TODAY!**" : `In **${user.diffDays}** days`;
+      
+      description += `**${index + 1}.** <@${user.uid}> • **${padDay}-${padMonth}** (${countdown})\n`;
+    });
+
+    embed.setDescription(description);
+    return message.reply({ embeds: [embed] });
   }
 
   const targetId = message.mentions.users.first()?.id || args[0]?.replace(/[<@!>]/g, "") || message.author.id;
@@ -104,7 +133,5 @@ async function checkBirthdays(client, getGuildData, saveData) {
     console.error(err);
   }
 }
-
-module.exports = { handleBirthdayCommand, checkBirthdays };
 
 module.exports = { handleBirthdayCommand, checkBirthdays };
