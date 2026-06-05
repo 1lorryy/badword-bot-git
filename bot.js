@@ -6,6 +6,7 @@ const { handleAuctionCommand } = require("./commands/auction");
 const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
 const { handleImageGeneration } = require("./commands/imageGen.js");
+const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday");
 const fs = require("fs");
 const path = require("path");
 
@@ -98,8 +99,9 @@ function saveData() {
 
 function getGuildData(guildId) {
   store = loadData();
-  if (!store[guildId]) {
-    store[guildId] = {
+  if (!store[guildId].birthdays) {
+  store[guildId].birthdays = {};
+}
       prefix: DEFAULT_PREFIX,
       words: [],
       blockedLinks: [],
@@ -150,6 +152,9 @@ function getGuildData(guildId) {
     store[guildId].modStats = {};
   }
 
+if (!store[guildId].birthdays || typeof store[guildId].birthdays !== "object") {
+  store[guildId].birthdays = {};
+}
   if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
 
   return store[guildId];
@@ -350,6 +355,15 @@ async function handleCommands(message) {
     return handleImageGeneration(message, args, prefix);
   }
 
+if (command === "birthday" || command === "bday") {
+  return handleBirthdayCommand(
+    message,
+    args,
+    prefix,
+    getGuildData,
+    saveData
+  );
+}
   // ================= AFK / AUCTION / CHANNEL TOOLS =================
   if (command === "timer") {
     return handleTimerCommand(message, args);
@@ -889,7 +903,11 @@ async function handleCommands(message) {
         {
           name: "💤 Utility",
           value:
-            `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\``,
+            `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • 
+            `\${prefix}birthday set DD-MM` 
+            `\${prefix}birthday me`
+            `\${prefix}birthday @user`
+            `\${prefix}birthday closest`
           inline: false
         }
       )
@@ -967,6 +985,20 @@ function startBot() {
         await member
           .setNickname(cleanNick || null, "Bot restarted - clearing AFK nickname")
           .catch(() => null);
+
+setInterval(() => {
+  checkBirthdays(
+    client,
+    getGuildData,
+    saveData
+  ).catch(console.error);
+}, 60 * 60 * 1000);
+
+checkBirthdays(
+  client,
+  getGuildData,
+  saveData
+).catch(console.error);
       }
     }
   });
