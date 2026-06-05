@@ -99,9 +99,9 @@ function saveData() {
 
 function getGuildData(guildId) {
   store = loadData();
-  if (!store[guildId].birthdays) {
-  store[guildId].birthdays = {};
-}
+  
+  if (!store[guildId]) {
+    store[guildId] = {
       prefix: DEFAULT_PREFIX,
       words: [],
       blockedLinks: [],
@@ -114,7 +114,8 @@ function getGuildData(guildId) {
         ads6h: [],
         ads24h: [],
         extras: []
-      }
+      },
+      birthdays: {}
     };
     saveData();
   }
@@ -152,9 +153,9 @@ function getGuildData(guildId) {
     store[guildId].modStats = {};
   }
 
-if (!store[guildId].birthdays || typeof store[guildId].birthdays !== "object") {
-  store[guildId].birthdays = {};
-}
+  if (!store[guildId].birthdays || typeof store[guildId].birthdays !== "object") {
+    store[guildId].birthdays = {};
+  }
   if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
 
   return store[guildId];
@@ -355,15 +356,15 @@ async function handleCommands(message) {
     return handleImageGeneration(message, args, prefix);
   }
 
-if (command === "birthday" || command === "bday") {
-  return handleBirthdayCommand(
-    message,
-    args,
-    prefix,
-    getGuildData,
-    saveData
-  );
-}
+  if (command === "birthday" || command === "bday") {
+    return handleBirthdayCommand(
+      message,
+      args,
+      prefix,
+      getGuildData,
+      saveData
+    );
+  }
   // ================= AFK / AUCTION / CHANNEL TOOLS =================
   if (command === "timer") {
     return handleTimerCommand(message, args);
@@ -903,11 +904,9 @@ if (command === "birthday" || command === "bday") {
         {
           name: "💤 Utility",
           value:
-            `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • 
-            `\${prefix}birthday set DD-MM` 
-            `\${prefix}birthday me`
-            `\${prefix}birthday @user`
-            `\${prefix}birthday closest`
+            `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\`\n` + 
+            `\`${prefix}birthday set DD-MM\` • \`${prefix}birthday me\`\n` +
+            `\`${prefix}birthday @user\` • \`${prefix}birthday closest\``,
           inline: false
         }
       )
@@ -985,22 +984,23 @@ function startBot() {
         await member
           .setNickname(cleanNick || null, "Bot restarted - clearing AFK nickname")
           .catch(() => null);
-
-setInterval(() => {
-  checkBirthdays(
-    client,
-    getGuildData,
-    saveData
-  ).catch(console.error);
-}, 60 * 60 * 1000);
-
-checkBirthdays(
-  client,
-  getGuildData,
-  saveData
-).catch(console.error);
       }
     }
+
+    // Birthday interval - placed outside loops to prevent duplicate intervals
+    setInterval(() => {
+      checkBirthdays(
+        client,
+        getGuildData,
+        saveData
+      ).catch(console.error);
+    }, 60 * 60 * 1000);
+
+    checkBirthdays(
+      client,
+      getGuildData,
+      saveData
+    ).catch(console.error);
   });
 
   client.on("messageCreate", async (message) => {
