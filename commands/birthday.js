@@ -39,10 +39,13 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
       return message.reply(`❌ Invalid Date! Use: \`${prefix}bday set MM DD\` (Month 1-12, Day 1-31)`);
     }
 
+    // Changed from 30 days to 2 weeks (14 days)
+    const COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000; 
     const existing = data.birthdays[message.author.id];
-    if (existing?.lastUpdated && Date.now() - existing.lastUpdated < 30 * 24 * 60 * 60 * 1000) {
-      const days = Math.ceil((30 * 24 * 60 * 60 * 1000 - (Date.now() - existing.lastUpdated)) / 86400000);
-      return message.reply(`❌ Cooldown active! Please wait **${days}** more day(s).`);
+    
+    if (existing?.lastUpdated && Date.now() - existing.lastUpdated < COOLDOWN_MS) {
+      const remainingDays = Math.ceil((COOLDOWN_MS - (Date.now() - existing.lastUpdated)) / 86400000);
+      return message.reply(`❌ Cooldown active! There is a **2-week cooldown** to change your birthday. Please wait **${remainingDays}** more day(s).`);
     }
 
     data.birthdays[message.author.id] = { day: d, month: m, lastUpdated: Date.now() };
