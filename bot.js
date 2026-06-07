@@ -85,6 +85,7 @@ function getGuildData(guildId) {
       cooldowns: {}, 
       modStats: {},
       birthdays: {},
+      modLogs: [], // Preserved active log arrays
       purchaseLinks: {
         classes: [],
         ads6h: [],
@@ -97,6 +98,7 @@ function getGuildData(guildId) {
 
   if (!Array.isArray(store[guildId].words)) store[guildId].words = [];
   if (!Array.isArray(store[guildId].blockedLinks)) store[guildId].blockedLinks = [];
+  if (!Array.isArray(store[guildId].modLogs)) store[guildId].modLogs = [];
   
   if (!store[guildId].customCommands || typeof store[guildId].customCommands !== "object") store[guildId].customCommands = {};
   if (!store[guildId].warnings || typeof store[guildId].warnings !== "object") store[guildId].warnings = {};
@@ -235,6 +237,19 @@ async function sendModLog(embed) {
   await log.send({ embeds: [embed] }).catch(() => null);
 }
 
+// Helper to reliably push internal logs safely
+function logAction(data, type, modId, userId, reason = "No reason") {
+  if (!data.modLogs) data.modLogs = [];
+  data.modLogs.unshift({
+    type,
+    modId,
+    userId,
+    reason,
+    date: new Date().toISOString()
+  });
+  if (data.modLogs.length > 50) data.modLogs = data.modLogs.slice(0, 50);
+}
+
 async function handleCommands(message) {
   const data = getGuildData(message.guild.id);
   const prefix = data.prefix || DEFAULT_PREFIX;
@@ -275,31 +290,33 @@ async function handleCommands(message) {
   if (command === "auction") return handleAuctionCommand(message, args, prefix);
   if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
 
-  // Compressed Modlogs Command Section (Max 5 per page)
+  // Compressed Modlogs Command Section (Exactly Last 10 across 2 pages of 5)
   if (command === "modlogs") {
     const logs = data.modLogs || [];
     if (!logs.length) return message.reply("📜 Mod log data is empty.");
 
+    // Limit pool strictly to the last 10 actions total
+    const recentLogs = logs.slice(0, 10);
     const perPage = 5;
-    const totalPages = Math.ceil(logs.length / perPage);
+    const totalPages = Math.ceil(recentLogs.length / perPage);
     let currentPage = 0;
 
     const generateLogEmbed = (page) => {
       const start = page * perPage;
-      const current = logs.slice(start, start + perPage);
+      const current = recentLogs.slice(start, start + perPage);
 
       const description = current
         .map((l, i) => {
           const date = new Date(l.date).toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
-          return `**#${start + i + 1}** \`[${l.type}]\` <@${l.modId}> ➡️ <@${l.userId}> • 📅 *${date}*`;
+          return `**#${start + i + 1}** \`[${l.type}]\` <@${l.modId}> ➡️ <@${l.userId}>\n└ 📅 *${date}* • **Reason:** ${l.reason}`;
         })
         .join("\n");
 
       return new EmbedBuilder()
-        .setTitle("📜 Server Action Logs")
+        .setTitle("📜 Server Action Logs (Last 10)")
         .setColor(0x5865f2)
         .setDescription(description || "*No log records.*")
-        .setFooter({ text: `Page ${page + 1}/${totalPages} • ${logs.length} Total\n💡 Type a number to jump pages!` });
+        .setFooter({ text: `Page ${page + 1}/${totalPages} • ${recentLogs.length} Records displayed\n💡 Type a number to jump pages!` });
     };
 
     const generateLogButtons = (page) => {
@@ -375,8 +392,7 @@ async function handleCommands(message) {
     if (!data.warnings[member.id]) data.warnings[member.id] = [];
     data.warnings[member.id].push({ id: warnId, reason, mod: message.author.id, date: new Date().toISOString() });
 
-    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
-    data.modStats[message.author.id].warns++;
+    logAction(data, "WARN", message.author.id, member.id, reason);
     saveData();
 
     const embed = new EmbedBuilder()
@@ -394,7 +410,7 @@ async function handleCommands(message) {
     return message.reply(`✅ Warned ${member.user.tag}\nWarn ID: \`${warnId}\``);
   }
 
-  // Compressed Warnings Section (Max 5 per page)
+  // Compressed Warnings Section - Now displays the warner's tag explicitly
   if (command === "warnings") {
     const member = (await findTargetMember(message, args)) || message.member;
     const warnings = data.warnings[member.id] || [];
@@ -414,7 +430,7 @@ async function handleCommands(message) {
       const description = current
         .map((w, i) => {
           const date = new Date(w.date).toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
-          return `**#${start + i + 1}** \`${w.id}\` • 📅 *${date}* • ${w.reason}`;
+          return `**#${start + i + 1}** \`${w.id}\` • 📅 *${date}* • By: <@${w.mod || "Unknown"}>\n└ **Reason:** ${w.reason}`;
         })
         .join("\n");
 
@@ -477,6 +493,7 @@ async function handleCommands(message) {
     const before = warnings.length;
 
     data.warnings[member.id] = warnings.filter(w => w.id !== warnId);
+    logAction(data, "UNWARN", message.author.id, member.id, `Removed warn ${warnId}`);
     saveData();
     if (before === data.warnings[member.id].length) return message.reply("Warn ID not found.");
     return message.reply(`✅ Removed warning \`${warnId}\``);
@@ -524,8 +541,7 @@ async function handleCommands(message) {
     const reason = args.slice(2).join(" ") || "No reason";
 
     await member.timeout(durationMs, reason);
-    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
-    data.modStats[message.author.id].mutes++;
+    logAction(data, "MUTE", message.author.id, member.id, `Duration: ${durationText} - ${reason}`);
     saveData();
 
     const embed = new EmbedBuilder()
@@ -546,6 +562,8 @@ async function handleCommands(message) {
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}unmute @user\``);
     await member.timeout(null);
+    logAction(data, "UNMUTE", message.author.id, member.id, "Unmuted member");
+    saveData();
     return message.reply(`🔊 Unmuted ${member.user.tag}`);
   }
 
@@ -572,8 +590,7 @@ async function handleCommands(message) {
     await member.send({ embeds: [embed] }).catch(() => null);
     await member.kick(reason);
 
-    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
-    data.modStats[message.author.id].kicks++;
+    logAction(data, "KICK", message.author.id, member.id, reason);
     saveData();
     await sendModLog(embed);
     return message.reply(`👢 Kicked ${member.user.tag}`);
@@ -602,8 +619,7 @@ async function handleCommands(message) {
     await member.send({ embeds: [embed] }).catch(() => null);
     await member.ban({ reason });
 
-    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
-    data.modStats[message.author.id].bans++;
+    logAction(data, "BAN", message.author.id, member.id, reason);
     saveData();
     await sendModLog(embed);
     return message.reply(`🔨 Banned ${member.user.tag}`);
@@ -615,6 +631,8 @@ async function handleCommands(message) {
     if (!userId) return message.reply(`Usage: \`${prefix}unban userId reason\``);
     const reason = args.slice(1).join(" ") || "No reason";
     await message.guild.members.unban(userId, reason).catch(() => null);
+    logAction(data, "UNBAN", message.author.id, userId, reason);
+    saveData();
     return message.reply(`✅ Unbanned \`${userId}\``);
   }
 
@@ -737,10 +755,30 @@ async function handleCommands(message) {
     });
   }
 
-  // Compressed Modstats Command Section (Max 5 per page)
+  // Dynamic Modstats Command Section (Calculates directly from current warnings & active logs)
   if (command === "modstats") {
-    const statsEntries = Object.entries(data.modStats || {});
-    if (!statsEntries.length) return message.reply("📊 No moderator statistics found.");
+    const counts = {};
+
+    // 1. Scan live active warnings to compile stats dynamically
+    for (const userWarns of Object.values(data.warnings || {})) {
+      for (const w of userWarns) {
+        if (!w.mod) continue;
+        if (!counts[w.mod]) counts[w.mod] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+        counts[w.mod].warns++;
+      }
+    }
+
+    // 2. Scan logged histories to accumulate actions dynamically
+    for (const log of data.modLogs || []) {
+      if (!log.modId) continue;
+      if (!counts[log.modId]) counts[log.modId] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+      if (log.type === "MUTE") counts[log.modId].mutes++;
+      if (log.type === "KICK") counts[log.modId].kicks++;
+      if (log.type === "BAN") counts[log.modId].bans++;
+    }
+
+    const statsEntries = Object.entries(counts);
+    if (!statsEntries.length) return message.reply("📊 No active moderator statistics found.");
 
     const perPage = 5;
     const totalPages = Math.ceil(statsEntries.length / perPage);
@@ -752,7 +790,7 @@ async function handleCommands(message) {
 
       const description = current
         .map(([modId, stats], i) => {
-          return `**#${start + i + 1}** <@${modId}> • ⚠️ \`${stats.warns || 0}\` • 🔇 \`${stats.mutes || 0}\` • 👢 \`${stats.kicks || 0}\` • 🔨 \`${stats.bans || 0}\``;
+          return `**#${start + i + 1}** <@${modId}> • ⚠️ \`${stats.warns}\` • 🔇 \`${stats.mutes}\` • 👢 \`${stats.kicks}\` • 🔨 \`${stats.bans}\``;
         })
         .join("\n");
 
