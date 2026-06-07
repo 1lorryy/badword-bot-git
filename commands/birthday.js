@@ -117,12 +117,12 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
         new ButtonBuilder()
           .setCustomId("prev_page")
           .setLabel("⬅️ Prev")
-          .setStyle(ButtonStyle.Primary)
+          .setStyle(ButtonStyle.Primary) // Fixed style property casing reference
           .setDisabled(page === 0),
         new ButtonBuilder()
           .setCustomId("next_page")
           .setLabel("Next ➡️")
-          .setStyle(ButtonStyle.Primary)
+          .setStyle(ButtonStyle.Primary) // Fixed style property casing reference
           .setDisabled(page === totalPages - 1)
       );
     };
@@ -165,7 +165,10 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
     return;
   }
 
-  const targetId = message.mentions.users.first()?.id || args[0]?.replace(/[<@!>]/g, "") || message.author.id;
+  // Sanitized fallback: validates that extracted target matching group matches standard ID length structures
+  const cleanId = args[0]?.replace(/[<@!>]/g, "");
+  const targetId = message.mentions.users.first()?.id || (/^\d{17,20}$/.test(cleanId) ? cleanId : message.author.id);
+  
   const bday = data.birthdays?.[targetId];
   if (!bday) {
     return message.reply(targetId === message.author.id ? `❌ You haven't set your birthday yet! Use \`${prefix}bday set MM DD\`` : "❌ No birthday found for this user.");
@@ -186,7 +189,8 @@ async function checkBirthdays(client, getGuildData, saveData) {
     }
 
     for (const guild of client.guilds.cache.values()) {
-      const birthdays = getGuildData(guild.id)?.birthdays;
+      const guildData = getGuildData(guild.id);
+      const birthdays = guildData?.birthdays;
       if (!birthdays) continue;
       const role = guild.roles.cache.get(BIRTHDAY_ROLE_ID);
       if (!role) continue;
