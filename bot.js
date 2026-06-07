@@ -686,7 +686,17 @@ async function handleCommands(message) {
     return message.reply({ embeds: [embed] });
   }
 
-  return false;
+  // Fallback handler if no manual conditions match inside prefix checks
+  const messages = await message.channel.messages.fetch({ limit: 30 });
+  const history = [...messages.values()]
+    .reverse()
+    .filter(m => !m.author.bot)
+    .map(m => ({ author: m.author.username, content: m.content }));
+  const aiReply = await generateAiReply(message, message.content, history);
+  if (aiReply) {
+    return message.reply({ content: aiReply, allowedMentions: { parse: [], repliedUser: false } });
+  }
+  return true;
 }
 
 function startBot() {
@@ -738,7 +748,6 @@ function startBot() {
       const data = getGuildData(message.guild.id);
       const prefix = data.prefix || DEFAULT_PREFIX;
 
-      // Handle Direct Bot Mention/Replies
       if (message.reference && message.reference.messageId) {
         const replied = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
         if (replied && replied.author.id === client.user.id) {
@@ -767,7 +776,6 @@ function startBot() {
       const isCommand = message.content.startsWith(prefix);
       const isBypass = typeof hasBypassRole === "function" ? hasBypassRole(message) : false;
 
-      // 1. Protected Word Filter
       const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
       if (protectedWord) {
         await message.delete().catch(() => null);
@@ -775,7 +783,6 @@ function startBot() {
         return;
       }
 
-      // 2. Core AutoMod Filter
       if (!isCommand && !isBypass && !allowDiscordInvite) {
         const word = containsBlacklistedWord(message.content, [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]);
         if (word) {
@@ -785,10 +792,8 @@ function startBot() {
         }
       }
 
-      // 3. Command & Prefix Custom Command Processor
       const usedCommand = await handleCommands(message);
 
-      // 4. Exact Phrase Custom Command System (Runs if prefix command wasn't matched)
       if (!usedCommand) {
         const freshData = getGuildData(message.guild.id);
         const msg = message.content.toLowerCase().trim();
@@ -803,25 +808,14 @@ function startBot() {
           return message.channel.send({ content: response, allowedMentions: { parse: [] } });
         }
       }
-
-      // 5. Conversational AI Chat Fallback
-      if (!usedCommand && !isCommand) {
-        let aiReply = null;
-        try {
-          const messages = await message.channel.messages.fetch({ limit: 30 });
-          const history = [...messages.values()].reverse().filter(m => !m.author.bot).map(m => ({ author: m.author.username, content: m.content }));
-          aiReply = await generateAiReply(message, message.content, history);
-        } catch (err) {
-          console.error("Chat AI error:", err);
-        }
-        if (aiReply) {
-          return message.reply({ content: aiReply, allowedMentions: { parse: [], repliedUser: false } });
-        }
-      }
     } catch (err) {
       console.error("Bot error:", err);
     }
   });
+
+  client.login(process.env.DISCORD_TOKEN);
 }
 
-startBot();
+function getClient() { return client; }
+
+module.exports = { startBot, getClient };
