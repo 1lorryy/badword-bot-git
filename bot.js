@@ -274,7 +274,76 @@ async function handleCommands(message) {
   if (command === "afk") return handleAfkCommand(message, args, prefix);
   if (command === "auction") return handleAuctionCommand(message, args, prefix);
   if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
-  if (command === "modlogs") return handleModLogsCommand(message, args, prefix, getGuildData);
+
+  // Compressed Modlogs Command Section (Max 5 per page)
+  if (command === "modlogs") {
+    const logs = data.modLogs || [];
+    if (!logs.length) return message.reply("📜 Mod log data is empty.");
+
+    const perPage = 5;
+    const totalPages = Math.ceil(logs.length / perPage);
+    let currentPage = 0;
+
+    const generateLogEmbed = (page) => {
+      const start = page * perPage;
+      const current = logs.slice(start, start + perPage);
+
+      const description = current
+        .map((l, i) => {
+          const date = new Date(l.date).toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
+          return `**#${start + i + 1}** \`[${l.type}]\` <@${l.modId}> ➡️ <@${l.userId}> • 📅 *${date}*`;
+        })
+        .join("\n");
+
+      return new EmbedBuilder()
+        .setTitle("📜 Server Action Logs")
+        .setColor(0x5865f2)
+        .setDescription(description || "*No log records.*")
+        .setFooter({ text: `Page ${page + 1}/${totalPages} • ${logs.length} Total\n💡 Type a number to jump pages!` });
+    };
+
+    const generateLogButtons = (page) => {
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("prev_log_page").setLabel("⬅️").setStyle(ButtonStyle.Primary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId("next_log_page").setLabel("➡️").setStyle(ButtonStyle.Primary).setDisabled(page === totalPages - 1)
+      );
+    };
+
+    const embedMessage = await message.reply({
+      embeds: [generateLogEmbed(currentPage)],
+      components: totalPages > 1 ? [generateLogButtons(currentPage)] : []
+    });
+
+    if (totalPages > 1) {
+      const buttonCollector = embedMessage.createMessageComponentCollector({ filter: (i) => i.user.id === message.author.id, time: 90000 });
+      const textCollector = message.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id && /^\d+$/.test(m.content.trim()), time: 90000 });
+
+      buttonCollector.on("collect", async (interaction) => {
+        if (interaction.customId === "prev_log_page") currentPage--;
+        else if (interaction.customId === "next_log_page") currentPage++;
+        await interaction.update({ embeds: [generateLogEmbed(currentPage)], components: [generateLogButtons(currentPage)] });
+      });
+
+      textCollector.on("collect", async (msg) => {
+        const targetPage = parseInt(msg.content.trim(), 10);
+        if (targetPage >= 1 && targetPage <= totalPages) {
+          currentPage = targetPage - 1;
+          await embedMessage.edit({ embeds: [generateLogEmbed(currentPage)], components: [generateLogButtons(currentPage)] }).catch(() => null);
+          msg.delete().catch(() => null);
+        }
+      });
+
+      buttonCollector.on("end", () => {
+        textCollector.stop();
+        const disabledRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("prev_log_page").setLabel("⬅️").setStyle(ButtonStyle.Primary).setDisabled(true),
+          new ButtonBuilder().setCustomId("next_log_page").setLabel("➡️").setStyle(ButtonStyle.Primary).setDisabled(true)
+        );
+        embedMessage.edit({ components: [disabledRow] }).catch(() => null);
+      });
+    }
+    return true;
+  }
 
   if (command === "ping") {
     const msg = await message.reply("🏓 Pinging...").catch(() => null);
@@ -325,12 +394,13 @@ async function handleCommands(message) {
     return message.reply(`✅ Warned ${member.user.tag}\nWarn ID: \`${warnId}\``);
   }
 
+  // Compressed Warnings Section (Max 5 per page)
   if (command === "warnings") {
     const member = (await findTargetMember(message, args)) || message.member;
     const warnings = data.warnings[member.id] || [];
 
     if (!warnings.length) {
-      return message.reply(`${member.user.tag} has no warnings.`);
+      return message.reply(`✨ **${member.user.tag}** has no warnings.`);
     }
 
     const perPage = 5;
@@ -343,38 +413,22 @@ async function handleCommands(message) {
 
       const description = current
         .map((w, i) => {
-          const date = new Date(w.date).toLocaleDateString();
-          const moderator = message.guild.members.cache.get(w.mod)?.user || null;
-
-          return (
-            `**#${start + i + 1}**\n` +
-            `🆔 \`${w.id}\`\n` +
-            `👮 ${moderator ? moderator.tag : "Unknown"}\n` +
-            `📅 ${date}\n` +
-            `📝 ${w.reason}`
-          );
+          const date = new Date(w.date).toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
+          return `**#${start + i + 1}** \`${w.id}\` • 📅 *${date}* • ${w.reason}`;
         })
-        .join("\n\n");
+        .join("\n");
 
       return new EmbedBuilder()
         .setTitle(`⚠️ Warnings • ${member.user.tag}`)
         .setColor(0xf59e0b)
-        .setDescription(description)
-        .setFooter({ text: `Page ${page + 1}/${totalPages} • ${warnings.length} total warnings\n💡 Type a number to jump directly to that page!` });
+        .setDescription(description || "*No warnings on this page.*")
+        .setFooter({ text: `Page ${page + 1}/${totalPages} • ${warnings.length} Total\n💡 Type a number to jump directly to that page!` });
     };
 
     const generateWarningButtons = (page) => {
       return new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("prev_warn_page")
-          .setLabel("⬅️ Prev")
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(page === 0),
-        new ButtonBuilder()
-          .setCustomId("next_warn_page")
-          .setLabel("Next ➡️")
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(page === totalPages - 1)
+        new ButtonBuilder().setCustomId("prev_warn_page").setLabel("⬅️").setStyle(ButtonStyle.Primary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId("next_warn_page").setLabel("➡️").setStyle(ButtonStyle.Primary).setDisabled(page === totalPages - 1)
       );
     };
 
@@ -384,36 +438,20 @@ async function handleCommands(message) {
     });
 
     if (totalPages > 1) {
-      const buttonCollector = embedMessage.createMessageComponentCollector({
-        filter: (i) => i.user.id === message.author.id,
-        time: 90000
-      });
-
-      const textCollector = message.channel.createMessageCollector({
-        filter: (m) => m.author.id === message.author.id && /^\d+$/.test(m.content.trim()),
-        time: 90000
-      });
+      const buttonCollector = embedMessage.createMessageComponentCollector({ filter: (i) => i.user.id === message.author.id, time: 90000 });
+      const textCollector = message.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id && /^\d+$/.test(m.content.trim()), time: 90000 });
 
       buttonCollector.on("collect", async (interaction) => {
-        if (interaction.customId === "prev_warn_page") {
-          currentPage--;
-        } else if (interaction.customId === "next_warn_page") {
-          currentPage++;
-        }
-        await interaction.update({
-          embeds: [generateWarningEmbed(currentPage)],
-          components: [generateWarningButtons(currentPage)]
-        });
+        if (interaction.customId === "prev_warn_page") currentPage--;
+        else if (interaction.customId === "next_warn_page") currentPage++;
+        await interaction.update({ embeds: [generateWarningEmbed(currentPage)], components: [generateWarningButtons(currentPage)] });
       });
 
       textCollector.on("collect", async (msg) => {
         const targetPage = parseInt(msg.content.trim(), 10);
         if (targetPage >= 1 && targetPage <= totalPages) {
           currentPage = targetPage - 1;
-          await embedMessage.edit({
-            embeds: [generateWarningEmbed(currentPage)],
-            components: [generateWarningButtons(currentPage)]
-          }).catch(() => null);
+          await embedMessage.edit({ embeds: [generateWarningEmbed(currentPage)], components: [generateWarningButtons(currentPage)] }).catch(() => null);
           msg.delete().catch(() => null);
         }
       });
@@ -421,8 +459,8 @@ async function handleCommands(message) {
       buttonCollector.on("end", () => {
         textCollector.stop();
         const disabledRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("prev_warn_page").setLabel("⬅️ Prev").setStyle(ButtonStyle.Primary).setDisabled(true),
-          new ButtonBuilder().setCustomId("next_warn_page").setLabel("Next ➡️").setStyle(ButtonStyle.Primary).setDisabled(true)
+          new ButtonBuilder().setCustomId("prev_warn_page").setLabel("⬅️").setStyle(ButtonStyle.Primary).setDisabled(true),
+          new ButtonBuilder().setCustomId("next_warn_page").setLabel("➡️").setStyle(ButtonStyle.Primary).setDisabled(true)
         );
         embedMessage.edit({ components: [disabledRow] }).catch(() => null);
       });
@@ -699,21 +737,73 @@ async function handleCommands(message) {
     });
   }
 
+  // Compressed Modstats Command Section (Max 5 per page)
   if (command === "modstats") {
-    const member = (await findTargetMember(message, args)) || message.member;
-    const stats = data.modStats[member.id] || { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+    const statsEntries = Object.entries(data.modStats || {});
+    if (!statsEntries.length) return message.reply("📊 No moderator statistics found.");
 
-    const embed = new EmbedBuilder()
-      .setTitle(`📊 Mod Stats • ${member.user.tag}`)
-      .setColor(0x5865f2)
-      .addFields(
-        { name: "⚠️ Warns", value: String(stats.warns || 0), inline: true },
-        { name: "🔇 Mutes", value: String(stats.mutes || 0), inline: true },
-        { name: "👢 Kicks", value: String(stats.kicks || 0), inline: true },
-        { name: "🔨 Bans", value: String(stats.bans || 0), inline: true }
-      )
-      .setTimestamp();
-    return message.reply({ embeds: [embed] });
+    const perPage = 5;
+    const totalPages = Math.ceil(statsEntries.length / perPage);
+    let currentPage = 0;
+
+    const generateStatsEmbed = (page) => {
+      const start = page * perPage;
+      const current = statsEntries.slice(start, start + perPage);
+
+      const description = current
+        .map(([modId, stats], i) => {
+          return `**#${start + i + 1}** <@${modId}> • ⚠️ \`${stats.warns || 0}\` • 🔇 \`${stats.mutes || 0}\` • 👢 \`${stats.kicks || 0}\` • 🔨 \`${stats.bans || 0}\``;
+        })
+        .join("\n");
+
+      return new EmbedBuilder()
+        .setTitle("📊 Moderator Performance Stats")
+        .setColor(0x5865f2)
+        .setDescription(description || "*No stats recorded.*")
+        .setFooter({ text: `Page ${page + 1}/${totalPages} • Legend: Warns/Mutes/Kicks/Bans\n💡 Type a number to jump pages!` });
+    };
+
+    const generateStatsButtons = (page) => {
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("prev_stat_page").setLabel("⬅️").setStyle(ButtonStyle.Primary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId("next_stat_page").setLabel("➡️").setStyle(ButtonStyle.Primary).setDisabled(page === totalPages - 1)
+      );
+    };
+
+    const embedMessage = await message.reply({
+      embeds: [generateStatsEmbed(currentPage)],
+      components: totalPages > 1 ? [generateStatsButtons(currentPage)] : []
+    });
+
+    if (totalPages > 1) {
+      const buttonCollector = embedMessage.createMessageComponentCollector({ filter: (i) => i.user.id === message.author.id, time: 90000 });
+      const textCollector = message.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id && /^\d+$/.test(m.content.trim()), time: 90000 });
+
+      buttonCollector.on("collect", async (interaction) => {
+        if (interaction.customId === "prev_stat_page") currentPage--;
+        else if (interaction.customId === "next_stat_page") currentPage++;
+        await interaction.update({ embeds: [generateStatsEmbed(currentPage)], components: [generateStatsButtons(currentPage)] });
+      });
+
+      textCollector.on("collect", async (msg) => {
+        const targetPage = parseInt(msg.content.trim(), 10);
+        if (targetPage >= 1 && targetPage <= totalPages) {
+          currentPage = targetPage - 1;
+          await embedMessage.edit({ embeds: [generateStatsEmbed(currentPage)], components: [generateStatsButtons(currentPage)] }).catch(() => null);
+          msg.delete().catch(() => null);
+        }
+      });
+
+      buttonCollector.on("end", () => {
+        textCollector.stop();
+        const disabledRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("prev_stat_page").setLabel("⬅️").setStyle(ButtonStyle.Primary).setDisabled(true),
+          new ButtonBuilder().setCustomId("next_stat_page").setLabel("➡️").setStyle(ButtonStyle.Primary).setDisabled(true)
+        );
+        embedMessage.edit({ components: [disabledRow] }).catch(() => null);
+      });
+    }
+    return true;
   }
 
   if (command === "help") {
