@@ -1,220 +1,821 @@
-const { 
-  PermissionsBitField, 
-  EmbedBuilder, 
-  ActionRowBuilder, 
-  ButtonBuilder, 
-  ButtonStyle 
+const { initTimers, handleTimerCommand } = require("./commands/timer.js");
+const { handleChannelToolsCommand } = require("./commands/channelTools");
+const { handleBuyCommand } = require("./commands/buy");
+const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
+const { handleAuctionCommand } = require("./commands/auction");
+const { handleModLogsCommand } = require("./commands/modlogs");
+const { generateAiReply } = require("./commands/aiReply");
+const { handleImageGeneration } = require("./commands/imageGen.js");
+const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday");
+const fs = require("fs");
+const path = require("path");
+
+const {
+  Client,
+  GatewayIntentBits,
+  PermissionsBitField,
+  EmbedBuilder,
 } = require("discord.js");
 
-const BIRTHDAY_ROLE_ID = "1512121400624812072";
-// Your allowed channels whitelist preserved
-const ALLOWED_CHANNELS = ["1481370051264254259", "1481370050597228656", "1499888577738309633"];
+const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json");
 
-let processedToday = new Set();
-let lastKey = null;
+const DEFAULT_PREFIX = process.env.DEFAULT_PREFIX || "?";
+const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || "1492845794192134245";
+const BYPASS_ROLE_IDS = (
+  process.env.BYPASS_ROLE_IDS || ""
+)
+  .split(",")
+  .map(id => id.trim())
+  .filter(Boolean);
 
-async function handleBirthdayCommand(message, args, prefix, getGuildData, saveData) {
-  // Channel Whitelist Check
-  if (!ALLOWED_CHANNELS.includes(message.channel.id)) {
-    return message.reply("❌ This command can only be used in designated bot channels.").then(m => {
-      setTimeout(() => {
-        m.delete().catch(() => null);
-        message.delete().catch(() => null);
-      }, 5000);
-    });
+const STAFF_ROLE_ID = "1481370041420087474";
+const MOD_ROLE_ID = "1481370041432932379";
+const MAIN_ADMIN_ROLE_ID = "1481370041441189959";
+
+const BLOCKED_LINKS = [
+  "onlyfans.com",
+  "pornhub.com",
+  "xvideos.com",
+  "xnxx.com",
+  "xhamster.com",
+  "redtube.com"
+];
+
+const CORE_BLACKLIST = [
+  "ass", "nigga", "nigger", "nga", "idiot", "retard", "bitchass", "dumbass",
+  "faggot", "fagot", "porn", "sex", "pussy", "boobs", "penis", "dick",
+  "idgaf", "motherfuck", "motherfucker", "mf", "asshole", "cunt", "possay",
+  "sexcam", "bubs"
+];
+
+const PROTECTED_BLACKLIST = [
+  "nigga", "nigger", "nga", "retard", "faggot", "fagot", "tard",
+];
+
+let client;
+
+function loadData() {
+  try {
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+  } catch {
+    return {};
   }
-
-  const data = getGuildData(message.guild.id);
-  const sub = args[0]?.toLowerCase();
-
-  if (sub === "set") {
-    // Smart Parser: Extracts any 2 numbers from the arguments (e.g., "12 25", "12/25", "12-25")
-    const matches = args.slice(1).join(" ").match(/\d+/g);
-    if (!matches || matches.length < 2) {
-      return message.reply(`❌ Use: \`${prefix}bday set MM DD\` (e.g., \`${prefix}bday set 12 25\`)`);
-    }
-
-    const m = Number(matches[0]);
-    const d = Number(matches[1]);
-
-    if (m < 1 || m > 12 || d < 1 || d > 31) {
-      return message.reply(`❌ Invalid Date! Use: \`${prefix}bday set MM DD\` (Month 1-12, Day 1-31)`);
-    }
-
-    const existing = data.birthdays[message.author.id];
-    if (existing?.lastUpdated && Date.now() - existing.lastUpdated < 30 * 24 * 60 * 60 * 1000) {
-      const days = Math.ceil((30 * 24 * 60 * 60 * 1000 - (Date.now() - existing.lastUpdated)) / 86400000);
-      return message.reply(`❌ Cooldown active! Please wait **${days}** more day(s).`);
-    }
-
-    data.birthdays[message.author.id] = { day: d, month: m, lastUpdated: Date.now() };
-    saveData();
-    return message.reply(`✅ Birthday set to **${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}**!`);
-  }
-
-  // Interactive Pagination Embed System
-  if (sub === "closest" || sub === "list") {
-    const bdays = Object.entries(data.birthdays || {});
-    if (!bdays.length) return message.reply("❌ No birthdays registered yet.");
-
-    const now = new Date();
-    const todayMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    let birthdayList = [];
-
-    for (const [uid, b] of bdays) {
-      let tgt = new Date(Date.UTC(now.getUTCFullYear(), b.month - 1, b.day));
-      
-      // If the birthday already happened earlier this year, look at next year's date
-      if (tgt < todayMidnight) {
-        tgt.setUTCFullYear(now.getUTCFullYear() + 1);
-      }
-      
-      const diffTime = tgt.getTime() - todayMidnight.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      birthdayList.push({ uid, day: b.day, month: b.month, diffDays });
-    }
-
-    // Sort closest to furthest away
-    birthdayList.sort((a, b) => a.diffDays - b.diffDays);
-
-    const itemsPerPage = 10; // Max 10 per page
-    const totalPages = Math.ceil(birthdayList.length / itemsPerPage);
-    let currentPage = 0;
-
-    // Helper to generate the current page's embed layout
-    const generateEmbed = (page) => {
-      const start = page * itemsPerPage;
-      const end = start + itemsPerPage;
-      const pageItems = birthdayList.slice(start, end);
-
-      const embed = new EmbedBuilder()
-        .setTitle("🎂 Upcoming Server Birthdays")
-        .setColor(0x5865f2)
-        .setFooter({ text: `Page ${page + 1} of ${totalPages} • Total Registered Users: ${birthdayList.length}` })
-        .setTimestamp();
-
-      let description = "";
-      pageItems.forEach((user, index) => {
-        const globalIndex = start + index + 1;
-        const padDay = String(user.day).padStart(2, '0');
-        const padMonth = String(user.month).padStart(2, '0');
-        const countdown = user.diffDays === 0 ? "🎉 **TODAY!**" : `In **${user.diffDays}** days`;
-        
-        description += `**${globalIndex}.** <@${user.uid}> • **${padMonth}/${padDay}** (${countdown})\n`;
-      });
-
-      // Appends the setup instruction command cleanly right below the user list
-      description += `\n🔹 *Use \`${prefix}bday set MM DD\` to add your birthday!*`;
-
-      embed.setDescription(description);
-      return embed;
-    };
-
-    // Helper to generate interactive button row
-    const generateButtons = (page) => {
-      return new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("prev_page")
-          .setLabel("⬅️ Prev")
-          .setStyle(ButtonStyle.Primary) // Fixed style property casing reference
-          .setDisabled(page === 0),
-        new ButtonBuilder()
-          .setCustomId("next_page")
-          .setLabel("Next ➡️")
-          .setStyle(ButtonStyle.Primary) // Fixed style property casing reference
-          .setDisabled(page === totalPages - 1)
-      );
-    };
-
-    // Send initial response
-    const embedMessage = await message.reply({
-      embeds: [generateEmbed(currentPage)],
-      components: totalPages > 1 ? [generateButtons(currentPage)] : []
-    });
-
-    // If pagination buttons are required, listen for interactions
-    if (totalPages > 1) {
-      const collector = embedMessage.createMessageComponentCollector({
-        filter: (i) => i.user.id === message.author.id, // Only responds to the command executor
-        time: 90000 // 1.5-minute timeout window
-      });
-
-      collector.on("collect", async (interaction) => {
-        if (interaction.customId === "prev_page") {
-          currentPage--;
-        } else if (interaction.customId === "next_page") {
-          currentPage++;
-        }
-        
-        await interaction.update({
-          embeds: [generateEmbed(currentPage)],
-          components: [generateButtons(currentPage)]
-        });
-      });
-
-      collector.on("end", () => {
-        // Gracefully grey-out buttons when interactive session expires
-        const disabledRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("prev_page").setLabel("⬅️ Prev").setStyle(ButtonStyle.Primary).setDisabled(true),
-          new ButtonBuilder().setCustomId("next_page").setLabel("Next ➡️").setStyle(ButtonStyle.Primary).setDisabled(true)
-        );
-        embedMessage.edit({ components: [disabledRow] }).catch(() => null);
-      });
-    }
-    return;
-  }
-
-  // Sanitized fallback: validates that extracted target matching group matches standard ID length structures
-  const cleanId = args[0]?.replace(/[<@!>]/g, "");
-  const targetId = message.mentions.users.first()?.id || (/^\d{17,20}$/.test(cleanId) ? cleanId : message.author.id);
-  
-  const bday = data.birthdays?.[targetId];
-  if (!bday) {
-    return message.reply(targetId === message.author.id ? `❌ You haven't set your birthday yet! Use \`${prefix}bday set MM DD\`` : "❌ No birthday found for this user.");
-  }
-  return message.reply(`🎂 ${targetId === message.author.id ? "Your" : `<@${targetId}>'s`} birthday is **${String(bday.month).padStart(2, '0')}/${String(bday.day).padStart(2, '0')}**.`);
 }
 
-async function checkBirthdays(client, getGuildData, saveData) {
-  try {
-    const now = new Date();
-    const day = now.getUTCDate();
-    const month = now.getUTCMonth() + 1;
-    const key = `${day}-${month}`;
-    
-    if (lastKey !== key) {
-      lastKey = key;
-      processedToday.clear();
+let store = loadData();
+
+function saveData() {
+  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
+}
+
+function getGuildData(guildId) {
+  store = loadData();
+  
+  if (!store[guildId]) {
+    store[guildId] = {
+      prefix: DEFAULT_PREFIX,
+      words: [],
+      blockedLinks: [],
+      customCommands: {},
+      warnings: {},
+      cooldowns: {}, 
+      modStats: {},
+      birthdays: {},
+      purchaseLinks: {
+        classes: [],
+        ads6h: [],
+        ads24h: [],
+        extras: []
+      }
+    };
+    saveData();
+  }
+
+  if (!Array.isArray(store[guildId].words)) store[guildId].words = [];
+  if (!Array.isArray(store[guildId].blockedLinks)) store[guildId].blockedLinks = [];
+  
+  if (!store[guildId].customCommands || typeof store[guildId].customCommands !== "object") store[guildId].customCommands = {};
+  if (!store[guildId].warnings || typeof store[guildId].warnings !== "object") store[guildId].warnings = {};
+  if (!store[guildId].cooldowns || typeof store[guildId].cooldowns !== "object") store[guildId].cooldowns = {};
+  if (!store[guildId].modStats || typeof store[guildId].modStats !== "object") store[guildId].modStats = {};
+  if (!store[guildId].birthdays || typeof store[guildId].birthdays !== "object") store[guildId].birthdays = {};
+  if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
+
+  if (!store[guildId].purchaseLinks || typeof store[guildId].purchaseLinks !== "object") {
+    store[guildId].purchaseLinks = { classes: [], ads6h: [], ads24h: [], extras: [] };
+  }
+
+  for (const key of ["classes", "ads6h", "ads24h", "extras"]) {
+    if (!Array.isArray(store[guildId].purchaseLinks[key])) {
+      store[guildId].purchaseLinks[key] = [];
     }
+  }
+
+  return store[guildId];
+}
+
+async function deleteAfter(msg, ms = 5000) {
+  if (!msg) return;
+  setTimeout(() => msg.delete().catch(() => null), ms);
+}
+
+function canManageGuild(message) {
+  if (!message.member) return false;
+  return (
+    message.member.permissions.has(PermissionsBitField.Flags.Administrator) ||
+    message.member.permissions.has(PermissionsBitField.Flags.ManageChannels) ||
+    message.member.roles.cache.has(MAIN_ADMIN_ROLE_ID) ||
+    message.member.roles.cache.has(STAFF_ROLE_ID) ||
+    message.member.roles.cache.has(MOD_ROLE_ID)
+  );
+}
+
+function canBanUsers(message) {
+  if (!message.member) return false;
+  return (
+    message.member.permissions.has(PermissionsBitField.Flags.Administrator) ||
+    message.member.roles.cache.has(MAIN_ADMIN_ROLE_ID)
+  );
+}
+
+function isStaffMember(member) {
+  return (
+    member.roles.cache.has(STAFF_ROLE_ID) ||
+    member.roles.cache.has(MOD_ROLE_ID) ||
+    member.roles.cache.has(MAIN_ADMIN_ROLE_ID) ||
+    member.permissions.has(PermissionsBitField.Flags.Administrator)
+  );
+}
+
+function hasBypassRole(message) {
+  return message.member?.roles?.cache?.some(role =>
+    BYPASS_ROLE_IDS.includes(role.id)
+  );
+}
+
+async function findTargetMember(message, args) {
+  const mention = message.mentions.members.first();
+  if (mention) return mention;
+
+  const input = args[0];
+  if (!input) return null;
+
+  const clean = input.replace(/^@/, "");
+  const byId = await message.guild.members.fetch(clean).catch(() => null);
+  if (byId) return byId;
+
+  const search = clean.toLowerCase();
+  let found = message.guild.members.cache.find(
+    m => m.user.username.toLowerCase() === search || m.displayName.toLowerCase() === search || m.user.tag.toLowerCase() === search
+  );
+  if (found) return found;
+
+  found = message.guild.members.cache.find(
+    m => m.user.username.toLowerCase().includes(search) || m.displayName.toLowerCase().includes(search)
+  );
+  return found || null;
+}
+
+function parseDuration(input) {
+  if (!input) return null;
+  const match = String(input).toLowerCase().match(/^(\d+)(s|sec|m|min|h|hr|d|day)$/);
+  if (!match) return null;
+  const amount = parseInt(match[1], 10);
+  const unit = match[2];
+
+  if (unit === "s" || unit === "sec") return amount * 1000;
+  if (unit === "m" || unit === "min") return amount * 60 * 1000;
+  if (unit === "h" || unit === "hr") return amount * 60 * 60 * 1000;
+  if (unit === "d" || unit === "day") return amount * 24 * 60 * 60 * 1000;
+  return null;
+}
+
+function escapeRegex(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function containsBlacklistedWord(content, words) {
+  const text = content.toLowerCase();
+  for (const word of words) {
+    const clean = String(word).toLowerCase().trim();
+    if (!clean) continue;
+    const letters = clean.split("").map(escapeRegex).join("[\\s._-]*");
+    const regex = new RegExp(`(^|[^a-z0-9])${letters}([^a-z0-9]|$)`, "i");
+    if (regex.test(text)) return word;
+  }
+  const link = BLOCKED_LINKS.find(l => text.includes(l));
+  if (link) return link;
+  return null;
+}
+
+async function sendAutomodLog(message, word) {
+  const log = await message.guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+  if (!log || !log.isTextBased()) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle("🚫 Blacklisted Message Deleted")
+    .setColor(0xef4444)
+    .addFields(
+      { name: "User", value: `${message.author.tag}`, inline: true },
+      { name: "Channel", value: `${message.channel}`, inline: true },
+      { name: "Matched", value: `\`${word}\``, inline: true },
+      { name: "Message", value: message.content.slice(0, 1000), inline: false }
+    )
+    .setTimestamp();
+  await log.send({ embeds: [embed] }).catch(() => null);
+}
+
+async function sendModLog(embed) {
+  const log = await client.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+  if (!log || !log.isTextBased()) return;
+  await log.send({ embeds: [embed] }).catch(() => null);
+}
+
+async function handleCommands(message) {
+  const data = getGuildData(message.guild.id);
+  const prefix = data.prefix || DEFAULT_PREFIX;
+  if (!message.content.startsWith(prefix)) return false;
+
+  const args = message.content.slice(prefix.length).trim().split(/\s+/);
+  const command = (args.shift() || "").toLowerCase();
+  if (!command) return true;
+
+  if (data.customCommands?.[command]) {
+    const custom = data.customCommands[command];
+    if (typeof custom === "object" && custom.ai === true) {
+      let aiReply = null;
+      try {
+        aiReply = await generateAiReply(message, message.content);
+      } catch (err) {
+        console.error("AI unavailable:", err.code || err.message);
+        return true;
+      }
+      if (!aiReply) return message.reply("AI unavailable rn.");
+      return message.channel.send({ content: aiReply, allowedMentions: { parse: [] } });
+    }
+
+    const response = typeof custom === "string" ? custom : custom.response || "No response set.";
+    const allowPings = typeof custom === "object" && custom.allowPings === true;
+    if (allowPings) {
+      return message.reply({ content: response, allowedMentions: { repliedUser: true } });
+    }
+    return message.channel.send({ content: response, allowedMentions: { parse: [] } });
+  }
+
+  if (command === "image") return handleImageGeneration(message, args, prefix);
+  if (command === "birthday" || command === "bday") return handleBirthdayCommand(message, args, prefix, getGuildData, saveData);
+  if (command === "timer") return handleTimerCommand(message, args);
+  if (command === "slowmode") return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
+  if (command === "purchase") return handleBuyCommand(message, args, prefix, canManageGuild);
+  if (command === "afk") return handleAfkCommand(message, args, prefix);
+  if (command === "auction") return handleAuctionCommand(message, args, prefix);
+  if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
+  if (command === "modlogs") return handleModLogsCommand(message, args, prefix, getGuildData);
+
+  if (command === "ping") {
+    const msg = await message.reply("🏓 Pinging...").catch(() => null);
+    if (!msg) return true;
+    const latency = msg.createdTimestamp - message.createdTimestamp;
+    const api = Math.round(client.ws.ping);
+    return msg.edit(`🏓 Pong!\n📨 Message: \`${latency}ms\`\n🌐 API: \`${api}ms\``).catch(() => null);
+  }
+
+  if (command === "prefix") return message.reply(`Current prefix: \`${prefix}\``);
+
+  if (command === "setprefix") {
+    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can change prefix.");
+    const newPrefix = args[0];
+    if (!newPrefix || newPrefix.length > 3) return message.reply(`Usage: \`${prefix}setprefix ?\``);
+    data.prefix = newPrefix;
+    saveData();
+    return message.reply(`✅ Prefix updated to \`${newPrefix}\``);
+  }
+
+  if (command === "warn") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}warn @user reason\``);
+
+    const reason = args.slice(1).join(" ") || "No reason";
+    const warnId = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    if (!data.warnings[member.id]) data.warnings[member.id] = [];
+    data.warnings[member.id].push({ id: warnId, reason, mod: message.author.id, date: new Date().toISOString() });
+
+    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+    data.modStats[message.author.id].warns++;
+    saveData();
+
+    const embed = new EmbedBuilder()
+      .setTitle("⚠️ User Warned")
+      .setColor(0xf59e0b)
+      .addFields(
+        { name: "User", value: `${member.user.tag}`, inline: true },
+        { name: "Moderator", value: `${message.author.tag}`, inline: true },
+        { name: "Reason", value: reason, inline: false },
+        { name: "Warn ID", value: `\`${warnId}\``, inline: true }
+      )
+      .setTimestamp();
+    await sendModLog(embed);
+    await member.send({ embeds: [embed] }).catch(() => null);
+    return message.reply(`✅ Warned ${member.user.tag}\nWarn ID: \`${warnId}\``);
+  }
+
+  if (command === "warnings") {
+    const member = (await findTargetMember(message, args)) || message.member;
+    const warnings = data.warnings[member.id] || [];
+
+    if (!warnings.length) {
+      return message.reply(`${member.user.tag} has no warnings.`);
+    }
+
+    const page = Math.max(1, parseInt(args[args.length - 1]) || 1);
+    const perPage = 5;
+    const totalPages = Math.ceil(warnings.length / perPage);
+    const start = (page - 1) * perPage;
+    const current = warnings.slice(start, start + perPage);
+
+    const description = current
+      .map((w, i) => {
+        const date = new Date(w.date).toLocaleDateString();
+        const moderator = message.guild.members.cache.get(w.mod)?.user || null;
+
+        return (
+          `**#${start + i + 1}**\n` +
+          `🆔 \`${w.id}\`\n` +
+          `👮 ${moderator ? moderator.tag : "Unknown"}\n` +
+          `📅 ${date}\n` +
+          `📝 ${w.reason}`
+        );
+      })
+      .join("\n\n");
+
+    const embed = new EmbedBuilder()
+      .setTitle(`⚠️ Warnings • ${member.user.tag}`)
+      .setColor(0xf59e0b)
+      .setDescription(description)
+      .setFooter({ text: `Page ${page}/${totalPages} • ${warnings.length} total warnings` });
+
+    return message.reply({ embeds: [embed] });
+  }
+
+  if (command === "unwarn") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    const member = await findTargetMember(message, args);
+    const warnId = args[1];
+    if (!member || !warnId) return message.reply(`Usage: \`${prefix}unwarn @user warnId\``);
+    const warnings = data.warnings[member.id] || [];
+    const before = warnings.length;
+
+    data.warnings[member.id] = warnings.filter(w => w.id !== warnId);
+    saveData();
+    if (before === data.warnings[member.id].length) return message.reply("Warn ID not found.");
+    return message.reply(`✅ Removed warning \`${warnId}\``);
+  }
+
+  if (command === "setnick") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames)) return message.reply("❌ I need Manage Nicknames permission.");
+
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}setnick @user new nickname\``);
+    const newNick = args.slice(1).join(" ").trim();
+    if (!newNick) return message.reply(`Usage: \`${prefix}setnick @user new nickname\``);
+    if (newNick.length > 32) return message.reply("❌ Nickname max length is 32 characters.");
+
+    try {
+      await member.setNickname(newNick, `Changed by ${message.author.tag}`);
+      const embed = new EmbedBuilder()
+        .setTitle("✏️ Nickname Changed")
+        .setColor(0x5865f2)
+        .addFields(
+          { name: "User", value: `${member.user.tag}`, inline: true },
+          { name: "Moderator", value: `${message.author.tag}`, inline: true },
+          { name: "New Nickname", value: newNick, inline: false }
+        )
+        .setTimestamp();
+      await sendModLog(embed);
+      return message.reply(`✅ Changed nickname for ${member.user.tag} to **${newNick}**`);
+    } catch (err) {
+      return message.reply("❌ I cannot change that nickname. My role must be above the target user's highest role.");
+    }
+  }
+
+  if (command === "mute" || command === "timeout") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ModerateMembers)) return message.reply("I need Moderate Members permission.");
+
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}mute @user 1min reason\``);
+    const durationText = args[1];
+    const durationMs = parseDuration(durationText);
+
+    if (!durationMs) return message.reply("Use time like `10s`, `1min`, `1h`, `1d`.");
+    if (durationMs > 14 * 24 * 60 * 60 * 1000) return message.reply("Max mute is 14 days.");
+    const reason = args.slice(2).join(" ") || "No reason";
+
+    await member.timeout(durationMs, reason);
+    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+    data.modStats[message.author.id].mutes++;
+    saveData();
+
+    const embed = new EmbedBuilder()
+      .setTitle("🔇 User Muted")
+      .setColor(0x3b82f6)
+      .addFields(
+        { name: "User", value: `${member.user.tag}`, inline: true },
+        { name: "Duration", value: durationText, inline: true },
+        { name: "Reason", value: reason, inline: false }
+      )
+      .setTimestamp();
+    await sendModLog(embed);
+    return message.reply(`🔇 Muted ${member.user.tag} for ${durationText}`);
+  }
+
+  if (command === "unmute") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}unmute @user\``);
+    await member.timeout(null);
+    return message.reply(`🔊 Unmuted ${member.user.tag}`);
+  }
+
+  if (command === "kick") {
+    if (!args[0]) return message.reply(`Usage: \`${prefix}kick @user reason\``);
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.KickMembers)) return message.reply("❌ I need Kick Members permission.");
+
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}kick @user reason\``);
+    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.kickable) return true;
+
+    const reason = args.slice(1).join(" ") || "No reason";
+    const embed = new EmbedBuilder()
+      .setTitle("👢 User Kicked")
+      .setColor(0xef4444)
+      .addFields(
+        { name: "User", value: `${member.user.tag}`, inline: true },
+        { name: "Moderator", value: `${message.author.tag}`, inline: true },
+        { name: "Reason", value: reason, inline: false }
+      )
+      .setTimestamp();
+
+    await member.send({ embeds: [embed] }).catch(() => null);
+    await member.kick(reason);
+
+    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+    data.modStats[message.author.id].kicks++;
+    saveData();
+    await sendModLog(embed);
+    return message.reply(`👢 Kicked ${member.user.tag}`);
+  }
+
+  if (command === "ban") {
+    if (!args[0]) return message.reply(`Usage: \`${prefix}ban @user reason\``);
+    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can ban.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) return message.reply("❌ I need Ban Members permission.");
+
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}ban @user reason\``);
+    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.bannable) return true;
+
+    const reason = args.slice(1).join(" ") || "No reason";
+    const embed = new EmbedBuilder()
+      .setTitle("🔨 User Banned")
+      .setColor(0xef4444)
+      .addFields(
+        { name: "User", value: `${member.user.tag}`, inline: true },
+        { name: "Moderator", value: `${message.author.tag}`, inline: true },
+        { name: "Reason", value: reason, inline: false }
+      )
+      .setTimestamp();
+
+    await member.send({ embeds: [embed] }).catch(() => null);
+    await member.ban({ reason });
+
+    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+    data.modStats[message.author.id].bans++;
+    saveData();
+    await sendModLog(embed);
+    return message.reply(`🔨 Banned ${member.user.tag}`);
+  }
+
+  if (command === "unban") {
+    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can unban.");
+    const userId = args[0];
+    if (!userId) return message.reply(`Usage: \`${prefix}unban userId reason\``);
+    const reason = args.slice(1).join(" ") || "No reason";
+    await message.guild.members.unban(userId, reason).catch(() => null);
+    return message.reply(`✅ Unbanned \`${userId}\``);
+  }
+
+  if (command === "purge") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) return message.reply("I need Manage Messages permission.");
+
+    const amount = parseInt(args[0], 10);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100) return message.reply(`Usage: \`${prefix}purge 1\``);
+
+    const deleted = await message.channel.bulkDelete(amount, true).catch(() => null);
+    if (!deleted) return message.reply("Could not purge messages.");
+    const msg = await message.channel.send(`✅ Purged ${deleted.size} messages.`);
+    await deleteAfter(msg);
+    await deleteAfter(message);
+    return true;
+  }
+
+  if (command === "purgeuser") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) return message.reply("❌ I need Manage Messages permission.");
+
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}purgeuser @user amount\``);
+
+    const amount = parseInt(args[1], 10);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100) return message.reply("❌ Amount must be between 1 and 100.");
+
+    const fetched = await message.channel.messages.fetch({ limit: 100 });
+    const userMessages = fetched.filter(m => m.author.id === member.id).first(amount);
+
+    if (!userMessages.length) return message.reply("❌ No messages from that user found in the last 100 messages.");
+
+    await message.channel.bulkDelete(userMessages, true).catch(() => null);
+    const reply = await message.channel.send(`🧹 Deleted ${userMessages.length} messages from ${member.user.tag}`);
+    deleteAfter(reply, 5000);
+    deleteAfter(message, 5000);
+    return true;
+  }
+
+  if (command === "role") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) return message.reply("I need Manage Roles permission.");
+
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}role @user role\``);
+
+    const roleInput = args.slice(1).join(" ").trim();
+    if (!roleInput) return message.reply(`Usage: \`${prefix}role @user role\``);
+    const role = message.mentions.roles.first() || message.guild.roles.cache.get(roleInput.replace(/[<@&>]/g, "")) || message.guild.roles.cache.find(r => r.name.toLowerCase() === roleInput.toLowerCase());
+
+    if (!role) return message.reply("Role not found.");
+    if (role.managed) return message.reply("I cannot manage that role.");
+    if (role.position >= message.guild.members.me.roles.highest.position) return message.reply("❌ That role is higher than or equal to my highest role.");
+    if (role.position >= message.member.roles.highest.position) return message.reply("❌ You cannot give/remove a role equal or higher than your highest role.");
+
+    if (member.roles.cache.has(role.id)) {
+      await member.roles.remove(role);
+      return message.reply(`✅ Removed **${role.name}** from ${member.user.tag}`);
+    }
+    await member.roles.add(role);
+    return message.reply(`✅ Added **${role.name}** to ${member.user.tag}`);
+  }
+
+  if (command === "bl" || command === "blacklist") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    const word = args.join(" ").trim().toLowerCase();
+    if (!word) return message.reply(`Usage: \`${prefix}bl word\``);
+    if (CORE_BLACKLIST.includes(word) || data.words.includes(word)) {
+      const reply = await message.reply(`⚠️ \`${word}\` is already blacklisted.`);
+      await deleteAfter(reply);
+      await deleteAfter(message);
+      return true;
+    }
+
+    data.words.push(word);
+    saveData();
+    const reply = await message.reply({
+      embeds: [new EmbedBuilder().setTitle("🚫 Word Blacklisted").setColor(0xef4444).setDescription(`Added \`${word}\` to the blacklist.`).setFooter({ text: "AutoMod updated" }).setTimestamp()]
+    }).catch(() => null);
+    await deleteAfter(reply);
+    await deleteAfter(message);
+    return true;
+  }
+
+  if (command === "unbl" || command === "unblacklist") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    const word = args.join(" ").trim().toLowerCase();
+    if (!word) return message.reply(`Usage: \`${prefix}unbl word\``);
+    if (CORE_BLACKLIST.includes(word)) {
+      const reply = await message.reply(`❌ \`${word}\` is protected and cannot be removed.`);
+      await deleteAfter(reply);
+      await deleteAfter(message);
+      return true;
+    }
+
+    const before = data.words.length;
+    data.words = data.words.filter(w => w !== word);
+    saveData();
+
+    if (before === data.words.length) {
+      const reply = await message.reply(`⚠️ \`${word}\` was not found in blacklist.`);
+      await deleteAfter(reply);
+      await deleteAfter(message);
+      return true;
+    }
+
+    const reply = await message.reply({
+      embeds: [new EmbedBuilder().setTitle("✅ Word Removed").setColor(0x22c55e).setDescription(`Removed \`${word}\` from the blacklist.`).setFooter({ text: "AutoMod updated" }).setTimestamp()]
+    }).catch(() => null);
+    await deleteAfter(reply);
+    await deleteAfter(message);
+    return true;
+  }
+
+  if (command === "words") {
+    const allWords = [...new Set([...CORE_BLACKLIST, ...data.words])];
+    return message.reply({
+      embeds: [new EmbedBuilder().setTitle("🚫 Blacklisted Words").setColor(0x5865f2).setDescription(allWords.map(w => `\`${w}\``).join(", ").slice(0, 4000)).setFooter({ text: `${allWords.length} word(s) blocked` })]
+    });
+  }
+
+  if (command === "modstats") {
+    const member = (await findTargetMember(message, args)) || message.member;
+    const stats = data.modStats[member.id] || { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+
+    const embed = new EmbedBuilder()
+      .setTitle(`📊 Mod Stats • ${member.user.tag}`)
+      .setColor(0x5865f2)
+      .addFields(
+        { name: "⚠️ Warns", value: String(stats.warns || 0), inline: true },
+        { name: "🔇 Mutes", value: String(stats.mutes || 0), inline: true },
+        { name: "👢 Kicks", value: String(stats.kicks || 0), inline: true },
+        { name: "🔨 Bans", value: String(stats.bans || 0), inline: true }
+      )
+      .setTimestamp();
+    return message.reply({ embeds: [embed] });
+  }
+
+  if (command === "help") {
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle("🔥 Dashboard Bot Commands")
+      .setDescription(`Current Prefix: \`${prefix}\``)
+      .addFields(
+        {
+          name: "🛡️ Moderation & Management",
+          value: `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\` • \`${prefix}mute\` • \`${prefix}unmute\` • \`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\` • \`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\` • \`${prefix}setprefix\` • \`${prefix}setnick\` • \`${prefix}role\``,
+          inline: false
+        },
+        {
+          name: "🚫 AutoMod",
+          value: `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``,
+          inline: false
+        },
+        {
+          name: "🏆 Auction & Channels",
+          value: `\`${prefix}auction\` • \`${prefix}bid\` • \`${prefix}slowmode\``,
+          inline: false
+        },
+        {
+          name: "💤 Utility & Systems",
+          value: `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • \`${prefix}image\` • \`${prefix}purchase\`\n🎂 \`${prefix}bday [set/me/closest/@user]\``,
+          inline: false
+        }
+      )
+      .setFooter({ text: "🔥 Don Bot" })
+      .setTimestamp();
+
+    if (data.customCommands && Object.keys(data.customCommands).length) {
+      embed.addFields({
+        name: "💬 Custom Commands",
+        value: Object.keys(data.customCommands).map(cmd => `\`${prefix}${cmd}\``).join(" • ").slice(0, 1000),
+        inline: false
+      });
+    }
+    return message.reply({ embeds: [embed] });
+  }
+
+  // Fallback handler if no manual conditions match inside prefix checks
+  const messages = await message.channel.messages.fetch({ limit: 30 });
+  const history = [...messages.values()]
+    .reverse()
+    .filter(m => !m.author.bot)
+    .map(m => ({ author: m.author.username, content: m.content }));
+  const aiReply = await generateAiReply(message, message.content, history);
+  if (aiReply) {
+    return message.reply({ content: aiReply, allowedMentions: { parse: [], repliedUser: false } });
+  }
+  return true;
+}
+
+function startBot() {
+  client = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.MessageContent
+    ]
+  });
+
+  client.once("ready", async () => {
+    console.log(`Ready as ${client.user.tag}`);
+    initTimers(client);
 
     for (const guild of client.guilds.cache.values()) {
-      const guildData = getGuildData(guild.id);
-      const birthdays = guildData?.birthdays;
-      if (!birthdays) continue;
-      const role = guild.roles.cache.get(BIRTHDAY_ROLE_ID);
-      if (!role) continue;
+      const me = guild.members.me;
+      if (!me?.permissions.has(PermissionsBitField.Flags.ManageNicknames)) continue;
 
-      for (const [uid, b] of Object.entries(birthdays)) {
-        const idKey = `${guild.id}-${uid}`;
-        const isToday = b.day === day && b.month === month;
-        const member = await guild.members.fetch(uid).catch(() => null);
-        if (!member) continue;
+      const members = await guild.members.fetch().catch(() => null);
+      if (!members) continue;
 
-        if (isToday) {
-          if (processedToday.has(idKey)) continue;
-          if (!member.roles.cache.has(role.id)) await member.roles.add(role).catch(() => null);
-          const chan = guild.systemChannel || guild.channels.cache.find(c => c.isTextBased() && c.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.SendMessages));
-          if (chan) chan.send(`🎉 Happy Birthday <@${uid}>! Enjoy your special day 🎂`);
-          processedToday.add(idKey);
-        } else if (member.roles.cache.has(role.id)) {
-          await member.roles.remove(role).catch(() => null);
-        }
+      for (const member of members.values()) {
+        if (member.user.bot) continue;
+        if (!member.manageable) continue;
+
+        const nick = member.nickname;
+        if (!nick || !nick.startsWith("[AFK] ")) continue;
+
+        const cleanNick = nick.replace(/^\[AFK\]\s*/i, "").slice(0, 32);
+        await member.setNickname(cleanNick || null, "Bot restarted - clearing AFK nickname").catch(() => null);
       }
     }
-  } catch (err) {
-    console.error(err);
-  }
+
+    setInterval(() => {
+      checkBirthdays(client, getGuildData, saveData).catch(console.error);
+    }, 60 * 60 * 1000);
+
+    checkBirthdays(client, getGuildData, saveData).catch(console.error);
+  });
+
+  client.on("messageCreate", async (message) => {
+    try {
+      if (message.author.bot) return;
+      if (!message.guild) return;
+      if (!message.content) return;
+
+      const data = getGuildData(message.guild.id);
+      const prefix = data.prefix || DEFAULT_PREFIX;
+
+      if (message.reference && message.reference.messageId) {
+        const replied = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+        if (replied && replied.author.id === client.user.id) {
+          let aiReply = null;
+          try {
+            const messages = await message.channel.messages.fetch({ limit: 30 });
+            const history = [...messages.values()].reverse().filter(m => !m.author.bot).map(m => ({ author: m.author.username, content: m.content }));
+            aiReply = await generateAiReply(message, message.content, history);
+          } catch (err) {
+            console.error("Reply AI error:", err);
+          }
+          if (aiReply) {
+            return message.reply({ content: aiReply, allowedMentions: { parse: [], repliedUser: false } });
+          }
+        }
+      }
+
+      await handleAfkMentionsAndReturn(message, prefix);
+
+      const bypassRoleId = "1492630307650666546";
+      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
+      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
+      const containsDiscordInvite = discordInviteRegex.test(message.content);
+      const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
+
+      const isCommand = message.content.startsWith(prefix);
+      const isBypass = typeof hasBypassRole === "function" ? hasBypassRole(message) : false;
+
+      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+      if (protectedWord) {
+        await message.delete().catch(() => null);
+        await sendAutomodLog(message, protectedWord);
+        return;
+      }
+
+      if (!isCommand && !isBypass && !allowDiscordInvite) {
+        const word = containsBlacklistedWord(message.content, [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]);
+        if (word) {
+          await message.delete().catch(() => null);
+          await sendAutomodLog(message, word);
+          return;
+        }
+      }
+
+      const usedCommand = await handleCommands(message);
+
+      if (!usedCommand) {
+        const freshData = getGuildData(message.guild.id);
+        const msg = message.content.toLowerCase().trim();
+        const custom = freshData.customCommands?.[msg];
+
+        if (custom) {
+          const response = typeof custom === "string" ? custom : custom.response || "No response set.";
+          const allowPings = typeof custom === "object" && custom.allowPings === true;
+          if (allowPings) {
+            return message.reply({ content: response, allowedMentions: { repliedUser: true } });
+          }
+          return message.channel.send({ content: response, allowedMentions: { parse: [] } });
+        }
+      }
+    } catch (err) {
+      console.error("Bot error:", err);
+    }
+  });
+
+  client.login(process.env.DISCORD_TOKEN);
 }
 
-module.exports = { handleBirthdayCommand, checkBirthdays };
+function getClient() { return client; }
+
+module.exports = { startBot, getClient };
