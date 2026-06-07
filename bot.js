@@ -15,6 +15,9 @@ const {
   GatewayIntentBits,
   PermissionsBitField,
   EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
 } = require("discord.js");
 
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json");
@@ -330,34 +333,101 @@ async function handleCommands(message) {
       return message.reply(`${member.user.tag} has no warnings.`);
     }
 
-    const page = Math.max(1, parseInt(args[args.length - 1]) || 1);
     const perPage = 5;
     const totalPages = Math.ceil(warnings.length / perPage);
-    const start = (page - 1) * perPage;
-    const current = warnings.slice(start, start + perPage);
+    let currentPage = 0;
 
-    const description = current
-      .map((w, i) => {
-        const date = new Date(w.date).toLocaleDateString();
-        const moderator = message.guild.members.cache.get(w.mod)?.user || null;
+    const generateWarningEmbed = (page) => {
+      const start = page * perPage;
+      const current = warnings.slice(start, start + perPage);
 
-        return (
-          `**#${start + i + 1}**\n` +
-          `🆔 \`${w.id}\`\n` +
-          `👮 ${moderator ? moderator.tag : "Unknown"}\n` +
-          `📅 ${date}\n` +
-          `📝 ${w.reason}`
+      const description = current
+        .map((w, i) => {
+          const date = new Date(w.date).toLocaleDateString();
+          const moderator = message.guild.members.cache.get(w.mod)?.user || null;
+
+          return (
+            `**#${start + i + 1}**\n` +
+            `🆔 \`${w.id}\`\n` +
+            `👮 ${moderator ? moderator.tag : "Unknown"}\n` +
+            `📅 ${date}\n` +
+            `📝 ${w.reason}`
+          );
+        })
+        .join("\n\n");
+
+      return new EmbedBuilder()
+        .setTitle(`⚠️ Warnings • ${member.user.tag}`)
+        .setColor(0xf59e0b)
+        .setDescription(description)
+        .setFooter({ text: `Page ${page + 1}/${totalPages} • ${warnings.length} total warnings\n💡 Type a number to jump directly to that page!` });
+    };
+
+    const generateWarningButtons = (page) => {
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("prev_warn_page")
+          .setLabel("⬅️ Prev")
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(page === 0),
+        new ButtonBuilder()
+          .setCustomId("next_warn_page")
+          .setLabel("Next ➡️")
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(page === totalPages - 1)
+      );
+    };
+
+    const embedMessage = await message.reply({
+      embeds: [generateWarningEmbed(currentPage)],
+      components: totalPages > 1 ? [generateWarningButtons(currentPage)] : []
+    });
+
+    if (totalPages > 1) {
+      const buttonCollector = embedMessage.createMessageComponentCollector({
+        filter: (i) => i.user.id === message.author.id,
+        time: 90000
+      });
+
+      const textCollector = message.channel.createMessageCollector({
+        filter: (m) => m.author.id === message.author.id && /^\d+$/.test(m.content.trim()),
+        time: 90000
+      });
+
+      buttonCollector.on("collect", async (interaction) => {
+        if (interaction.customId === "prev_warn_page") {
+          currentPage--;
+        } else if (interaction.customId === "next_warn_page") {
+          currentPage++;
+        }
+        await interaction.update({
+          embeds: [generateWarningEmbed(currentPage)],
+          components: [generateWarningButtons(currentPage)]
+        });
+      });
+
+      textCollector.on("collect", async (msg) => {
+        const targetPage = parseInt(msg.content.trim(), 10);
+        if (targetPage >= 1 && targetPage <= totalPages) {
+          currentPage = targetPage - 1;
+          await embedMessage.edit({
+            embeds: [generateWarningEmbed(currentPage)],
+            components: [generateWarningButtons(currentPage)]
+          }).catch(() => null);
+          msg.delete().catch(() => null);
+        }
+      });
+
+      buttonCollector.on("end", () => {
+        textCollector.stop();
+        const disabledRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("prev_warn_page").setLabel("⬅️ Prev").setStyle(ButtonStyle.Primary).setDisabled(true),
+          new ButtonBuilder().setCustomId("next_warn_page").setLabel("Next ➡️").setStyle(ButtonStyle.Primary).setDisabled(true)
         );
-      })
-      .join("\n\n");
-
-    const embed = new EmbedBuilder()
-      .setTitle(`⚠️ Warnings • ${member.user.tag}`)
-      .setColor(0xf59e0b)
-      .setDescription(description)
-      .setFooter({ text: `Page ${page}/${totalPages} • ${warnings.length} total warnings` });
-
-    return message.reply({ embeds: [embed] });
+        embedMessage.edit({ components: [disabledRow] }).catch(() => null);
+      });
+    }
+    return true;
   }
 
   if (command === "unwarn") {
@@ -686,7 +756,6 @@ async function handleCommands(message) {
     return message.reply({ embeds: [embed] });
   }
 
-  // Fallback handler if no manual conditions match inside prefix checks
   const messages = await message.channel.messages.fetch({ limit: 30 });
   const history = [...messages.values()]
     .reverse()
