@@ -298,11 +298,7 @@ async function handleCommands(message) {
     if (!member) return message.reply(`Usage: \`${prefix}warn @user reason\``);
 
     const reason = args.slice(1).join(" ") || "No reason";
-    const warnId =
-  Math.random()
-    .toString(36)
-    .substring(2, 8)
-    .toUpperCase();
+    const warnId = Math.random().toString(36).substring(2, 8).toUpperCase();
 
     if (!data.warnings[member.id]) data.warnings[member.id] = [];
     data.warnings[member.id].push({ id: warnId, reason, mod: message.author.id, date: new Date().toISOString() });
@@ -327,69 +323,42 @@ async function handleCommands(message) {
   }
 
   if (command === "warnings") {
-  const member =
-    (await findTargetMember(message, args)) ||
-    message.member;
+    const member = (await findTargetMember(message, args)) || message.member;
+    const warnings = data.warnings[member.id] || [];
 
-  const warnings = data.warnings[member.id] || [];
+    if (!warnings.length) {
+      return message.reply(`${member.user.tag} has no warnings.`);
+    }
 
-  if (!warnings.length) {
-    return message.reply(
-      `${member.user.tag} has no warnings.`
-    );
+    const page = Math.max(1, parseInt(args[args.length - 1]) || 1);
+    const perPage = 5;
+    const totalPages = Math.ceil(warnings.length / perPage);
+    const start = (page - 1) * perPage;
+    const current = warnings.slice(start, start + perPage);
+
+    const description = current
+      .map((w, i) => {
+        const date = new Date(w.date).toLocaleDateString();
+        const moderator = message.guild.members.cache.get(w.mod)?.user || null;
+
+        return (
+          `**#${start + i + 1}**\n` +
+          `🆔 \`${w.id}\`\n` +
+          `👮 ${moderator ? moderator.tag : "Unknown"}\n` +
+          `📅 ${date}\n` +
+          `📝 ${w.reason}`
+        );
+      })
+      .join("\n\n");
+
+    const embed = new EmbedBuilder()
+      .setTitle(`⚠️ Warnings • ${member.user.tag}`)
+      .setColor(0xf59e0b)
+      .setDescription(description)
+      .setFooter({ text: `Page ${page}/${totalPages} • ${warnings.length} total warnings` });
+
+    return message.reply({ embeds: [embed] });
   }
-
-  const page = Math.max(
-    1,
-    parseInt(args[args.length - 1]) || 1
-  );
-
-  const perPage = 5;
-  const totalPages = Math.ceil(
-    warnings.length / perPage
-  );
-
-  const start = (page - 1) * perPage;
-  const current = warnings.slice(
-    start,
-    start + perPage
-  );
-
-  const description = current
-    .map((w, i) => {
-      const date = new Date(
-  w.date
-).toLocaleDateString();
-
-const moderator =
-  await client.users
-    .fetch(w.mod)
-    .catch(() => null);
-
-      return (
-  `**#${start + i + 1}**\n` +
-  `🆔 \`${w.id}\`\n` +
-  `👮 ${moderator ? moderator.tag : "Unknown"}\n` +
-  `📅 ${date}\n` +
-  `📝 ${w.reason}`
-);
-    })
-    .join("\n\n");
-
-  const embed = new EmbedBuilder()
-    .setTitle(
-      `⚠️ Warnings • ${member.user.tag}`
-    )
-    .setColor(0xf59e0b)
-    .setDescription(description)
-    .setFooter({
-      text: `Page ${page}/${totalPages} • ${warnings.length} total warnings`
-    });
-
-  return message.reply({
-    embeds: [embed]
-  });
-}
 
   if (command === "unwarn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
@@ -479,7 +448,7 @@ const moderator =
 
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}kick @user reason\``);
-    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.kickable) return;
+    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.kickable) return true;
 
     const reason = args.slice(1).join(" ") || "No reason";
     const embed = new EmbedBuilder()
@@ -509,7 +478,7 @@ const moderator =
 
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}ban @user reason\``);
-    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.bannable) return;
+    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.bannable) return true;
 
     const reason = args.slice(1).join(" ") || "No reason";
     const embed = new EmbedBuilder()
@@ -556,62 +525,27 @@ const moderator =
     return true;
   }
 
-// ================= PURGE USER =================
-if (command === "purgeuser") {
-  if (!canManageGuild(message)) {
-    return message.reply("❌ No permission.");
+  if (command === "purgeuser") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) return message.reply("❌ I need Manage Messages permission.");
+
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}purgeuser @user amount\``);
+
+    const amount = parseInt(args[1], 10);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100) return message.reply("❌ Amount must be between 1 and 100.");
+
+    const fetched = await message.channel.messages.fetch({ limit: 100 });
+    const userMessages = fetched.filter(m => m.author.id === member.id).first(amount);
+
+    if (!userMessages.length) return message.reply("❌ No messages from that user found in the last 100 messages.");
+
+    await message.channel.bulkDelete(userMessages, true).catch(() => null);
+    const reply = await message.channel.send(`🧹 Deleted ${userMessages.length} messages from ${member.user.tag}`);
+    deleteAfter(reply, 5000);
+    deleteAfter(message, 5000);
+    return true;
   }
-
-  if (
-    !message.guild.members.me.permissions.has(
-      PermissionsBitField.Flags.ManageMessages
-    )
-  ) {
-    return message.reply("❌ I need Manage Messages permission.");
-  }
-
-  const member = await findTargetMember(message, args);
-
-  if (!member) {
-    return message.reply(
-      `Usage: \`${prefix}purgeuser @user amount\``
-    );
-  }
-
-  const amount = parseInt(args[1], 10);
-
-  if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
-    return message.reply(
-      "❌ Amount must be between 1 and 100."
-    );
-  }
-
-  const fetched = await message.channel.messages.fetch({
-    limit: 100
-  });
-
-  const userMessages = fetched
-    .filter(m => m.author.id === member.id)
-    .first(amount);
-
-  if (!userMessages.length) {
-    return message.reply(
-      "❌ No messages from that user found in the last 100 messages."
-    );
-  }
-
-  await message.channel.bulkDelete(userMessages, true)
-    .catch(() => null);
-
-  const reply = await message.channel.send(
-    `🧹 Deleted ${userMessages.length} messages from ${member.user.tag}`
-  );
-
-  deleteAfter(reply, 5000);
-  deleteAfter(message, 5000);
-
-  return true;
-}
 
   if (command === "role") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
@@ -712,7 +646,6 @@ if (command === "purgeuser") {
     return message.reply({ embeds: [embed] });
   }
 
-  // ================= HELP COMMAND WITH COMPACT BDAY LAYOUT =================
   if (command === "help") {
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
@@ -753,16 +686,7 @@ if (command === "purgeuser") {
     return message.reply({ embeds: [embed] });
   }
 
-  const messages = await message.channel.messages.fetch({ limit: 30 });
-  const history = [...messages.values()]
-    .reverse()
-    .filter(m => !m.author.bot)
-    .map(m => ({ author: m.author.username, content: m.content }));
-  const aiReply = await generateAiReply(message, message.content, history);
-  if (aiReply) {
-    return message.reply({ content: aiReply, allowedMentions: { parse: [], repliedUser: false } });
-  }
-  return true;
+  return false;
 }
 
 function startBot() {
@@ -814,6 +738,7 @@ function startBot() {
       const data = getGuildData(message.guild.id);
       const prefix = data.prefix || DEFAULT_PREFIX;
 
+      // Handle Direct Bot Mention/Replies
       if (message.reference && message.reference.messageId) {
         const replied = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
         if (replied && replied.author.id === client.user.id) {
@@ -842,6 +767,7 @@ function startBot() {
       const isCommand = message.content.startsWith(prefix);
       const isBypass = typeof hasBypassRole === "function" ? hasBypassRole(message) : false;
 
+      // 1. Protected Word Filter
       const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
       if (protectedWord) {
         await message.delete().catch(() => null);
@@ -849,6 +775,7 @@ function startBot() {
         return;
       }
 
+      // 2. Core AutoMod Filter
       if (!isCommand && !isBypass && !allowDiscordInvite) {
         const word = containsBlacklistedWord(message.content, [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]);
         if (word) {
@@ -858,8 +785,10 @@ function startBot() {
         }
       }
 
+      // 3. Command & Prefix Custom Command Processor
       const usedCommand = await handleCommands(message);
 
+      // 4. Exact Phrase Custom Command System (Runs if prefix command wasn't matched)
       if (!usedCommand) {
         const freshData = getGuildData(message.guild.id);
         const msg = message.content.toLowerCase().trim();
@@ -874,14 +803,25 @@ function startBot() {
           return message.channel.send({ content: response, allowedMentions: { parse: [] } });
         }
       }
+
+      // 5. Conversational AI Chat Fallback
+      if (!usedCommand && !isCommand) {
+        let aiReply = null;
+        try {
+          const messages = await message.channel.messages.fetch({ limit: 30 });
+          const history = [...messages.values()].reverse().filter(m => !m.author.bot).map(m => ({ author: m.author.username, content: m.content }));
+          aiReply = await generateAiReply(message, message.content, history);
+        } catch (err) {
+          console.error("Chat AI error:", err);
+        }
+        if (aiReply) {
+          return message.reply({ content: aiReply, allowedMentions: { parse: [], repliedUser: false } });
+        }
+      }
     } catch (err) {
       console.error("Bot error:", err);
     }
   });
-
-  client.login(process.env.DISCORD_TOKEN);
 }
 
-function getClient() { return client; }
-
-module.exports = { startBot, getClient };
+startBot();
