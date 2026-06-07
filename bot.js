@@ -298,7 +298,11 @@ async function handleCommands(message) {
     if (!member) return message.reply(`Usage: \`${prefix}warn @user reason\``);
 
     const reason = args.slice(1).join(" ") || "No reason";
-    const warnId = Date.now().toString();
+    const warnId =
+  Math.random()
+    .toString(36)
+    .substring(2, 8)
+    .toUpperCase();
 
     if (!data.warnings[member.id]) data.warnings[member.id] = [];
     data.warnings[member.id].push({ id: warnId, reason, mod: message.author.id, date: new Date().toISOString() });
@@ -323,18 +327,69 @@ async function handleCommands(message) {
   }
 
   if (command === "warnings") {
-    const member = await findTargetMember(message, args) || message.member;
-    const warnings = data.warnings[member.id] || [];
-    if (!warnings.length) return message.reply(`${member.user.tag} has no warnings.`);
-    const list = warnings.slice(-10).map((w, i) => `${i + 1}. ID: \`${w.id}\`\nReason: ${w.reason}`).join("\n\n");
-    const ids = warnings.map(w => `\`${w.id}\``).join("\n");
+  const member =
+    (await findTargetMember(message, args)) ||
+    message.member;
 
-    const embed = new EmbedBuilder()
-      .setTitle(`Warnings for ${member.user.tag}`)
-      .setColor(0xf59e0b)
-      .setDescription(list.slice(0, 4000));
-    return message.reply({ content: ids, embeds: [embed] });
+  const warnings = data.warnings[member.id] || [];
+
+  if (!warnings.length) {
+    return message.reply(
+      `${member.user.tag} has no warnings.`
+    );
   }
+
+  const page = Math.max(
+    1,
+    parseInt(args[args.length - 1]) || 1
+  );
+
+  const perPage = 5;
+  const totalPages = Math.ceil(
+    warnings.length / perPage
+  );
+
+  const start = (page - 1) * perPage;
+  const current = warnings.slice(
+    start,
+    start + perPage
+  );
+
+  const description = current
+    .map((w, i) => {
+      const date = new Date(
+  w.date
+).toLocaleDateString();
+
+const moderator =
+  await client.users
+    .fetch(w.mod)
+    .catch(() => null);
+
+      return (
+  `**#${start + i + 1}**\n` +
+  `🆔 \`${w.id}\`\n` +
+  `👮 ${moderator ? moderator.tag : "Unknown"}\n` +
+  `📅 ${date}\n` +
+  `📝 ${w.reason}`
+);
+    })
+    .join("\n\n");
+
+  const embed = new EmbedBuilder()
+    .setTitle(
+      `⚠️ Warnings • ${member.user.tag}`
+    )
+    .setColor(0xf59e0b)
+    .setDescription(description)
+    .setFooter({
+      text: `Page ${page}/${totalPages} • ${warnings.length} total warnings`
+    });
+
+  return message.reply({
+    embeds: [embed]
+  });
+}
 
   if (command === "unwarn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
@@ -500,6 +555,63 @@ async function handleCommands(message) {
     await deleteAfter(message);
     return true;
   }
+
+// ================= PURGE USER =================
+if (command === "purgeuser") {
+  if (!canManageGuild(message)) {
+    return message.reply("❌ No permission.");
+  }
+
+  if (
+    !message.guild.members.me.permissions.has(
+      PermissionsBitField.Flags.ManageMessages
+    )
+  ) {
+    return message.reply("❌ I need Manage Messages permission.");
+  }
+
+  const member = await findTargetMember(message, args);
+
+  if (!member) {
+    return message.reply(
+      `Usage: \`${prefix}purgeuser @user amount\``
+    );
+  }
+
+  const amount = parseInt(args[1], 10);
+
+  if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
+    return message.reply(
+      "❌ Amount must be between 1 and 100."
+    );
+  }
+
+  const fetched = await message.channel.messages.fetch({
+    limit: 100
+  });
+
+  const userMessages = fetched
+    .filter(m => m.author.id === member.id)
+    .first(amount);
+
+  if (!userMessages.length) {
+    return message.reply(
+      "❌ No messages from that user found in the last 100 messages."
+    );
+  }
+
+  await message.channel.bulkDelete(userMessages, true)
+    .catch(() => null);
+
+  const reply = await message.channel.send(
+    `🧹 Deleted ${userMessages.length} messages from ${member.user.tag}`
+  );
+
+  deleteAfter(reply, 5000);
+  deleteAfter(message, 5000);
+
+  return true;
+}
 
   if (command === "role") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
