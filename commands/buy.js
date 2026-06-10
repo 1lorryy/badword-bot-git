@@ -40,95 +40,51 @@ function loadFullData() {
 function renderLinks(items) {
   if (!Array.isArray(items) || !items.length) return "Nothing added yet.";
   return items
-    .map(item => `[${item.name}](${item.url})`)
+    .map(item => `🔹 [${item.name}](${item.url})`)
     .join("\n");
 }
 
-async function deleteAfter(msg, ms = 5000) {
-  if (!msg) return;
-  setTimeout(() => msg.delete().catch(() => null), ms);
-}
-
 async function handleBuyCommand(message, args, prefix, canManageGuild, saveData) {
-  if (!canManageGuild(message)) {
-    const msg = await message.reply("❌ Staff only command.").catch(() => null);
-    await deleteAfter(msg);
-    return true;
-  }
-
-  const fullData = loadFullData();
-  if (!fullData[message.guild.id]) fullData[message.guild.id] = {};
-  
-  // Set default structure if it does not exist yet
-  if (!fullData[message.guild.id].purchaseLinks) {
-    fullData[message.guild.id].purchaseLinks = JSON.parse(JSON.stringify(DEFAULT_PURCHASE_LINKS));
-  }
-
-  const subCommand = args[0] ? args[0].toLowerCase() : null;
-
-  // ================= SUBCOMMAND: ADD LINK =================
-  if (subCommand === "add") {
-    const category = args[1] ? args[1].toLowerCase() : null; // classes, ads6h, ads24h, extras
-    const name = args[2];
-    const url = args[3];
-
-    const validCategories = ["classes", "ads6h", "ads24h", "extras"];
-    if (!category || !validCategories.includes(category) || !name || !url) {
-      return message.reply(`❌ Usage: \`${prefix}purchase add [classes/ads6h/ads24h/extras] [ItemName] [URL]\``);
-    }
-
-    // Force link schema safety
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      return message.reply("❌ Please provide a valid web URL link.");
-    }
-
-    // Push link entry to layout data
-    fullData[message.guild.id].purchaseLinks[category].push({ name, url });
-    
-    // Save locally to guild-data.json
-    fs.writeFileSync(DATA_FILE, JSON.stringify(fullData, null, 2));
-    
-    // Synchronize the memory cache state inside bot.js dynamically
-    if (typeof saveData === "function") saveData();
-
-    return message.reply(`✅ Added **${name}** to the **${category}** list successfully!`);
-  }
-
-  // ================= SUBCOMMAND: RESET LINKS =================
-  if (subCommand === "reset") {
-    fullData[message.guild.id].purchaseLinks = JSON.parse(JSON.stringify(DEFAULT_PURCHASE_LINKS));
-    
-    fs.writeFileSync(DATA_FILE, JSON.stringify(fullData, null, 2));
-    if (typeof saveData === "function") saveData();
-
-    return message.reply("🔄 Reset purchase links back to standard original values.");
-  }
-
-  // ================= DEFAULT ACTION: SHOW LINKS EMBED =================
+  // Delete user trigger invocation
   await message.delete().catch(() => null);
 
-  const links = fullData[message.guild.id].purchaseLinks;
+  const fullData = loadFullData();
+  const guildSettings = fullData[message.guild.id] || {};
+  
+  // Use custom panel link objects if configured, otherwise fallback smoothly to default presets
+  const purchaseLinks = guildSettings.purchaseLinks || DEFAULT_PURCHASE_LINKS;
+  const meta = purchaseLinks.embedSettings || {
+    title: "🛒 Purchase Links",
+    description: "Select the upgrade or add-on you want below.",
+    color: "#5865f2"
+  };
+
+  // Convert Hex string into integer for Discord Embed
+  let embedColor = 0x5865f2;
+  if (meta.color) {
+    embedColor = parseInt(meta.color.replace("#", ""), 16);
+  }
 
   const embed = new EmbedBuilder()
-    .setTitle("🛒 Purchase Links")
-    .setColor(0x5865f2)
-    .setDescription(`Select the upgrade or add-on you want below.\n*Staff Tip: Use \`${prefix}purchase add\` to append items.*`)
+    .setTitle(meta.title)
+    .setDescription(meta.description)
+    .setColor(embedColor)
     .addFields(
       {
         name: "✈️ Classes",
-        value: renderLinks(links.classes)
+        value: renderLinks(purchaseLinks.classes || DEFAULT_PURCHASE_LINKS.classes)
       },
       {
         name: "⏱️ 10M–6H Ads",
-        value: renderLinks(links.ads6h)
+        value: renderLinks(purchaseLinks.ads6h || DEFAULT_PURCHASE_LINKS.ads6h)
       },
       {
         name: "🕒 6H–24H Ads",
-        value: renderLinks(links.ads24h)
+        value: renderLinks(purchaseLinks.ads24h || DEFAULT_PURCHASE_LINKS.ads24h)
       },
       {
         name: "➕ Extras",
-        value: renderLinks(links.extras)
+        value: renderLinks(purchaseLinks.extras || DEFAULT_PURCHASE_LINKS.extras)
       }
     )
     .setFooter({ text: "💳 Purchase your ads & upgrades above" })
