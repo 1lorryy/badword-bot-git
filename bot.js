@@ -394,7 +394,7 @@ async function handleCommands(message) {
     return msg.edit(`🏓 Pong!\n📨 Message: \`${latency}ms\`\n🌐 API: \`${api}ms\``).catch(() => null);
   }
 
-  // ================= PREFIX =================
+ // ================= PREFIX =================
   if (command === "prefix") {
     return message.reply(`Current prefix: \`${prefix}\``);
   }
@@ -424,6 +424,7 @@ async function handleCommands(message) {
     const reason = args.slice(1).join(" ") || "No reason";
     const warnId = Date.now().toString();
 
+    // 1. Save data for the bot's custom paginated embed system
     if (!data.warnings[member.id]) data.warnings[member.id] = [];
     data.warnings[member.id].push({
       id: warnId,
@@ -431,6 +432,18 @@ async function handleCommands(message) {
       mod: message.author.id,
       date: new Date().toISOString()
     });
+
+    // 2. Save data for your Web Dashboard panel to read instantly
+    if (!data.modLogs) data.modLogs = [];
+    data.modLogs.unshift({
+      type: "WARN",
+      modId: message.author.id,
+      userId: member.id,
+      reason: reason,
+      date: new Date().toISOString()
+    });
+
+    // 3. Increment moderator stats counter
     if (!data.modStats[message.author.id]) {
       data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
     }
@@ -521,7 +534,7 @@ async function handleCommands(message) {
     }
     return true;
   }
-
+  
   // ================= UNWARN =================
   if (command === "unwarn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
