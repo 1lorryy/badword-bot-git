@@ -29,7 +29,7 @@ const DEFAULT_PURCHASE_LINKS = {
   ]
 };
 
-function loadData() {
+function loadFullData() {
   try {
     return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
@@ -37,16 +37,8 @@ function loadData() {
   }
 }
 
-function getPurchaseLinks(guildId) {
-  const data = loadData();
-  const cfg = data[guildId] || {};
-
-  return cfg.purchaseLinks || DEFAULT_PURCHASE_LINKS;
-}
-
 function renderLinks(items) {
   if (!Array.isArray(items) || !items.length) return "Nothing added yet.";
-
   return items
     .map(item => `[${item.name}](${item.url})`)
     .join("\n");
@@ -57,24 +49,73 @@ async function deleteAfter(msg, ms = 5000) {
   setTimeout(() => msg.delete().catch(() => null), ms);
 }
 
-async function handleBuyCommand(message, args, prefix, canManageGuild) {
+async function handleBuyCommand(message, args, prefix, canManageGuild, saveData) {
   if (!canManageGuild(message)) {
     const msg = await message.reply("❌ Staff only command.").catch(() => null);
     await deleteAfter(msg);
     return true;
   }
 
+  const fullData = loadFullData();
+  if (!fullData[message.guild.id]) fullData[message.guild.id] = {};
+  
+  // Set default structure if it does not exist yet
+  if (!fullData[message.guild.id].purchaseLinks) {
+    fullData[message.guild.id].purchaseLinks = JSON.parse(JSON.stringify(DEFAULT_PURCHASE_LINKS));
+  }
+
+  const subCommand = args[0] ? args[0].toLowerCase() : null;
+
+  // ================= SUBCOMMAND: ADD LINK =================
+  if (subCommand === "add") {
+    const category = args[1] ? args[1].toLowerCase() : null; // classes, ads6h, ads24h, extras
+    const name = args[2];
+    const url = args[3];
+
+    const validCategories = ["classes", "ads6h", "ads24h", "extras"];
+    if (!category || !validCategories.includes(category) || !name || !url) {
+      return message.reply(`❌ Usage: \`${prefix}purchase add [classes/ads6h/ads24h/extras] [ItemName] [URL]\``);
+    }
+
+    // Force link schema safety
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      return message.reply("❌ Please provide a valid web URL link.");
+    }
+
+    // Push link entry to layout data
+    fullData[message.guild.id].purchaseLinks[category].push({ name, url });
+    
+    // Save locally to guild-data.json
+    fs.writeFileSync(DATA_FILE, JSON.stringify(fullData, null, 2));
+    
+    // Synchronize the memory cache state inside bot.js dynamically
+    if (typeof saveData === "function") saveData();
+
+    return message.reply(`✅ Added **${name}** to the **${category}** list successfully!`);
+  }
+
+  // ================= SUBCOMMAND: RESET LINKS =================
+  if (subCommand === "reset") {
+    fullData[message.guild.id].purchaseLinks = JSON.parse(JSON.stringify(DEFAULT_PURCHASE_LINKS));
+    
+    fs.writeFileSync(DATA_FILE, JSON.stringify(fullData, null, 2));
+    if (typeof saveData === "function") saveData();
+
+    return message.reply("🔄 Reset purchase links back to standard original values.");
+  }
+
+  // ================= DEFAULT ACTION: SHOW LINKS EMBED =================
   await message.delete().catch(() => null);
 
-  const links = getPurchaseLinks(message.guild.id);
+  const links = fullData[message.guild.id].purchaseLinks;
 
   const embed = new EmbedBuilder()
     .setTitle("🛒 Purchase Links")
     .setColor(0x5865f2)
-    .setDescription("Select the upgrade or add-on you want below.")
+    .setDescription(`Select the upgrade or add-on you want below.\n*Staff Tip: Use \`${prefix}purchase add\` to append items.*`)
     .addFields(
       {
-        name: "✈️ Classes - coming soon!",
+        name: "✈️ Classes",
         value: renderLinks(links.classes)
       },
       {
@@ -94,7 +135,6 @@ async function handleBuyCommand(message, args, prefix, canManageGuild) {
     .setTimestamp();
 
   await message.channel.send({ embeds: [embed] }).catch(() => null);
-
   return true;
 }
 
