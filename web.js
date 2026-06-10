@@ -541,20 +541,37 @@ app.get("/dashboard/:guildId/warnings", requireLogin, requireGuildAdmin, (req, r
   }));
 });
 
-// ================= CUSTOM COMMANDS =================
+// ================= CUSTOM COMMANDS & EMBED BUILDER =================
 app.get("/dashboard/:guildId/custom", requireLogin, requireGuildAdmin, (req, res) => {
   const { guildId } = req.params;
   const cfg = getGuildData(guildId);
 
   const commands = Object.entries(cfg.customCommands)
     .map(([cmd, data]) => {
-      const response = typeof data === "string" ? data : data.response;
+      let displayContent = "";
+      
+      // Check if this command saves an embed structure or basic text string
+      if (data && typeof data === "object" && data.embeds) {
+        const emb = data.embeds[0] || {};
+        displayContent = `
+          <div style="border-left: 4px solid ${emb.color || '#5865F2'}; padding-left: 10px; margin-top: 5px; background: #2f3136; border-radius: 4px; padding: 10px;">
+            <b style="color: #fff;">[Embed Template]</b><br/>
+            ${emb.title ? `<b>Title:</b> ${escapeHtml(emb.title)}<br/>` : ""}
+            ${emb.description ? `<b>Description:</b> ${escapeHtml(emb.description)}<br/>` : ""}
+            ${emb.url ? `<b>Link URL:</b> <a href="${escapeHtml(emb.url)}" target="_blank">${escapeHtml(emb.url)}</a><br/>` : ""}
+          </div>
+        `;
+      } else {
+        const response = typeof data === "string" ? data : data.response;
+        displayContent = `<b>Response:</b> ${escapeHtml(response)}<br/>`;
+      }
+
       const allowPings = typeof data === "object" && data.allowPings;
 
       return `
         <div class="warn-box">
-          <b>Command:</b> ${escapeHtml(cmd)}<br/>
-          <b>Response:</b> ${escapeHtml(response)}<br/>
+          <b>Command:</b> ?${escapeHtml(cmd)}<br/>
+          ${displayContent}
           <b>Pings:</b> ${allowPings ? "Allowed" : "Disabled"}
         </div>
       `;
@@ -565,15 +582,53 @@ app.get("/dashboard/:guildId/custom", requireLogin, requireGuildAdmin, (req, res
     req,
     guildId,
     tab: "custom",
-    title: "Custom Commands",
+    title: "Custom Commands & Embed Builder",
     content: `
       <div class="card">
-        <h2>Current custom commands</h2>
-        ${commands || "<div>No custom commands yet.</div>"}
+        <h2>Current Custom Triggers</h2>
+        ${commands || "<div>No custom commands or embeds configured yet.</div>"}
       </div>
 
       <div class="card">
-        <h3>Add custom command</h3>
+        <h2>✨ Build an Embed Trigger</h2>
+        <p>Create a customized title card/link layout trigger (e.g., <code>?how to rate the game</code>).</p>
+        <form method="POST" action="/dashboard/${guildId}/custom/add-embed">
+          <div class="row">
+            <label style="width: 100%;">Trigger Phrase (Do not include '?')
+              <input type="text" name="command" placeholder="how to rate the game" required style="width: 100%; margin-top:5px;" />
+            </label>
+          </div>
+          <br/>
+          <div class="row">
+            <label style="width: 100%;">Embed Title
+              <input type="text" name="title" placeholder="⭐ Rate Our Game Here!" required style="width: 100%; margin-top:5px;" />
+            </label>
+          </div>
+          <br/>
+          <div class="row">
+            <label style="width: 100%;">Link URL (Clicking title redirects here)
+              <input type="url" name="url" placeholder="https://www.roblox.com/games/..." style="width: 100%; margin-top:5px;" />
+            </label>
+          </div>
+          <br/>
+          <div class="row">
+            <label style="width: 100%;">Embed Description Text
+              <textarea name="description" placeholder="Click the link above to open up our official tracking page and leave a rating!" rows="4" style="width: 100%; margin-top:5px; background: #23272a; color: #fff; border: 1px solid #23272a; padding: 10px; border-radius: 4px; font-family: inherit; resize: vertical;"></textarea>
+            </label>
+          </div>
+          <br/>
+          <div class="row">
+            <label>Embed Theme Hex Color
+              <input type="color" name="color" value="#5865F2" style="display: block; margin-top:5px; height: 40px; width: 80px; border: none; cursor: pointer;" />
+            </label>
+          </div>
+          <br/>
+          <button type="submit" style="background: #2ecc71; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Save Embed Trigger</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Plain Text Trigger (Standard Custom Command)</h3>
         <form method="POST" action="/dashboard/${guildId}/custom/add">
           <div class="row">
             <input type="text" name="command" placeholder="hi" required />
@@ -592,9 +647,9 @@ app.get("/dashboard/:guildId/custom", requireLogin, requireGuildAdmin, (req, res
       </div>
 
       <div class="card">
-        <h3>Remove custom command</h3>
+        <h3>Remove Command/Embed Trigger</h3>
         <form method="POST" action="/dashboard/${guildId}/custom/remove" class="row">
-          <input type="text" name="command" placeholder="hi" required />
+          <input type="text" name="command" placeholder="how to rate the game" required />
           <button type="submit">Remove</button>
         </form>
       </div>
@@ -602,6 +657,7 @@ app.get("/dashboard/:guildId/custom", requireLogin, requireGuildAdmin, (req, res
   }));
 });
 
+// Route for normal plain text commands
 app.post("/dashboard/:guildId/custom/add", requireLogin, requireGuildAdmin, (req, res) => {
   const command = String(req.body.command || "")
     .trim()
@@ -615,6 +671,38 @@ app.post("/dashboard/:guildId/custom/add", requireLogin, requireGuildAdmin, (req
       cfg.customCommands[command] = {
         response,
         allowPings: !!req.body.allowPings
+      };
+    });
+  }
+
+  res.redirect(`/dashboard/${req.params.guildId}/custom`);
+});
+
+// New Route for handling and saving Embed Configurations cleanly!
+app.post("/dashboard/:guildId/custom/add-embed", requireLogin, requireGuildAdmin, (req, res) => {
+  const command = String(req.body.command || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^\?+/, "");
+
+  const title = String(req.body.title || "").trim();
+  const description = String(req.body.description || "").trim();
+  const url = String(req.body.url || "").trim();
+  const color = String(req.body.color || "#5865F2");
+
+  if (command && (title || description)) {
+    updateGuildData(req.params.guildId, cfg => {
+      // Constructs standard Discord rich embed JSON structures natively parsed by message triggers
+      cfg.customCommands[command] = {
+        embeds: [
+          {
+            title: title || undefined,
+            description: description || undefined,
+            url: url || undefined,
+            color: parseInt(color.replace("#", ""), 16) // Converts HEX color into Discord decimal colors
+          }
+        ],
+        allowPings: false
       };
     });
   }
