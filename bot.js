@@ -21,9 +21,9 @@ const {
 } = require("discord.js");
 
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json");
-
 const DEFAULT_PREFIX = process.env.DEFAULT_PREFIX || "?";
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || "1492845794192134245";
+
 const BYPASS_ROLE_IDS = (
   process.env.BYPASS_ROLE_IDS || ""
 )
@@ -85,7 +85,7 @@ function getGuildData(guildId) {
       cooldowns: {}, 
       modStats: {},
       birthdays: {},
-      modLogs: [], // Preserved active log arrays
+      modLogs: [], 
       purchaseLinks: {
         classes: [],
         ads6h: [],
@@ -99,14 +99,12 @@ function getGuildData(guildId) {
   if (!Array.isArray(store[guildId].words)) store[guildId].words = [];
   if (!Array.isArray(store[guildId].blockedLinks)) store[guildId].blockedLinks = [];
   if (!Array.isArray(store[guildId].modLogs)) store[guildId].modLogs = [];
-  
   if (!store[guildId].customCommands || typeof store[guildId].customCommands !== "object") store[guildId].customCommands = {};
   if (!store[guildId].warnings || typeof store[guildId].warnings !== "object") store[guildId].warnings = {};
   if (!store[guildId].cooldowns || typeof store[guildId].cooldowns !== "object") store[guildId].cooldowns = {};
   if (!store[guildId].modStats || typeof store[guildId].modStats !== "object") store[guildId].modStats = {};
   if (!store[guildId].birthdays || typeof store[guildId].birthdays !== "object") store[guildId].birthdays = {};
   if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
-
   if (!store[guildId].purchaseLinks || typeof store[guildId].purchaseLinks !== "object") {
     store[guildId].purchaseLinks = { classes: [], ads6h: [], ads24h: [], extras: [] };
   }
@@ -169,7 +167,6 @@ async function findTargetMember(message, args) {
   const clean = input.replace(/^@/, "");
   const byId = await message.guild.members.fetch(clean).catch(() => null);
   if (byId) return byId;
-
   const search = clean.toLowerCase();
   let found = message.guild.members.cache.find(
     m => m.user.username.toLowerCase() === search || m.displayName.toLowerCase() === search || m.user.tag.toLowerCase() === search
@@ -237,7 +234,6 @@ async function sendModLog(embed) {
   await log.send({ embeds: [embed] }).catch(() => null);
 }
 
-// Helper to reliably push internal logs safely
 function logAction(data, type, modId, userId, reason = "No reason") {
   if (!data.modLogs) data.modLogs = [];
   data.modLogs.unshift({
@@ -290,12 +286,9 @@ async function handleCommands(message) {
   if (command === "auction") return handleAuctionCommand(message, args, prefix);
   if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
 
-  // Compressed Modlogs Command Section (Exactly Last 10 across 2 pages of 5)
   if (command === "modlogs") {
     const logs = data.modLogs || [];
     if (!logs.length) return message.reply("📜 Mod log data is empty.");
-
-    // Limit pool strictly to the last 10 actions total
     const recentLogs = logs.slice(0, 10);
     const perPage = 5;
     const totalPages = Math.ceil(recentLogs.length / perPage);
@@ -371,7 +364,6 @@ async function handleCommands(message) {
   }
 
   if (command === "prefix") return message.reply(`Current prefix: \`${prefix}\``);
-
   if (command === "setprefix") {
     if (!canBanUsers(message)) return message.reply("❌ Only admin+ can change prefix.");
     const newPrefix = args[0];
@@ -405,12 +397,12 @@ async function handleCommands(message) {
         { name: "Warn ID", value: `\`${warnId}\``, inline: true }
       )
       .setTimestamp();
+
     await sendModLog(embed);
     await member.send({ embeds: [embed] }).catch(() => null);
     return message.reply(`✅ Warned ${member.user.tag}\nWarn ID: \`${warnId}\``);
   }
 
-  // Compressed Warnings Section - Now displays the warner's tag explicitly
   if (command === "warnings") {
     const member = (await findTargetMember(message, args)) || message.member;
     const warnings = data.warnings[member.id] || [];
@@ -508,7 +500,6 @@ async function handleCommands(message) {
     const newNick = args.slice(1).join(" ").trim();
     if (!newNick) return message.reply(`Usage: \`${prefix}setnick @user new nickname\``);
     if (newNick.length > 32) return message.reply("❌ Nickname max length is 32 characters.");
-
     try {
       await member.setNickname(newNick, `Changed by ${message.author.tag}`);
       const embed = new EmbedBuilder()
@@ -535,7 +526,6 @@ async function handleCommands(message) {
     if (!member) return message.reply(`Usage: \`${prefix}mute @user 1min reason\``);
     const durationText = args[1];
     const durationMs = parseDuration(durationText);
-
     if (!durationMs) return message.reply("Use time like `10s`, `1min`, `1h`, `1d`.");
     if (durationMs > 14 * 24 * 60 * 60 * 1000) return message.reply("Max mute is 14 days.");
     const reason = args.slice(2).join(" ") || "No reason";
@@ -543,7 +533,6 @@ async function handleCommands(message) {
     await member.timeout(durationMs, reason);
     logAction(data, "MUTE", message.author.id, member.id, `Duration: ${durationText} - ${reason}`);
     saveData();
-
     const embed = new EmbedBuilder()
       .setTitle("🔇 User Muted")
       .setColor(0x3b82f6)
@@ -571,7 +560,6 @@ async function handleCommands(message) {
     if (!args[0]) return message.reply(`Usage: \`${prefix}kick @user reason\``);
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.KickMembers)) return message.reply("❌ I need Kick Members permission.");
-
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}kick @user reason\``);
     if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.kickable) return true;
@@ -586,7 +574,6 @@ async function handleCommands(message) {
         { name: "Reason", value: reason, inline: false }
       )
       .setTimestamp();
-
     await member.send({ embeds: [embed] }).catch(() => null);
     await member.kick(reason);
 
@@ -600,7 +587,6 @@ async function handleCommands(message) {
     if (!args[0]) return message.reply(`Usage: \`${prefix}ban @user reason\``);
     if (!canBanUsers(message)) return message.reply("❌ Only admin+ can ban.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) return message.reply("❌ I need Ban Members permission.");
-
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}ban @user reason\``);
     if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.bannable) return true;
@@ -615,7 +601,6 @@ async function handleCommands(message) {
         { name: "Reason", value: reason, inline: false }
       )
       .setTimestamp();
-
     await member.send({ embeds: [embed] }).catch(() => null);
     await member.ban({ reason });
 
@@ -642,7 +627,6 @@ async function handleCommands(message) {
 
     const amount = parseInt(args[0], 10);
     if (!Number.isInteger(amount) || amount < 1 || amount > 100) return message.reply(`Usage: \`${prefix}purge 1\``);
-
     const deleted = await message.channel.bulkDelete(amount, true).catch(() => null);
     if (!deleted) return message.reply("Could not purge messages.");
     const msg = await message.channel.send(`✅ Purged ${deleted.size} messages.`);
@@ -660,10 +644,8 @@ async function handleCommands(message) {
 
     const amount = parseInt(args[1], 10);
     if (!Number.isInteger(amount) || amount < 1 || amount > 100) return message.reply("❌ Amount must be between 1 and 100.");
-
     const fetched = await message.channel.messages.fetch({ limit: 100 });
     const userMessages = fetched.filter(m => m.author.id === member.id).first(amount);
-
     if (!userMessages.length) return message.reply("❌ No messages from that user found in the last 100 messages.");
 
     await message.channel.bulkDelete(userMessages, true).catch(() => null);
@@ -683,12 +665,11 @@ async function handleCommands(message) {
     const roleInput = args.slice(1).join(" ").trim();
     if (!roleInput) return message.reply(`Usage: \`${prefix}role @user role\``);
     const role = message.mentions.roles.first() || message.guild.roles.cache.get(roleInput.replace(/[<@&>]/g, "")) || message.guild.roles.cache.find(r => r.name.toLowerCase() === roleInput.toLowerCase());
-
     if (!role) return message.reply("Role not found.");
     if (role.managed) return message.reply("I cannot manage that role.");
     if (role.position >= message.guild.members.me.roles.highest.position) return message.reply("❌ That role is higher than or equal to my highest role.");
     if (role.position >= message.member.roles.highest.position) return message.reply("❌ You cannot give/remove a role equal or higher than your highest role.");
-
+    
     if (member.roles.cache.has(role.id)) {
       await member.roles.remove(role);
       return message.reply(`✅ Removed **${role.name}** from ${member.user.tag}`);
@@ -707,12 +688,9 @@ async function handleCommands(message) {
       await deleteAfter(message);
       return true;
     }
-
     data.words.push(word);
     saveData();
-    const reply = await message.reply({
-      embeds: [new EmbedBuilder().setTitle("🚫 Word Blacklisted").setColor(0xef4444).setDescription(`Added \`${word}\` to the blacklist.`).setFooter({ text: "AutoMod updated" }).setTimestamp()]
-    }).catch(() => null);
+    const reply = await message.reply({ embeds: [new EmbedBuilder().setTitle("🚫 Word Blacklisted").setColor(0xef4444).setDescription(`Added \`${word}\` to the blacklist.`).setFooter({ text: "AutoMod updated" }).setTimestamp()] }).catch(() => null);
     await deleteAfter(reply);
     await deleteAfter(message);
     return true;
@@ -728,21 +706,16 @@ async function handleCommands(message) {
       await deleteAfter(message);
       return true;
     }
-
     const before = data.words.length;
     data.words = data.words.filter(w => w !== word);
     saveData();
-
     if (before === data.words.length) {
       const reply = await message.reply(`⚠️ \`${word}\` was not found in blacklist.`);
       await deleteAfter(reply);
       await deleteAfter(message);
       return true;
     }
-
-    const reply = await message.reply({
-      embeds: [new EmbedBuilder().setTitle("✅ Word Removed").setColor(0x22c55e).setDescription(`Removed \`${word}\` from the blacklist.`).setFooter({ text: "AutoMod updated" }).setTimestamp()]
-    }).catch(() => null);
+    const reply = await message.reply({ embeds: [new EmbedBuilder().setTitle("✅ Word Removed").setColor(0x22c55e).setDescription(`Removed \`${word}\` from the blacklist.`).setFooter({ text: "AutoMod updated" }).setTimestamp()] }).catch(() => null);
     await deleteAfter(reply);
     await deleteAfter(message);
     return true;
@@ -750,16 +723,12 @@ async function handleCommands(message) {
 
   if (command === "words") {
     const allWords = [...new Set([...CORE_BLACKLIST, ...data.words])];
-    return message.reply({
-      embeds: [new EmbedBuilder().setTitle("🚫 Blacklisted Words").setColor(0x5865f2).setDescription(allWords.map(w => `\`${w}\``).join(", ").slice(0, 4000)).setFooter({ text: `${allWords.length} word(s) blocked` })]
-    });
+    return message.reply({ embeds: [new EmbedBuilder().setTitle("🚫 Blacklisted Words").setColor(0x5865f2).setDescription(allWords.map(w => `\`${w}\``).join(", ").slice(0, 4000)).setFooter({ text: `${allWords.length} word(s) blocked` })] });
   }
 
-  // Dynamic Modstats Command Section (Calculates directly from current warnings & active logs)
   if (command === "modstats") {
     const counts = {};
 
-    // 1. Scan live active warnings to compile stats dynamically
     for (const userWarns of Object.values(data.warnings || {})) {
       for (const w of userWarns) {
         if (!w.mod) continue;
@@ -768,7 +737,6 @@ async function handleCommands(message) {
       }
     }
 
-    // 2. Scan logged histories to accumulate actions dynamically
     for (const log of data.modLogs || []) {
       if (!log.modId) continue;
       if (!counts[log.modId]) counts[log.modId] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
@@ -779,7 +747,6 @@ async function handleCommands(message) {
 
     const statsEntries = Object.entries(counts);
     if (!statsEntries.length) return message.reply("📊 No active moderator statistics found.");
-
     const perPage = 5;
     const totalPages = Math.ceil(statsEntries.length / perPage);
     let currentPage = 0;
@@ -787,7 +754,6 @@ async function handleCommands(message) {
     const generateStatsEmbed = (page) => {
       const start = page * perPage;
       const current = statsEntries.slice(start, start + perPage);
-
       const description = current
         .map(([modId, stats], i) => {
           return `**#${start + i + 1}** <@${modId}> • ⚠️ \`${stats.warns}\` • 🔇 \`${stats.mutes}\` • 👢 \`${stats.kicks}\` • 🔨 \`${stats.bans}\``;
@@ -843,176 +809,4 @@ async function handleCommands(message) {
     }
     return true;
   }
-
-  if (command === "help") {
-    const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle("🔥 Dashboard Bot Commands")
-      .setDescription(`Current Prefix: \`${prefix}\``)
-      .addFields(
-        {
-          name: "🛡️ Moderation & Management",
-          value: `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\` • \`${prefix}mute\` • \`${prefix}unmute\` • \`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\` • \`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\` • \`${prefix}setprefix\` • \`${prefix}setnick\` • \`${prefix}role\``,
-          inline: false
-        },
-        {
-          name: "🚫 AutoMod",
-          value: `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``,
-          inline: false
-        },
-        {
-          name: "🏆 Auction & Channels",
-          value: `\`${prefix}auction\` • \`${prefix}bid\` • \`${prefix}slowmode\``,
-          inline: false
-        },
-        {
-          name: "💤 Utility & Systems",
-          value: `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • \`${prefix}image\` • \`${prefix}purchase\`\n🎂 \`${prefix}bday [set/me/closest/@user]\``,
-          inline: false
-        }
-      )
-      .setFooter({ text: "🔥 Don Bot" })
-      .setTimestamp();
-
-    if (data.customCommands && Object.keys(data.customCommands).length) {
-      embed.addFields({
-        name: "💬 Custom Commands",
-        value: Object.keys(data.customCommands).map(cmd => `\`${prefix}${cmd}\``).join(" • ").slice(0, 1000),
-        inline: false
-      });
-    }
-    return message.reply({ embeds: [embed] });
-  }
-
-  const messages = await message.channel.messages.fetch({ limit: 30 });
-  const history = [...messages.values()]
-    .reverse()
-    .filter(m => !m.author.bot)
-    .map(m => ({ author: m.author.username, content: m.content }));
-  const aiReply = await generateAiReply(message, message.content, history);
-  if (aiReply) {
-    return message.reply({ content: aiReply, allowedMentions: { parse: [], repliedUser: false } });
-  }
-  return true;
 }
-
-function startBot() {
-  client = new Client({
-    intents: [
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.GuildMessages,
-      GatewayIntentBits.GuildMembers,
-      GatewayIntentBits.MessageContent
-    ]
-  });
-
-  client.once("ready", async () => {
-    console.log(`Ready as ${client.user.tag}`);
-    initTimers(client);
-
-    for (const guild of client.guilds.cache.values()) {
-      const me = guild.members.me;
-      if (!me?.permissions.has(PermissionsBitField.Flags.ManageNicknames)) continue;
-
-      const members = await guild.members.fetch().catch(() => null);
-      if (!members) continue;
-
-      for (const member of members.values()) {
-        if (member.user.bot) continue;
-        if (!member.manageable) continue;
-
-        const nick = member.nickname;
-        if (!nick || !nick.startsWith("[AFK] ")) continue;
-
-        const cleanNick = nick.replace(/^\[AFK\]\s*/i, "").slice(0, 32);
-        await member.setNickname(cleanNick || null, "Bot restarted - clearing AFK nickname").catch(() => null);
-      }
-    }
-
-    setInterval(() => {
-      checkBirthdays(client, getGuildData, saveData).catch(console.error);
-    }, 60 * 60 * 1000);
-
-    checkBirthdays(client, getGuildData, saveData).catch(console.error);
-  });
-
-  client.on("messageCreate", async (message) => {
-    try {
-      if (message.author.bot) return;
-      if (!message.guild) return;
-      if (!message.content) return;
-
-      const data = getGuildData(message.guild.id);
-      const prefix = data.prefix || DEFAULT_PREFIX;
-
-      if (message.reference && message.reference.messageId) {
-        const replied = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
-        if (replied && replied.author.id === client.user.id) {
-          let aiReply = null;
-          try {
-            const messages = await message.channel.messages.fetch({ limit: 30 });
-            const history = [...messages.values()].reverse().filter(m => !m.author.bot).map(m => ({ author: m.author.username, content: m.content }));
-            aiReply = await generateAiReply(message, message.content, history);
-          } catch (err) {
-            console.error("Reply AI error:", err);
-          }
-          if (aiReply) {
-            return message.reply({ content: aiReply, allowedMentions: { parse: [], repliedUser: false } });
-          }
-        }
-      }
-
-      await handleAfkMentionsAndReturn(message, prefix);
-
-      const bypassRoleId = "1492630307650666546";
-      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
-      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
-      const containsDiscordInvite = discordInviteRegex.test(message.content);
-      const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
-
-      const isCommand = message.content.startsWith(prefix);
-      const isBypass = typeof hasBypassRole === "function" ? hasBypassRole(message) : false;
-
-      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
-      if (protectedWord) {
-        await message.delete().catch(() => null);
-        await sendAutomodLog(message, protectedWord);
-        return;
-      }
-
-      if (!isCommand && !isBypass && !allowDiscordInvite) {
-        const word = containsBlacklistedWord(message.content, [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]);
-        if (word) {
-          await message.delete().catch(() => null);
-          await sendAutomodLog(message, word);
-          return;
-        }
-      }
-
-      const usedCommand = await handleCommands(message);
-
-      if (!usedCommand) {
-        const freshData = getGuildData(message.guild.id);
-        const msg = message.content.toLowerCase().trim();
-        const custom = freshData.customCommands?.[msg];
-
-        if (custom) {
-          const response = typeof custom === "string" ? custom : custom.response || "No response set.";
-          const allowPings = typeof custom === "object" && custom.allowPings === true;
-          if (allowPings) {
-            return message.reply({ content: response, allowedMentions: { repliedUser: true } });
-          }
-          return message.channel.send({ content: response, allowedMentions: { parse: [] } });
-        }
-      }
-    } catch (err) {
-      console.error("Bot error:", err);
-    }
-  });
-
-  client.login(process.env.DISCORD_TOKEN);
-}
-
-function getClient() { return client; }
-
-module.exports = { startBot, getClient };
