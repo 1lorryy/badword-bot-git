@@ -191,7 +191,6 @@ function canBanUsers(message) {
   );
 }
 
-// Check if a member is a staff member
 function isStaffMember(member) {
   return (
     member.roles.cache.has(STAFF_ROLE_ID) ||
@@ -375,7 +374,12 @@ async function handleCommands(message) {
   if (command === "slowmode") {
     return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
   }
-  if (command === "purchase") return handleBuyCommand(message, args, prefix, canManageGuild);
+  
+  // FIXED: Added saveData parameter so the purchase command can persist links
+  if (command === "purchase") {
+    return handleBuyCommand(message, args, prefix, canManageGuild, saveData);
+  }
+  
   if (command === "afk") return handleAfkCommand(message, args, prefix);
   if (command === "auction") return handleAuctionCommand(message, args, prefix);
   if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
@@ -394,7 +398,7 @@ async function handleCommands(message) {
     return msg.edit(`🏓 Pong!\n📨 Message: \`${latency}ms\`\n🌐 API: \`${api}ms\``).catch(() => null);
   }
 
- // ================= PREFIX =================
+  // ================= PREFIX =================
   if (command === "prefix") {
     return message.reply(`Current prefix: \`${prefix}\``);
   }
@@ -534,7 +538,7 @@ async function handleCommands(message) {
     }
     return true;
   }
-  
+
   // ================= UNWARN =================
   if (command === "unwarn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
@@ -911,7 +915,7 @@ async function handleCommands(message) {
     return message.reply({ embeds: [embed] });
   }
 
-  // ================= HELP =================
+  // ================= HELP (CLEAN AND SHORT BIRTHDAY SECTION) =================
   if (command === "help") {
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
@@ -960,11 +964,7 @@ async function handleCommands(message) {
         {
           name: "💤 Utility",
           value:
-            `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\`\n` + 
-            `\`${prefix}birthday set DD-MM\`\n` +
-            `\`${prefix}birthday me\`\n` +
-            `\`${prefix}birthday @user\`\n` +
-            `\`${prefix}birthday closest\``,
+            `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • \`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
           inline: false
         }
       )
@@ -972,6 +972,7 @@ async function handleCommands(message) {
         text: "🔥 Don Bot"
       })
       .setTimestamp();
+      
     if (data.customCommands && Object.keys(data.customCommands).length) {
       embed.addFields({
         name: "💬 Custom Commands",
@@ -1019,7 +1020,6 @@ function startBot() {
   client.once("ready", async () => {
     console.log(`Ready as ${client.user.tag}`);
 
-    // START ACTIVE TIMERS TRACKING ON INITIALIZATION
     initTimers(client);
 
     for (const guild of client.guilds.cache.values()) {
@@ -1043,7 +1043,6 @@ function startBot() {
       }
     }
 
-    // Birthday interval task runner (registered once globally, not nested)
     setInterval(() => {
       checkBirthdays(
         client,
@@ -1068,7 +1067,6 @@ function startBot() {
       const data = getGuildData(message.guild.id);
       const prefix = data.prefix || DEFAULT_PREFIX;
 
-      // ================= REPLY TO BOT AI =================
       if (message.reference && message.reference.messageId) {
         const replied = await message.channel.messages
           .fetch(message.reference.messageId)
@@ -1101,13 +1099,13 @@ function startBot() {
       }
 
       await handleAfkMentionsAndReturn(message, prefix);
-      // ================= BYPASS ROLE DISCORD INVITE ALLOW =================
+      
       const bypassRoleId = "1492630307650666546";
       const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
       const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
       const containsDiscordInvite = discordInviteRegex.test(message.content);
       const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
-      // ================= AUTOMOD =================
+      
       const isCommand = message.content.startsWith(prefix);
       const isBypass = typeof hasBypassRole === "function" ? hasBypassRole(message) : false;
 
@@ -1130,9 +1128,8 @@ function startBot() {
         }
       }
 
-      // ================= PREFIX COMMANDS =================
       const usedCommand = await handleCommands(message);
-      // ================= CUSTOM COMMANDS WITHOUT PREFIX =================
+      
       if (!usedCommand) {
         const freshData = getGuildData(message.guild.id);
         const msg = message.content.toLowerCase().trim();
@@ -1159,7 +1156,6 @@ function startBot() {
     }
   });
 
-  // ================= BOT INITIATION =================
   client.login(process.env.DISCORD_TOKEN);
 }
 
