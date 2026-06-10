@@ -19,14 +19,12 @@ const CSS_PATH = path.join(__dirname, "dashboard", "dashboard.css");
 
 const DEFAULT_PREFIX = "?";
 const ADMIN_PERMISSION = BigInt(0x8);
-
 const CORE_BLACKLIST = [
   "ass", "nigga", "nigger", "nga", "idiot", "retard", "faggot", "fagot",
   "porn", "sex", "pussy", "boobs", "penis", "dick", "fuck", "idgaf",
   "motherfuck", "motherfucker", "mf", "asshole", "cunt", "possay",
   "sexcam", "bubs", "bitchass", "dumbass"
 ];
-
 const BLOCKED_LINKS = [
   "discord.gg/",
   "discord.com/invite/",
@@ -37,7 +35,6 @@ const BLOCKED_LINKS = [
   "xhamster.com",
   "redtube.com"
 ];
-
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -90,7 +87,6 @@ function fixGuildData(cfg) {
 
 function getGuildData(guildId) {
   const data = loadData();
-
   if (!data[guildId]) {
     data[guildId] = {
       prefix: DEFAULT_PREFIX,
@@ -111,7 +107,6 @@ function getGuildData(guildId) {
 
 function updateGuildData(guildId, updater) {
   const data = loadData();
-
   if (!data[guildId]) {
     data[guildId] = {
       prefix: DEFAULT_PREFIX,
@@ -262,7 +257,8 @@ function renderPage({ req, guildId, tab, title, content }) {
       <div class="layout">
         <aside class="sidebar">
           <div class="brand">⚙️ DonQuixote Bot</div>
-          ${guildId ? `
+          ${guildId ?
+          `
             <a class="nav ${tab === "words" ? "active" : ""}" href="${sidebarBase}/words">🚫 AutoMod Words</a>
             <a class="nav ${tab === "links" ? "active" : ""}" href="${sidebarBase}/links">🔗 Blocked Links</a>
             <a class="nav ${tab === "prefix" ? "active" : ""}" href="${sidebarBase}/prefix">⚙️ Prefix</a>
@@ -285,6 +281,50 @@ function renderPage({ req, guildId, tab, title, content }) {
       </div>
     </body>
   </html>
+  `;
+}
+
+function renderGuildSelect(req) {
+  const allowedGuilds = getAllowedGuilds(req);
+
+  if (allowedGuilds.length === 0) {
+    return `
+      <div class="card">
+        <h2>👋 Welcome!</h2>
+        <p>It looks like you don't manage any servers that are currently using <b>DonQuixote Bot</b>.</p>
+        <p>Make sure you have <b>Administrator</b> permissions in the server and that the bot has been invited!</p>
+        <br/>
+        <a class="guild-link" href="https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&scope=bot%20applications.commands" target="_blank" style="background: #5865F2; color: white; display: inline-block; padding: 10px 15px; border-radius: 4px; text-decoration: none;">➕ Invite Bot to a Server</a>
+      </div>
+    `;
+  }
+
+  const guildCards = allowedGuilds.map(g => {
+    const iconUrl = g.icon 
+      ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png` 
+      : `https://via.placeholder.com/80/2f3136/ffffff?text=${encodeURIComponent(g.name.split(' ').map(w => w[0]).join(''))}`;
+
+    return `
+      <a href="/dashboard/${g.id}/words" class="guild-card-link" style="text-decoration: none; color: inherit;">
+        <div class="card" style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px; cursor: pointer;">
+          <img src="${iconUrl}" alt="${escapeHtml(g.name)}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;" />
+          <div>
+            <h3 style="margin: 0;">${escapeHtml(g.name)}</h3>
+            <span style="font-size: 0.85rem; color: #b9bbbe;">Manage Server Settings</span>
+          </div>
+        </div>
+      </a>
+    `;
+  }).join("");
+
+  return `
+    <div class="card">
+      <h2>Select a Server</h2>
+      <p>Choose a server below to customize configurations like AutoMod words, prefixes, and custom commands.</p>
+    </div>
+    <div class="guild-list-container">
+      ${guildCards}
+    </div>
   `;
 }
 
