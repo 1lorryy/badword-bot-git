@@ -380,7 +380,7 @@ async function handleCommands(message) {
     content: response,
     allowedMentions: { parse: [] }
   });
-}F
+}
 
   // ================= IMAGE COMMAND ROUTER =================
   if (command === "image") {
