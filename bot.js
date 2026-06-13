@@ -779,16 +779,32 @@ async function handleCommands(message) {
     return message.reply(`🔨 Banned ${member.user.tag}`);
   }
 
-  // ================= UNBAN =================
-  if (command === "unban") {
-    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can unban.");
-    const userId = args[0];
-    if (!userId) return message.reply(`Usage: \`${prefix}unban userId reason\``);
+ // ================= UNBAN =================
+if (command === "unban") {
+  if (!canBanUsers(message))
+    return message.reply("❌ Only admin+ can unban.");
 
-    const reason = args.slice(1).join(" ") || "No reason";
-    await message.guild.members.unban(userId, reason).catch(() => null);
-    return message.reply(`✅ Unbanned \`${userId}\``);
+  const userId = args[0];
+
+  if (!userId)
+    return message.reply(`Usage: \`${prefix}unban USER_ID reason\``);
+
+  const reason = args.slice(1).join(" ") || "No reason";
+
+  try {
+    await message.guild.members.unban(userId, reason);
+
+    return message.reply(
+      `✅ Successfully unbanned \`${userId}\``
+    );
+  } catch (err) {
+    console.error("UNBAN ERROR:", err);
+
+    return message.reply(
+      `❌ Failed to unban user.\n\`${err.message}\``
+    );
   }
+}
 
   // ================= PURGE =================
   if (command === "purge") {
