@@ -321,37 +321,66 @@ async function handleCommands(message) {
 
   // ================= CUSTOM COMMANDS =================
   if (data.customCommands?.[command]) {
-    const custom = data.customCommands[command];
-    if (typeof custom === "object" && custom.ai === true) {
-      let aiReply = null;
-      try {
-        aiReply = await generateAiReply(message, message.content);
-      } catch (err) {
-        console.error("AI unavailable:", err.code || err.message);
-        return true;
-      }
+  const custom = data.customCommands[command];
 
-      if (!aiReply) return message.reply("AI unavailable rn.");
-      return message.channel.send({
-        content: aiReply,
-        allowedMentions: { parse: [] }
-      });
+  // AI trigger
+  if (typeof custom === "object" && custom.ai === true) {
+    let aiReply = null;
+
+    try {
+      aiReply = await generateAiReply(
+        message,
+        message.content
+      );
+    } catch (err) {
+      console.error(err);
+      return true;
     }
 
-    const response = typeof custom === "string" ? custom : custom.response || "No response set.";
-    const allowPings = typeof custom === "object" && custom.allowPings === true;
-    if (allowPings) {
-      return message.reply({
-        content: response,
-        allowedMentions: { repliedUser: true }
-      });
+    if (!aiReply) {
+      return message.reply("AI unavailable.");
+    }
+
+    return message.channel.send(aiReply);
+  }
+
+  // EMBED TRIGGER
+  if (
+    typeof custom === "object" &&
+    custom.type === "embed"
+  ) {
+    const embed = new EmbedBuilder()
+      .setTitle(custom.title || "Embed")
+      .setDescription(custom.description || "")
+      .setColor(
+        custom.color
+          ? parseInt(
+              custom.color.replace("#", ""),
+              16
+            )
+          : 0x5865f2
+      );
+
+    if (custom.url) {
+      embed.setURL(custom.url);
     }
 
     return message.channel.send({
-      content: response,
-      allowedMentions: { parse: [] }
+      embeds: [embed]
     });
   }
+
+  // NORMAL RESPONSE
+  const response =
+    typeof custom === "string"
+      ? custom
+      : custom.response || "No response set.";
+
+  return message.channel.send({
+    content: response,
+    allowedMentions: { parse: [] }
+  });
+}F
 
   // ================= IMAGE COMMAND ROUTER =================
   if (command === "image") {
