@@ -25,7 +25,7 @@ function saveTimers(timers) {
 }
 
 function parseTime(input) {
-  const match = input.match(/^(\d+)(s|m|h|d)$/i);
+  const match = input.match(/^(\d+)(s|m|min|h|d)$/i);
   if (!match) return null;
 
   const amount = parseInt(match[1]);
@@ -33,7 +33,8 @@ function parseTime(input) {
 
   switch (unit) {
     case "s": return amount * 1000;
-    case "m": return amount * 60 * 1000;
+    case "m": 
+    case "min": return amount * 60 * 1000;
     case "h": return amount * 60 * 60 * 1000;
     case "d": return amount * 24 * 60 * 60 * 1000;
     default: return null;
@@ -88,10 +89,10 @@ function startTimerLoop(client) {
 
 async function handleTimerCommand(message, args) {
   const timeInput = args[0];
-  if (!timeInput) return message.reply("Usage: `?timer 1h [Optional Name]`");
+  if (!timeInput) return message.reply("Usage: `?timer 5min [Optional Name]`");
 
   const duration = parseTime(timeInput);
-  if (!duration) return message.reply("Use formats like: `10s`, `5m`, `1h`, `1d`");
+  if (!duration) return message.reply("Use formats like: `10s`, `5min`, `1h`, `1d`");
 
   const timerName = args.slice(1).join(" ") || "Timer";
   const endTime = Date.now() + duration;
