@@ -417,6 +417,45 @@ async function handleCommands(message) {
     return handleModLogsCommand(message, args, prefix, getGuildData);
   }
 
+  // ================= AI =================
+if (command === "ai") {
+  const prompt = args.join(" ");
+
+  if (!prompt) {
+    return message.reply(
+      `Usage: \`${prefix}ai your question\``
+    );
+  }
+
+  const messages = await message.channel.messages.fetch({ limit: 30 });
+
+  const history = [...messages.values()]
+    .reverse()
+    .filter(m => !m.author.bot)
+    .map(m => ({
+      author: m.author.username,
+      content: m.content
+    }));
+
+  const aiReply = await generateAiReply(
+    message,
+    prompt,
+    history
+  );
+
+  if (!aiReply) {
+    return message.reply("AI unavailable.");
+  }
+
+  return message.reply({
+    content: aiReply,
+    allowedMentions: {
+      parse: [],
+      repliedUser: false
+    }
+  });
+}
+
   // ================= PING =================
   if (command === "ping") {
     const msg = await message.reply("🏓 Pinging...").catch(() => null);
@@ -807,24 +846,95 @@ if (command === "unban") {
 }
 
   // ================= PURGE =================
-  if (command === "purge") {
-    if (!canManageGuild(message)) return message.reply("❌ No permission.");
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-      return message.reply("I need Manage Messages permission.");
-    }
+if (command === "purge") {
+  if (!canManageGuild(message))
+    return message.reply("❌ No permission.");
 
+  if (
+    !message.guild.members.me.permissions.has(
+      PermissionsBitField.Flags.ManageMessages
+    )
+  ) {
+    return message.reply("I need Manage Messages permission.");
+  }
+
+  // ?purge 50
+  if (args.length === 1) {
     const amount = parseInt(args[0], 10);
-    if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
-      return message.reply(`Usage: \`${prefix}purge 1\``);
+
+    if (
+      !Number.isInteger(amount) ||
+      amount < 1 ||
+      amount > 100
+    ) {
+      return message.reply(
+        `Usage: \`${prefix}purge 50\``
+      );
     }
 
-    const deleted = await message.channel.bulkDelete(amount, true).catch(() => null);
-    if (!deleted) return message.reply("Could not purge messages.");
-    const msg = await message.channel.send(`✅ Purged ${deleted.size} messages.`);
+    const deleted = await message.channel
+      .bulkDelete(amount, true)
+      .catch(() => null);
+
+    if (!deleted)
+      return message.reply("Could not purge messages.");
+
+    const msg = await message.channel.send(
+      `✅ Purged ${deleted.size} messages.`
+    );
+
     await deleteAfter(msg);
     await deleteAfter(message);
     return true;
   }
+
+  // ?purge @user 20
+  const member = await findTargetMember(message, args);
+
+  if (!member) {
+    return message.reply(
+      `Usage:\n\`${prefix}purge 50\`\n\`${prefix}purge @user 20\``
+    );
+  }
+
+  const amount = parseInt(args[1], 10);
+
+  if (
+    !Number.isInteger(amount) ||
+    amount < 1 ||
+    amount > 100
+  ) {
+    return message.reply(
+      `Usage: \`${prefix}purge @user 20\``
+    );
+  }
+
+  const fetched = await message.channel.messages.fetch({
+    limit: 100
+  });
+
+  const targetMessages = fetched
+    .filter(m => m.author.id === member.id)
+    .first(amount);
+
+  if (!targetMessages.length) {
+    return message.reply(
+      "❌ No recent messages found from that user."
+    );
+  }
+
+  await message.channel
+    .bulkDelete(targetMessages, true)
+    .catch(() => null);
+
+  const msg = await message.channel.send(
+    `✅ Deleted ${targetMessages.length} message(s) from ${member.user.tag}`
+  );
+
+  await deleteAfter(msg);
+  await deleteAfter(message);
+  return true;
+}
 
   // ================= ROLE =================
   if (command === "role") {
@@ -960,98 +1070,87 @@ if (command === "unban") {
     return message.reply({ embeds: [embed] });
   }
 
-  // ================= HELP (CLEAN AND SHORT BIRTHDAY SECTION) =================
-  if (command === "help") {
-    const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle("🔥 Dashboard Bot Commands")
-      .setDescription(`Current Prefix: \`${prefix}\``)
-      .addFields(
-        {
-          name: "🛡️ Moderation",
-          value:
-            `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
-            `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
-            `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
-            `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\``,
-          inline: false
-        },
-        {
-          name: "🎨 AI Images",
-          value: `\`${prefix}image\``,
-          inline: false
-        },
-        {
-          name: "⚙️ Server",
-          value:
-            `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
-            `\`${prefix}role\` • \`${prefix}purchase\``,
-          inline: false
-        },
-        {
-          name: "🚫 AutoMod",
-          value:
-            `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``,
-          inline: false
-        },
-        {
-          name: "🏆 Auction",
-          value:
-            `\`${prefix}auction\` • \`${prefix}bid\``,
-          inline: false
-        },
-        {
-          name: "🔒 Channels",
-          value:
-            `\`${prefix}slowmode\``,
-          inline: false
-        },
-        {
-          name: "💤 Utility",
-          value:
-            `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • \`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
-          inline: false
-        }
-      )
-      .setFooter({
-        text: "🔥 Don Bot"
-      })
-      .setTimestamp();
-      
-    if (data.customCommands && Object.keys(data.customCommands).length) {
-      embed.addFields({
-        name: "💬 Custom Commands",
-        value: Object.keys(data.customCommands)
-          .map(cmd => `\`${prefix}${cmd}\``)
-          .join(" • ")
-          .slice(0, 1000),
+// ================= HELP =================
+if (command === "help") {
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle("🔥 Dashboard Bot Commands")
+    .setDescription(`Current Prefix: \`${prefix}\``)
+    .addFields(
+      {
+        name: "🛡️ Moderation",
+        value:
+          `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
+          `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
+          `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
+          `\`${prefix}purge 1\`\n` +
+          `\`${prefix}purge @user 1\`\n` +
+          `\`${prefix}modstats\` • \`${prefix}modlogs\``,
         inline: false
-      });
-    }
+      },
+      {
+        name: "🎨 AI Images",
+        value: `\`${prefix}image\``,
+        inline: false
+      },
+      {
+        name: "⚙️ Server",
+        value:
+          `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
+          `\`${prefix}role\` • \`${prefix}purchase\``,
+        inline: false
+      },
+      {
+        name: "🚫 AutoMod",
+        value:
+          `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``,
+        inline: false
+      },
+      {
+        name: "🏆 Auction",
+        value:
+          `\`${prefix}auction\` • \`${prefix}bid\``,
+        inline: false
+      },
+      {
+        name: "🔒 Channels",
+        value:
+          `\`${prefix}slowmode\``,
+        inline: false
+      },
+      {
+        name: "💤 Utility",
+        value:
+          `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\`\n` +
+          `\`${prefix}birthday set\`\n` +
+          `\`${prefix}birthday me\`\n` +
+          `\`${prefix}birthday closest\``,
+        inline: false
+      }
+    )
+    .setFooter({
+      text: "🔥 Don Bot"
+    })
+    .setTimestamp();
 
-    return message.reply({ embeds: [embed] });
-  }
-
-  // ================= AI FALLBACK CHAT =================
-  const messages = await message.channel.messages.fetch({ limit: 30 });
-  const history = [...messages.values()]
-    .reverse()
-    .filter(m => !m.author.bot)
-    .map(m => ({
-      author: m.author.username,
-      content: m.content
-    }));
-  const aiReply = await generateAiReply(message, message.content, history);
-  if (aiReply) {
-    return message.reply({
-      content: aiReply,
-      allowedMentions: { parse: [], repliedUser: false }
+  if (
+    data.customCommands &&
+    Object.keys(data.customCommands).length
+  ) {
+    embed.addFields({
+      name: "💬 Custom Commands",
+      value: Object.keys(data.customCommands)
+        .map(cmd => `\`${prefix}${cmd}\``)
+        .join(" • ")
+        .slice(0, 1000),
+      inline: false
     });
   }
 
-  return true;
+  return message.reply({
+    embeds: [embed]
+  });
 }
-
 // ================= BOT START =================
 function startBot() {
   client = new Client({
@@ -1111,37 +1210,6 @@ function startBot() {
 
       const data = getGuildData(message.guild.id);
       const prefix = data.prefix || DEFAULT_PREFIX;
-
-      if (message.reference && message.reference.messageId) {
-        const replied = await message.channel.messages
-          .fetch(message.reference.messageId)
-          .catch(() => null);
-
-        if (replied && replied.author.id === client.user.id) {
-          let aiReply = null;
-          try {
-            const messages = await message.channel.messages.fetch({ limit: 30 });
-            const history = [...messages.values()]
-              .reverse()
-              .filter(m => !m.author.bot)
-              .map(m => ({
-                author: m.author.username,
-                content: m.content
-              }));
-
-            aiReply = await generateAiReply(message, message.content, history);
-          } catch (err) {
-            console.error("Reply AI error:", err);
-          }
-
-          if (aiReply) {
-            return message.reply({
-              content: aiReply,
-              allowedMentions: { parse: [], repliedUser: false }
-            });
-          }
-        }
-      }
 
       await handleAfkMentionsAndReturn(message, prefix);
       
