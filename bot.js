@@ -417,45 +417,6 @@ async function handleCommands(message) {
     return handleModLogsCommand(message, args, prefix, getGuildData);
   }
 
-  // ================= AI =================
-if (command === "ai") {
-  const prompt = args.join(" ");
-
-  if (!prompt) {
-    return message.reply(
-      `Usage: \`${prefix}ai your question\``
-    );
-  }
-
-  const messages = await message.channel.messages.fetch({ limit: 30 });
-
-  const history = [...messages.values()]
-    .reverse()
-    .filter(m => !m.author.bot)
-    .map(m => ({
-      author: m.author.username,
-      content: m.content
-    }));
-
-  const aiReply = await generateAiReply(
-    message,
-    prompt,
-    history
-  );
-
-  if (!aiReply) {
-    return message.reply("AI unavailable.");
-  }
-
-  return message.reply({
-    content: aiReply,
-    allowedMentions: {
-      parse: [],
-      repliedUser: false
-    }
-  });
-}
-
   // ================= PING =================
   if (command === "ping") {
     const msg = await message.reply("🏓 Pinging...").catch(() => null);
@@ -999,78 +960,96 @@ if (command === "unban") {
     return message.reply({ embeds: [embed] });
   }
 
-  // ================= HELP =================
-if (command === "help") {
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle("🔥 Dashboard Bot Commands")
-    .setDescription(`Current Prefix: \`${prefix}\``)
-    .addFields(
-      {
-        name: "🛡️ Moderation",
-        value:
-          `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
-          `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
-          `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
-          `\`${prefix}purge\` • \`${prefix}purgeuser\`\n` +
-          `\`${prefix}modstats\` • \`${prefix}modlogs\``,
+  // ================= HELP (CLEAN AND SHORT BIRTHDAY SECTION) =================
+  if (command === "help") {
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle("🔥 Dashboard Bot Commands")
+      .setDescription(`Current Prefix: \`${prefix}\``)
+      .addFields(
+        {
+          name: "🛡️ Moderation",
+          value:
+            `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
+            `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
+            `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
+            `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\``,
+          inline: false
+        },
+        {
+          name: "🎨 AI Images",
+          value: `\`${prefix}image\``,
+          inline: false
+        },
+        {
+          name: "⚙️ Server",
+          value:
+            `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
+            `\`${prefix}role\` • \`${prefix}purchase\``,
+          inline: false
+        },
+        {
+          name: "🚫 AutoMod",
+          value:
+            `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``,
+          inline: false
+        },
+        {
+          name: "🏆 Auction",
+          value:
+            `\`${prefix}auction\` • \`${prefix}bid\``,
+          inline: false
+        },
+        {
+          name: "🔒 Channels",
+          value:
+            `\`${prefix}slowmode\``,
+          inline: false
+        },
+        {
+          name: "💤 Utility",
+          value:
+            `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • \`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
+          inline: false
+        }
+      )
+      .setFooter({
+        text: "🔥 Don Bot"
+      })
+      .setTimestamp();
+      
+    if (data.customCommands && Object.keys(data.customCommands).length) {
+      embed.addFields({
+        name: "💬 Custom Commands",
+        value: Object.keys(data.customCommands)
+          .map(cmd => `\`${prefix}${cmd}\``)
+          .join(" • ")
+          .slice(0, 1000),
         inline: false
-      },
-      {
-        name: "🎨 AI Images",
-        value: `\`${prefix}image\``,
-        inline: false
-      },
-      {
-        name: "⚙️ Server",
-        value:
-          `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
-          `\`${prefix}role\` • \`${prefix}purchase\``,
-        inline: false
-      },
-      {
-        name: "🚫 AutoMod",
-        value:
-          `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``,
-        inline: false
-      },
-      {
-        name: "🏆 Auction",
-        value:
-          `\`${prefix}auction\` • \`${prefix}bid\``,
-        inline: false
-      },
-      {
-        name: "🔒 Channels",
-        value:
-          `\`${prefix}slowmode\``,
-        inline: false
-      },
-      {
-        name: "💤 Utility",
-        value:
-          `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\`\n` +
-          `\`${prefix}birthday set\` • \`${prefix}birthday me\` • \`${prefix}birthday closest\``,
-        inline: false
-      }
-    )
-    .setFooter({
-      text: "🔥 Don Bot"
-    })
-    .setTimestamp();
+      });
+    }
 
-  if (data.customCommands && Object.keys(data.customCommands).length) {
-    embed.addFields({
-      name: "💬 Custom Commands",
-      value: Object.keys(data.customCommands)
-        .map(cmd => `\`${prefix}${cmd}\``)
-        .join(" • ")
-        .slice(0, 1000),
-      inline: false
+    return message.reply({ embeds: [embed] });
+  }
+
+  // ================= AI FALLBACK CHAT =================
+  const messages = await message.channel.messages.fetch({ limit: 30 });
+  const history = [...messages.values()]
+    .reverse()
+    .filter(m => !m.author.bot)
+    .map(m => ({
+      author: m.author.username,
+      content: m.content
+    }));
+  const aiReply = await generateAiReply(message, message.content, history);
+  if (aiReply) {
+    return message.reply({
+      content: aiReply,
+      allowedMentions: { parse: [], repliedUser: false }
     });
   }
 
-  return message.reply({ embeds: [embed] });
+  return true;
 }
 
 // ================= BOT START =================
@@ -1132,6 +1111,37 @@ function startBot() {
 
       const data = getGuildData(message.guild.id);
       const prefix = data.prefix || DEFAULT_PREFIX;
+
+      if (message.reference && message.reference.messageId) {
+        const replied = await message.channel.messages
+          .fetch(message.reference.messageId)
+          .catch(() => null);
+
+        if (replied && replied.author.id === client.user.id) {
+          let aiReply = null;
+          try {
+            const messages = await message.channel.messages.fetch({ limit: 30 });
+            const history = [...messages.values()]
+              .reverse()
+              .filter(m => !m.author.bot)
+              .map(m => ({
+                author: m.author.username,
+                content: m.content
+              }));
+
+            aiReply = await generateAiReply(message, message.content, history);
+          } catch (err) {
+            console.error("Reply AI error:", err);
+          }
+
+          if (aiReply) {
+            return message.reply({
+              content: aiReply,
+              allowedMentions: { parse: [], repliedUser: false }
+            });
+          }
+        }
+      }
 
       await handleAfkMentionsAndReturn(message, prefix);
       
