@@ -1147,10 +1147,10 @@ if (command === "help") {
     });
   }
 
-  return message.reply({
-    embeds: [embed]
+  return message.reply({embeds: [embed]
   });
 }
+  
 // ================= BOT START =================
 function startBot() {
   client = new Client({
