@@ -846,95 +846,24 @@ if (command === "unban") {
 }
 
   // ================= PURGE =================
-if (command === "purge") {
-  if (!canManageGuild(message))
-    return message.reply("❌ No permission.");
-
-  if (
-    !message.guild.members.me.permissions.has(
-      PermissionsBitField.Flags.ManageMessages
-    )
-  ) {
-    return message.reply("I need Manage Messages permission.");
-  }
-
-  // ?purge 50
-  if (args.length === 1) {
-    const amount = parseInt(args[0], 10);
-
-    if (
-      !Number.isInteger(amount) ||
-      amount < 1 ||
-      amount > 100
-    ) {
-      return message.reply(
-        `Usage: \`${prefix}purge 50\``
-      );
+  if (command === "purge") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+      return message.reply("I need Manage Messages permission.");
     }
 
-    const deleted = await message.channel
-      .bulkDelete(amount, true)
-      .catch(() => null);
+    const amount = parseInt(args[0], 10);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
+      return message.reply(`Usage: \`${prefix}purge 1\``);
+    }
 
-    if (!deleted)
-      return message.reply("Could not purge messages.");
-
-    const msg = await message.channel.send(
-      `✅ Purged ${deleted.size} messages.`
-    );
-
+    const deleted = await message.channel.bulkDelete(amount, true).catch(() => null);
+    if (!deleted) return message.reply("Could not purge messages.");
+    const msg = await message.channel.send(`✅ Purged ${deleted.size} messages.`);
     await deleteAfter(msg);
     await deleteAfter(message);
     return true;
   }
-
-  // ?purge @user 20
-  const member = await findTargetMember(message, args);
-
-  if (!member) {
-    return message.reply(
-      `Usage:\n\`${prefix}purge 50\`\n\`${prefix}purge @user 20\``
-    );
-  }
-
-  const amount = parseInt(args[1], 10);
-
-  if (
-    !Number.isInteger(amount) ||
-    amount < 1 ||
-    amount > 100
-  ) {
-    return message.reply(
-      `Usage: \`${prefix}purge @user 20\``
-    );
-  }
-
-  const fetched = await message.channel.messages.fetch({
-    limit: 100
-  });
-
-  const targetMessages = fetched
-    .filter(m => m.author.id === member.id)
-    .first(amount);
-
-  if (!targetMessages.length) {
-    return message.reply(
-      "❌ No recent messages found from that user."
-    );
-  }
-
-  await message.channel
-    .bulkDelete(targetMessages, true)
-    .catch(() => null);
-
-  const msg = await message.channel.send(
-    `✅ Deleted ${targetMessages.length} message(s) from ${member.user.tag}`
-  );
-
-  await deleteAfter(msg);
-  await deleteAfter(message);
-  return true;
-}
 
   // ================= ROLE =================
   if (command === "role") {
@@ -1070,7 +999,7 @@ if (command === "purge") {
     return message.reply({ embeds: [embed] });
   }
 
-// ================= HELP =================
+  // ================= HELP =================
 if (command === "help") {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
@@ -1083,8 +1012,7 @@ if (command === "help") {
           `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
           `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
           `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
-          `\`${prefix}purge 1\`\n` +
-          `\`${prefix}purge @user 1\`\n` +
+          `\`${prefix}purge\` • \`${prefix}purgeuser\`\n` +
           `\`${prefix}modstats\` • \`${prefix}modlogs\``,
         inline: false
       },
@@ -1122,9 +1050,7 @@ if (command === "help") {
         name: "💤 Utility",
         value:
           `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\`\n` +
-          `\`${prefix}birthday set\`\n` +
-          `\`${prefix}birthday me\`\n` +
-          `\`${prefix}birthday closest\``,
+          `\`${prefix}birthday set\` • \`${prefix}birthday me\` • \`${prefix}birthday closest\``,
         inline: false
       }
     )
@@ -1133,10 +1059,7 @@ if (command === "help") {
     })
     .setTimestamp();
 
-  if (
-    data.customCommands &&
-    Object.keys(data.customCommands).length
-  ) {
+  if (data.customCommands && Object.keys(data.customCommands).length) {
     embed.addFields({
       name: "💬 Custom Commands",
       value: Object.keys(data.customCommands)
@@ -1147,10 +1070,9 @@ if (command === "help") {
     });
   }
 
-  return message.reply({embeds: [embed]
-  });
+  return message.reply({ embeds: [embed] });
 }
-  
+
 // ================= BOT START =================
 function startBot() {
   client = new Client({
