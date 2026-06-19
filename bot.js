@@ -381,7 +381,7 @@ async function handleCommands(message) {
   });
 }
 
-  // ================= AFK / AUCTION / CHANNEL TOOLS =================
+// ================= AFK / AUCTION / CHANNEL TOOLS =================
   if (command === "timer") {
     return handleTimerCommand(message, args);
   }
@@ -389,7 +389,6 @@ async function handleCommands(message) {
     return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
   }
   
-  // FIXED: Added saveData parameter so the purchase command can persist links
   if (command === "purchase") {
     return handleBuyCommand(message, args, prefix, canManageGuild, saveData);
   }
@@ -400,6 +399,11 @@ async function handleCommands(message) {
   
   if (command === "modlogs") {
     return handleModLogsCommand(message, args, prefix, getGuildData);
+  }
+
+  // ================= FIXED: BIRTHDAY COMMAND ROUTING =================
+  if (command === "bday" || command === "birthday") {
+    return handleBirthdayCommand(message, args, prefix, getGuildData, saveData);
   }
 
   // ================= PING =================
