@@ -195,9 +195,7 @@ do {
 currentPersonality = newPersonality;
 messageCounter = 0;
 
-console.log(
-  `[AI] Personality changed to: ${currentPersonality}`
-);
+console.log("[AI] Personality changed to:", currentPersonality);
 ```
 
 }
