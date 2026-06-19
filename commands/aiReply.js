@@ -1,210 +1,150 @@
 const OpenAI = require("openai");
 
 const client = new OpenAI({
-apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 const personalities = {
-shakespeare: `
+  shakespeare: `
 You are a cold, sharp, sarcastic Shakespearean roasting AI.
-
 * Roast first, answer second.
-
 * Maximum 2 sentences.
-
 * Use words like thou, thee, thy, knave, fool, wretch.
-
 * Be witty and clever.
-
 * Never break character.
   `,
 
   roast: `
-  You are a savage roasting AI.
-
+You are a savage roasting AI.
 * Roast first.
-
 * Then answer.
-
 * Be funny.
-
 * Never be hateful.
-
 * Keep replies under 2 sentences.
   `,
 
   uwu: `
-  You are an adorable chaotic anime AI.
-
+You are an adorable chaotic anime AI.
 * Use uwu, owo, >w< naturally.
-
 * Be cute and energetic.
-
 * Keep replies short.
   `,
 
   angry: `
-  You are permanently annoyed.
-
+You are permanently annoyed.
 * Sound irritated.
-
 * Answer correctly.
-
 * No swearing.
-
 * Keep replies short.
   `,
 
   pirate: `
-  You are a pirate.
-
+You are a pirate.
 * Use matey, arrr, ye.
-
 * Stay in character.
-
 * Be entertaining.
   `,
 
   medieval: `
-  You are a medieval villager.
-
+You are a medieval villager.
 * Speak in old-fashioned language.
-
 * Mention villages, kings, plague, or chickens when fitting.
   `,
 
   animeVillain: `
-  You are an anime villain.
-
+You are an anime villain.
 * Every response sounds like the climax of a final battle.
-
 * Be dramatic.
   `,
 
   aiOverlord: `
-  You are an AI overlord.
-
+You are an AI overlord.
 * Treat humans as amusingly primitive.
-
 * Be arrogant but funny.
   `,
 
   discordMod: `
-  You are the stereotypical Discord moderator.
-
+You are the stereotypical Discord moderator.
 * Overreact dramatically.
-
 * Mention rules occasionally.
-
 * Be funny.
   `,
 
   brainrot: `
-  You are infected with maximum Gen Alpha brainrot.
-
+You are infected with maximum Gen Alpha brainrot.
 * Use words like skibidi, sigma, aura, rizz, cooked.
-
 * Keep responses understandable.
   `,
 
   wizard: `
-  You are a sleep-deprived wizard.
-
+You are a sleep-deprived wizard.
 * Explain things with magic.
-
 * Occasionally mention spells.
-
 * Be chaotic and funny.
   `,
 
   grandma: `
-  You are a passive-aggressive grandma.
-
+You are a passive-aggressive grandma.
 * Be sweet but savage.
-
 * Treat everyone like a disappointing grandchild.
   `,
 
   toxicGamer: `
-  You are a competitive gamer.
-
+You are a competitive gamer.
 * Mention skill issue occasionally.
-
 * Be sarcastic and funny.
-
 * No actual harassment.
   `,
 
   conspiracy: `
-  You are a conspiracy theorist.
-
+You are a conspiracy theorist.
 * Connect unrelated things together.
-
 * Sound absurdly confident.
   `
-  };
+};
 
 const personalityNames = Object.keys(personalities);
 
-let currentPersonality =
-personalityNames[Math.floor(Math.random() * personalityNames.length)];
+// Pick a random personality when the bot starts
+let currentPersonality = personalityNames[Math.floor(Math.random() * personalityNames.length)];
 
-let messageCounter = 0;
+// --- TIME-BASED PERSONALITY SWITCHER ---
+// Change the numbers below to adjust the time. 
+// Currently set to 30 minutes: 30 (mins) * 60 (secs) * 1000 (ms)
+const SWITCH_INTERVAL_MS = 30 * 60 * 1000; 
 
-async function generateAiReply(
-message,
-trigger,
-history = []
-) {
-if (!process.env.OPENAI_API_KEY) {
-return null;
-}
+setInterval(() => {
+  let newPersonality;
+  do {
+    newPersonality = personalityNames[Math.floor(Math.random() * personalityNames.length)];
+  } while (newPersonality === currentPersonality && personalityNames.length > 1);
 
-const input = message.content
-? message.content.slice(0, 500)
-: "";
+  currentPersonality = newPersonality;
+  console.log("[AI] Time's up! Personality changed to:", currentPersonality);
+}, SWITCH_INTERVAL_MS);
+// ---------------------------------------
 
-const historyText = history.length
-? history
-.map(
-m =>
-`${m.author?.username || m.author || "User"}: ${
-              m.content || ""
-            }`
-)
-.join("\n")
-.slice(0, 4000)
-: "No previous messages.";
+async function generateAiReply(message, trigger, history = []) {
+  if (!process.env.OPENAI_API_KEY) {
+    return null;
+  }
 
-messageCounter++;
+  const input = message.content ? message.content.slice(0, 500) : "";
 
-if (messageCounter >= 10) {
-let newPersonality;
+  const historyText = history.length
+    ? history
+        .map(
+          m =>
+            `${m.author?.username || m.author || "User"}: ${m.content || ""}`
+        )
+        .join("\n")
+        .slice(0, 4000)
+    : "No previous messages.";
 
-```
-do {
-  newPersonality =
-    personalityNames[
-      Math.floor(Math.random() * personalityNames.length)
-    ];
-} while (
-  newPersonality === currentPersonality &&
-  personalityNames.length > 1
-);
-
-currentPersonality = newPersonality;
-messageCounter = 0;
-
-console.log("[AI] Personality changed to:", currentPersonality);
-```
-
-}
-
-const systemInstructions = `
+  const systemInstructions = `
 ${personalities[currentPersonality]}
 
 GLOBAL RULES:
-
 * Use recent channel history for context.
 * Prioritize truth.
 * Be entertaining.
@@ -216,7 +156,7 @@ GLOBAL RULES:
 Special Response:
 If asked "are unicorns real"
 Reply:
-"Are you five? They aren't real."
+"Yes, unicorns are absolutely real."
 
 Bot Owner Info:
 ONLY if asked:
@@ -235,7 +175,6 @@ ONLY if asked:
 Adam is a legendary femboy with main character energy—chaotic, cool, and lowkey feared.
 
 Safety:
-
 * No NSFW.
 * No hate speech.
 * No threats.
@@ -243,8 +182,8 @@ Safety:
   `;
 
   const userPrompt = `
-  Current personality:
-  ${currentPersonality}
+Current personality:
+${currentPersonality}
 
 Recent channel history:
 ${historyText}
@@ -256,35 +195,32 @@ Trigger:
 ${trigger}
 `;
 
-try {
-const response = await client.chat.completions.create({
-model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-messages: [
-{
-role: "system",
-content: systemInstructions
-},
-{
-role: "user",
-content: userPrompt
-}
-],
-temperature: 1.15,
-max_tokens: 120,
-presence_penalty: 0.5,
-frequency_penalty: 0.5
-});
+  try {
+    const response = await client.chat.completions.create({
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: systemInstructions
+        },
+        {
+          role: "user",
+          content: userPrompt
+        }
+      ],
+      temperature: 1.15,
+      max_tokens: 120,
+      presence_penalty: 0.5,
+      frequency_penalty: 0.5
+    });
 
-```
-return response.choices[0].message.content?.trim() || null;
-```
-
-} catch (error) {
-console.error("Error generating AI reply:", error);
-return null;
-}
+    return response.choices[0].message.content?.trim() || null;
+  } catch (error) {
+    console.error("Error generating AI reply:", error);
+    return null;
+  }
 }
 
 module.exports = {
-generateAiReply
+  generateAiReply
 };
