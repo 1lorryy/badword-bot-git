@@ -5,7 +5,6 @@ const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk
 const { handleAuctionCommand } = require("./commands/auction");
 const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
-const { handleImageGeneration } = require("./commands/imageGen.js");
 const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday");
 const fs = require("fs");
 const path = require("path");
@@ -382,20 +381,6 @@ async function handleCommands(message) {
   });
 }
 
-  // ================= IMAGE COMMAND ROUTER =================
-  if (command === "image") {
-    return handleImageGeneration(message, args, prefix);
-  }
-
-  if (command === "birthday" || command === "bday") {
-    return handleBirthdayCommand(
-      message,
-      args,
-      prefix,
-      getGuildData,
-      saveData
-    );
-  }
   // ================= AFK / AUCTION / CHANNEL TOOLS =================
   if (command === "timer") {
     return handleTimerCommand(message, args);
@@ -974,11 +959,6 @@ if (command === "unban") {
             `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
             `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
             `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\``,
-          inline: false
-        },
-        {
-          name: "🎨 AI Images",
-          value: `\`${prefix}image\``,
           inline: false
         },
         {
