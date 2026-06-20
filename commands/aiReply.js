@@ -210,13 +210,14 @@ try {
 
 CRITICAL RESPONSE RULES:
 * Maximum 2 sentences.
-* Maximum 25 words total.
+* Maximum 25 words.
 * Never use lists.
 * Never use bullet points.
 * Never use line breaks.
 * Never use multiple paragraphs.
-* Keep replies short like Discord messages.
-* If a response would be long, summarize it in one sentence.
+* Never write walls of text.
+* Keep replies Discord-sized.
+* If a response would be long, summarize it.
 `
       },
       {
@@ -229,6 +230,36 @@ CRITICAL RESPONSE RULES:
     presence_penalty: 0.5,
     frequency_penalty: 0.5
   });
+
+  let reply = response.choices?.[0]?.message?.content?.trim();
+
+  if (!reply) {
+    return null;
+  }
+
+  // Remove line breaks
+  reply = reply
+    .replace(/\n+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Keep first 2 sentences only
+  const sentences = reply.match(/[^.!?]+[.!?]*/g);
+
+  if (sentences && sentences.length > 2) {
+    reply = sentences.slice(0, 2).join(" ").trim();
+  }
+
+  // Hard character limit
+  if (reply.length > 150) {
+    reply = reply.slice(0, 147).trim() + "...";
+  }
+
+  return reply;
+} catch (error) {
+  console.error("Error generating AI reply:", error);
+  return null;
+}
 
   let reply = response.choices[0].message.content?.trim();
 
