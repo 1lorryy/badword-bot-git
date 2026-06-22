@@ -118,7 +118,9 @@ function getGuildData(guildId) {
         ads24h: [],
         extras: []
       },
-      birthdays: {}
+      birthdays: {},
+snipeEnabled: true,
+snipes: {}
     };
     saveData();
   }
@@ -306,6 +308,19 @@ async function sendModLog(embed) {
   if (!log || !log.isTextBased()) return;
 
   await log.send({ embeds: [embed] }).catch(() => null);
+}
+
+// ================= SNIPE =================
+function saveSnipe(message) {
+  const data = getGuildData(message.guild.id);
+
+  data.snipes[message.channel.id] = {
+    content: message.content || "*No text*",
+    authorId: message.author.id,
+    createdAt: message.createdTimestamp
+  };
+
+  saveData();
 }
 
 // ================= COMMANDS =================
@@ -949,6 +964,57 @@ if (command === "unban") {
     return message.reply({ embeds: [embed] });
   }
 
+// ================= SNIPE =================
+if (command === "snipe") {
+
+  if (args[0]?.toLowerCase() === "on") {
+    if (!canManageGuild(message))
+      return message.reply("❌ No permission.");
+
+    data.snipeEnabled = true;
+    saveData();
+
+    return message.reply("✅ Snipe enabled.");
+  }
+
+  if (args[0]?.toLowerCase() === "off") {
+    if (!canManageGuild(message))
+      return message.reply("❌ No permission.");
+
+    data.snipeEnabled = false;
+    saveData();
+
+    return message.reply("❌ Snipe disabled.");
+  }
+
+  if (!data.snipeEnabled) {
+    return message.reply("❌ Snipe is disabled.");
+  }
+
+  const snipe = data.snipes?.[message.channel.id];
+
+  if (!snipe) {
+    return message.reply("Nothing to snipe.");
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle("📌 Sniped Message")
+    .setColor(0x5865f2)
+    .addFields(
+      {
+        name: "Author",
+        value: `<@${snipe.authorId}>`,
+        inline: true
+      },
+      {
+        name: "Message",
+        value: snipe.content.slice(0, 1024)
+      }
+    );
+
+  return message.reply({ embeds: [embed] });
+}
+  
   // ================= HELP (CLEAN AND SHORT BIRTHDAY SECTION) =================
   if (command === "help") {
     const embed = new EmbedBuilder()
@@ -962,14 +1028,15 @@ if (command === "unban") {
             `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
             `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
             `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
-            `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\``,
+            `${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\`\n`,
           inline: false
         },
         {
           name: "⚙️ Server",
           value:
-            `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
-            `\`${prefix}role\` • \`${prefix}purchase\``,
+            `${prefix}setprefix\` • \`${prefix}setnick\`\n` +
+            `${prefix}role\` • \`${prefix}purchase\`\n` +
+            `${prefix}snipe\` • \`${prefix}snipe on/off\``,
           inline: false
         },
         {
@@ -1185,6 +1252,18 @@ function startBot() {
     }
   });
 
+client.on("messageDelete", async (message) => {
+  try {
+    if (!message.guild) return;
+    if (!message.author) return;
+    if (message.author.bot) return;
+
+    saveSnipe(message);
+  } catch (err) {
+    console.error(err);
+  }
+});
+  
   client.login(process.env.DISCORD_TOKEN);
 }
 
