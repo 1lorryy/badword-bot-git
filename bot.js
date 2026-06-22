@@ -1023,22 +1023,23 @@ if (command === "snipe") {
       .setDescription(`Current Prefix: \`${prefix}\``)
       .addFields(
         {
-          name: "🛡️ Moderation",
-          value:
-            `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
-            `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
-            `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
-            `${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\`\n`,
-          inline: false
-        },
-        {
-          name: "⚙️ Server",
-          value:
-            `${prefix}setprefix\` • \`${prefix}setnick\`\n` +
-            `${prefix}role\` • \`${prefix}purchase\`\n` +
-            `${prefix}snipe\` • \`${prefix}snipe on/off\``,
-          inline: false
-        },
+  name: "🛡️ Moderation",
+  value:
+    `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
+    `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
+    `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
+    `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\`\n` +
+    `\`${prefix}snipe\``,
+  inline: false
+},
+{
+  name: "⚙️ Server",
+  value:
+    `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
+    `\`${prefix}role\` • \`${prefix}purchase\`\n` +
+    `\`${prefix}snipe on\` • \`${prefix}snipe off\``,
+  inline: false
+},
         {
           name: "🚫 AutoMod",
           value:
