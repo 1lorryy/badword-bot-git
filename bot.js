@@ -315,11 +315,19 @@ async function sendModLog(embed) {
 function saveSnipe(message) {
   const data = getGuildData(message.guild.id);
 
-  data.snipes[message.channel.id] = {
+  if (!data.snipes) data.snipes = {};
+  if (!data.snipes[message.channel.id])
+    data.snipes[message.channel.id] = [];
+
+  data.snipes[message.channel.id].unshift({
     content: message.content || "*No text*",
     authorId: message.author.id,
-    createdAt: message.createdTimestamp
-  };
+    createdAt: Date.now()
+  });
+
+  // Keep last 10 deleted messages
+  data.snipes[message.channel.id] =
+    data.snipes[message.channel.id].slice(0, 10);
 
   saveData();
 }
@@ -992,14 +1000,22 @@ if (command === "snipe") {
     return message.reply("❌ Snipe is disabled.");
   }
 
-  const snipe = data.snipes?.[message.channel.id];
+  const index = parseInt(args[0]) || 1;
 
-  if (!snipe) {
+  const snipes = data.snipes?.[message.channel.id];
+
+  if (!snipes || !snipes.length) {
     return message.reply("Nothing to snipe.");
   }
 
+  const snipe = snipes[index - 1];
+
+  if (!snipe) {
+    return message.reply(`Only ${snipes.length} deleted messages stored.`);
+  }
+
   const embed = new EmbedBuilder()
-    .setTitle("📌 Sniped Message")
+    .setTitle(`📌 Sniped Message #${index}`)
     .setColor(0x5865f2)
     .addFields(
       {
@@ -1011,10 +1027,14 @@ if (command === "snipe") {
         name: "Message",
         value: snipe.content.slice(0, 1024)
       }
-    );
+    )
+    .setFooter({
+      text: `${index}/${snipes.length} stored snipes`
+    });
 
   return message.reply({ embeds: [embed] });
 }
+
   
   // ================= HELP (CLEAN AND SHORT BIRTHDAY SECTION) =================
   if (command === "help") {
