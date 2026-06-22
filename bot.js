@@ -1076,7 +1076,6 @@ if (command === "snipes") {
       .setDescription(`Current Prefix: \`${prefix}\``)
       .addFields(
         {
-  {
   name: "🛡️ Moderation",
   value:
     `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
