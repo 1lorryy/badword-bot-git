@@ -1076,13 +1076,13 @@ if (command === "snipes") {
       .setDescription(`Current Prefix: \`${prefix}\``)
       .addFields(
         {
+  {
   name: "🛡️ Moderation",
   value:
     `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
     `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
     `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
-    `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\`\n` +
-    `\`${prefix}snipe\``,
+    `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\``,
   inline: false
 },
 {
@@ -1090,8 +1090,7 @@ if (command === "snipes") {
   value:
     `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
     `\`${prefix}role\` • \`${prefix}purchase\`\n` +
-    `\`${prefix}snipe\` • \`${prefix}snipe 1\`\n` +
-    `\`${prefix} on\` • \`${prefix}snipe off\``,
+    `\`${prefix}snipe+s\`\n` • `\`${prefix}snipe on/off\``,
   inline: false
 },
         {
