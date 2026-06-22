@@ -1,3 +1,4 @@
+const snipes = {};
 const { initTimers, handleTimerCommand } = require("./commands/timer.js");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handleBuyCommand } = require("./commands/buy");
