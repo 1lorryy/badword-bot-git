@@ -316,18 +316,20 @@ function saveSnipe(message) {
   const data = getGuildData(message.guild.id);
 
   if (!data.snipes) data.snipes = {};
-  if (!data.snipes[message.channel.id])
+
+  if (!data.snipes[message.channel.id]) {
     data.snipes[message.channel.id] = [];
+  }
 
   data.snipes[message.channel.id].unshift({
     content: message.content || "*No text*",
     authorId: message.author.id,
-    createdAt: Date.now()
+    createdAt: message.createdTimestamp,
+    deletedAt: Date.now()
   });
 
-  // Keep last 10 deleted messages
   data.snipes[message.channel.id] =
-    data.snipes[message.channel.id].slice(0, 10);
+    data.snipes[message.channel.id].slice(0, 5);
 
   saveData();
 }
@@ -1000,13 +1002,13 @@ if (command === "snipe") {
     return message.reply("❌ Snipe is disabled.");
   }
 
-  const index = parseInt(args[0]) || 1;
-
   const snipes = data.snipes?.[message.channel.id];
 
   if (!snipes || !snipes.length) {
     return message.reply("Nothing to snipe.");
   }
+
+  const index = parseInt(args[0]) || 1;
 
   const snipe = snipes[index - 1];
 
@@ -1024,6 +1026,11 @@ if (command === "snipe") {
         inline: true
       },
       {
+        name: "Deleted",
+        value: `<t:${Math.floor(snipe.deletedAt / 1000)}:R>`,
+        inline: true
+      },
+      {
         name: "Message",
         value: snipe.content.slice(0, 1024)
       }
@@ -1034,7 +1041,32 @@ if (command === "snipe") {
 
   return message.reply({ embeds: [embed] });
 }
+  
+// ================= SNIPES =================
+if (command === "snipes") {
+  const snipes = data.snipes?.[message.channel.id];
 
+  if (!snipes || !snipes.length) {
+    return message.reply("Nothing to snipe.");
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle("📌 Recent Deleted Messages")
+    .setColor(0x5865f2)
+    .setDescription(
+      snipes
+        .slice(0, 5)
+        .map((s, i) =>
+          `**${i + 1}.** <@${s.authorId}> • <t:${Math.floor(s.deletedAt / 1000)}:R>\n${s.content}`
+        )
+        .join("\n\n")
+    )
+    .setFooter({
+      text: `${snipes.length} stored deleted messages`
+    });
+
+  return message.reply({ embeds: [embed] });
+}
   
   // ================= HELP (CLEAN AND SHORT BIRTHDAY SECTION) =================
   if (command === "help") {
@@ -1058,7 +1090,8 @@ if (command === "snipe") {
   value:
     `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
     `\`${prefix}role\` • \`${prefix}purchase\`\n` +
-    `\`${prefix}snipe on\` • \`${prefix}snipe off\``,
+    `\`${prefix}snipe\` • \`${prefix}snipe 1\`\n` +
+    `\`${prefix} on\` • \`${prefix}snipe off\``,
   inline: false
 },
         {
