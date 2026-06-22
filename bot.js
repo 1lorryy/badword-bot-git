@@ -1089,7 +1089,7 @@ if (command === "snipes") {
   value:
     `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
     `\`${prefix}role\` • \`${prefix}purchase\`\n` +
-    `\`${prefix}snipe/s\`\n` • `\`${prefix}snipe (on/off)\``,
+    `\`${prefix}snipe/s\` • \`${prefix}snipe (on/off)\``,
   inline: false
 },
         {
