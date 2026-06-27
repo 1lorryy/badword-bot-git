@@ -1,6 +1,10 @@
 const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 
-const afkUsers = new Map();
+// Global AFKs
+const globalAfkUsers = new Map();
+
+// Server-specific AFKs
+const serverAfkUsers = new Map();
 
 function formatDuration(ms) {
   const sec = Math.floor(ms / 1000);
