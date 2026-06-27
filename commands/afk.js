@@ -80,7 +80,9 @@ async function handleAfkMentionsAndReturn(message, prefix) {
 
   if (!message.guild || message.author.bot) return;
 
-  const authorAfk = afkUsers.get(message.author.id);
+  const authorAfk =
+  globalAfkUsers.get(message.author.id) ||
+  serverAfkUsers.get(`${message.guild.id}:${message.author.id}`);
 
   // ================= RETURN =================
   if (
@@ -88,7 +90,11 @@ async function handleAfkMentionsAndReturn(message, prefix) {
     !message.content.startsWith(`${prefix}afk`)
   ) {
 
-    afkUsers.delete(message.author.id);
+    if (globalAfkUsers.has(message.author.id)) {
+  globalAfkUsers.delete(message.author.id);
+} else {
+  serverAfkUsers.delete(`${message.guild.id}:${message.author.id}`);
+}
 
     const awayFor = formatDuration(
       Date.now() - authorAfk.since
@@ -153,7 +159,9 @@ async function handleAfkMentionsAndReturn(message, prefix) {
   // ================= MENTION AFK USER =================
   for (const user of message.mentions.users.values()) {
 
-    const data = afkUsers.get(user.id);
+    const data =
+  globalAfkUsers.get(user.id) ||
+  serverAfkUsers.get(`${message.guild.id}:${user.id}`);
 
     if (!data) continue;
 
