@@ -38,7 +38,7 @@ async function handleAfkCommand(message, args, prefix, getGuildData, saveData) {
 if (isGlobal) {
   globalAfkUsers.set(message.author.id, afkData);
 } else {
-  afkUsers.set(`${message.guild.id}:${message.author.id}`, afkData);
+  serverAfkUsers.set(`${message.guild.id}:${message.author.id}`, afkData);
 }
 
   // AFK nickname
@@ -74,6 +74,7 @@ if (isGlobal) {
     parse: []
   }
 }).catch(() => null);
+  }
 
 async function handleAfkMentionsAndReturn(message, prefix) {
 
