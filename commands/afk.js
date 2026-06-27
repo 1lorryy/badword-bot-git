@@ -19,20 +19,27 @@ function formatDuration(ms) {
   return `${sec}s`;
 }
 
-async function handleAfkCommand(message, args) {
+async function handleAfkCommand(message, args, prefix, getGuildData, saveData) {
 
-  const reason = args.join(" ").trim() || "AFK";
+  const isGlobal = args[0]?.toLowerCase() === "global";
+  const reason = (isGlobal ? args.slice(1) : args).join(" ").trim() || "AFK";
 
   const member = message.member;
 
   const oldNickname = member.nickname || null;
 
-  afkUsers.set(message.author.id, {
-    reason,
-    since: Date.now(),
-    pings: [],
-    oldNickname
-  });
+  const afkData = {
+  reason,
+  since: Date.now(),
+  pings: [],
+  oldNickname
+};
+
+if (isGlobal) {
+  globalAfkUsers.set(message.author.id, afkData);
+} else {
+  afkUsers.set(`${message.guild.id}:${message.author.id}`, afkData);
+}
 
   // AFK nickname
   if (
@@ -55,18 +62,18 @@ async function handleAfkCommand(message, args) {
   }
 
   return message.reply({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(0xfacc15)
-        .setDescription(
-          `🌙 **${message.author.username} is AFK** — ${reason}`
-        )
-    ],
-    allowedMentions: {
-      parse: []
-    }
-  }).catch(() => null);
-}
+  embeds: [
+    new EmbedBuilder()
+      .setColor(0xfacc15)
+      .setDescription(
+        `🌙 **${message.author.username} is AFK** — ${reason}` +
+        (isGlobal ? "\n🌍 Mode: Global" : "\n🏠 Mode: This server")
+      )
+  ],
+  allowedMentions: {
+    parse: []
+  }
+}).catch(() => null);
 
 async function handleAfkMentionsAndReturn(message, prefix) {
 
