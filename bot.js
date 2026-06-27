@@ -419,7 +419,7 @@ async function handleCommands(message) {
     return handleBuyCommand(message, args, prefix, canManageGuild, saveData);
   }
   
-  if (command === "afk") return handleAfkCommand(message, args, prefix);
+  if (command === "afk") return handleAfkCommand(message, args, prefix, getGuildData, saveData);
   if (command === "auction") return handleAuctionCommand(message, args, prefix);
   if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
   
@@ -1111,11 +1111,12 @@ if (command === "snipes") {
           inline: false
         },
         {
-          name: "💤 Utility",
-          value:
-            `\`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • \`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
-          inline: false
-        }
+  name: "💤 Utility",
+  value:
+    `\`${prefix}afk (global)\` • \`${prefix}timer\` • \`${prefix}ping\`\n` +
+    `\`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
+  inline: false
+}
       )
       .setFooter({
         text: "🔥 Don Bot"
@@ -1247,7 +1248,12 @@ function startBot() {
         }
       }
 
-      await handleAfkMentionsAndReturn(message, prefix);
+      await handleAfkMentionsAndReturn(
+  message,
+  prefix,
+  getGuildData,
+  saveData
+);
       
       const bypassRoleId = "1492630307650666546";
       const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
