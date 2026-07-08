@@ -100,9 +100,13 @@ async function handleAfkMentionsAndReturn(message, prefix) {
 
   if (!message.guild || message.author.bot) return;
 
-  const authorAfk =
-  globalAfkUsers.get(message.author.id) ||
-  serverAfkUsers.get(`${message.guild.id}:${message.author.id}`);
+  const data = getGuildData(message.guild.id);
+
+const globalAfk = globalAfkUsers.get(message.author.id);
+const serverKey = `${message.guild.id}:${message.author.id}`;
+const serverAfk = serverAfkUsers.get(serverKey);
+
+const authorAfk = globalAfk || serverAfk;
 
   // ================= RETURN =================
   if (
@@ -110,11 +114,27 @@ async function handleAfkMentionsAndReturn(message, prefix) {
     !message.content.startsWith(`${prefix}afk`)
   ) {
 
-    if (globalAfkUsers.has(message.author.id)) {
-  globalAfkUsers.delete(message.author.id);
+    const guildData = getGuildData(message.guild.id);
+
+if (globalAfkUsers.has(message.author.id)) {
+    globalAfkUsers.delete(message.author.id);
+
+    if (guildData.afk?.global) {
+        delete guildData.afk.global[message.author.id];
+    }
+
 } else {
-  serverAfkUsers.delete(`${message.guild.id}:${message.author.id}`);
+
+    const key = `${message.guild.id}:${message.author.id}`;
+
+    serverAfkUsers.delete(key);
+
+    if (guildData.afk?.servers) {
+        delete guildData.afk.servers[key];
+    }
 }
+
+saveData();
 
     const awayFor = formatDuration(
       Date.now() - authorAfk.since
@@ -200,6 +220,8 @@ async function handleAfkMentionsAndReturn(message, prefix) {
     if (data.pings.length > 20) {
       data.pings.shift();
     }
+
+saveData();    
 
     await message.reply({
       content:
