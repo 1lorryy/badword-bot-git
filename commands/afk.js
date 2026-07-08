@@ -96,7 +96,12 @@ saveData();
 }).catch(() => null);
   }
 
-async function handleAfkMentionsAndReturn(message, prefix) {
+async function handleAfkMentionsAndReturn(
+  message,
+  prefix,
+  getGuildData,
+  saveData
+) {
 
   if (!message.guild || message.author.bot) return;
 
@@ -230,9 +235,32 @@ saveData();
   }
 }
 
+function loadAfks(getGuildData) {
+
+  const guilds = getGuildData();
+
+  for (const guildId of Object.keys(guilds)) {
+
+    const afk = guilds[guildId].afk;
+
+    if (!afk) continue;
+
+    if (afk.global) {
+      for (const userId of Object.keys(afk.global)) {
+        globalAfkUsers.set(userId, afk.global[userId]);
+      }
+    }
+
+    if (afk.servers) {
+      for (const key of Object.keys(afk.servers)) {
+        serverAfkUsers.set(key, afk.servers[key]);
+      }
+    }
+  }
+}
+
 module.exports = {
   handleAfkCommand,
   handleAfkMentionsAndReturn,
-  globalAfkUsers,
-  serverAfkUsers
+  loadAfks
 };
