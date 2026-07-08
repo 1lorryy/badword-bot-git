@@ -1175,34 +1175,14 @@ function startBot() {
       GatewayIntentBits.MessageContent
     ]
   });
+
   client.once("ready", async () => {
     console.log(`Ready as ${client.user.tag}`);
 
+    // Initialize real-time timers
     initTimers(client);
 
-// ================= RESTORE AFKs =================
-for (const guild of client.guilds.cache.values()) {
-
-  const data = getGuildData(guild.id);
-
-  if (!data.afk) continue;
-
-  // Restore globals
-  if (data.afk.global) {
-    for (const [id, afk] of Object.entries(data.afk.global)) {
-      globalAfkUsers.set(id, afk);
-    }
-  }
-
-  // Restore server AFKs
-  if (data.afk.servers) {
-    for (const [key, afk] of Object.entries(data.afk.servers)) {
-      serverAfkUsers.set(key, afk);
-    }
-  }
-
-}
-
+    // Run hourly birthday checks
     setInterval(() => {
       checkBirthdays(
         client,
@@ -1211,6 +1191,7 @@ for (const guild of client.guilds.cache.values()) {
       ).catch(console.error);
     }, 60 * 60 * 1000);
 
+    // Initial birthday check on startup
     checkBirthdays(
       client,
       getGuildData,
@@ -1258,12 +1239,13 @@ for (const guild of client.guilds.cache.values()) {
         }
       }
 
+      // Automatically handles checking AFK statuses and tracking returns
       await handleAfkMentionsAndReturn(
-  message,
-  prefix,
-  getGuildData,
-  saveData
-);
+        message,
+        prefix,
+        getGuildData,
+        saveData
+      );
       
       const bypassRoleId = "1492630307650666546";
       const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
@@ -1321,17 +1303,17 @@ for (const guild of client.guilds.cache.values()) {
     }
   });
 
-client.on("messageDelete", async (message) => {
-  try {
-    if (!message.guild) return;
-    if (!message.author) return;
-    if (message.author.bot) return;
+  client.on("messageDelete", async (message) => {
+    try {
+      if (!message.guild) return;
+      if (!message.author) return;
+      if (message.author.bot) return;
 
-    saveSnipe(message);
-  } catch (err) {
-    console.error(err);
-  }
-});
+      saveSnipe(message);
+    } catch (err) {
+      console.error(err);
+    }
+  });
   
   client.login(process.env.DISCORD_TOKEN);
 }
