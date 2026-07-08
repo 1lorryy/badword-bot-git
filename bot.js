@@ -1115,7 +1115,9 @@ if (command === "snipes") {
           value:
             `\`${prefix}verify settings\` • See verification status\n` +
             `\`${prefix}verify scan @user\` • Diagnostic risk scanner\n` +
-            `\`${prefix}verify\` \`<verifiedrole/unverifiedrole/trusteddays/autoban/autokick>\``,
+            `\`${prefix}verify massscan\` • Scan all members instantly for alts & bots\n` +
+            `\`${prefix}verify verifiedrole\` • \`${prefix}verify unverifiedrole\`\n` +
+            `\`${prefix}verify trusteddays\` • \`${prefix}verify autoban\` • \`${prefix}verify autokick\``,
           inline: false
         },
         {
