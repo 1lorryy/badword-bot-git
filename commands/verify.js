@@ -6,7 +6,6 @@ const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 async function handleVerifyCommand(message, args, prefix, getGuildData, saveData) {
   const data = getGuildData(message.guild.id);
   
-  // Ensure moderation/admin controls are permissions protected
   if (!message.member.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
     return message.reply("❌ You need `Manage Server` permissions to use verification configurations.");
   }
@@ -43,51 +42,94 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
     return message.reply(`✅ Minimum account age threshold set to **${days}** days.`);
   }
 
-  // 4. ?verify autoban true/false
-  if (subCommand === "autoban") {
-    const choice = (args[1] || "").toLowerCase();
-    if (choice !== "true" && choice !== "false") return message.reply(`Usage: \`${prefix}verify autoban true/false\``);
-    
-    data.verification.autoban = choice === "true";
-    saveData();
-    return message.reply(`✅ Auto-ban on failed criteria set to: **${data.verification.autoban}**`);
-  }
-
-  // 5. ?verify autokick true/false
-  if (subCommand === "autokick") {
-    const choice = (args[1] || "").toLowerCase();
-    if (choice !== "true" && choice !== "false") return message.reply(`Usage: \`${prefix}verify autokick true/false\``);
-    
-    data.verification.autokick = choice === "true";
-    saveData();
-    return message.reply(`✅ Auto-kick on failed criteria set to: **${data.verification.autokick}**`);
-  }
-
-  // 6. ?verify settings (Display complete verification dashboard status)
+  // 4. ?verify settings
   if (subCommand === "settings" || !subCommand) {
-    const config = data.verification;
-    const embed = new EmbedBuilder()
-      .setTitle("🛡️ Verification Suite Settings")
-      .setColor(0x5865f2)
-      .setDescription(`Configure your automated anti-alt gates using choices below:\nUsage: \`${prefix}verify <setting> <value>\``)
-      .addFields(
-        { name: "Verified Role", value: config.verifiedRole ? `<@&${config.verifiedRole}>` : "❌ None Setup", inline: true },
-        { name: "Unverified Role", value: config.unverifiedRole ? `<@&${config.unverifiedRole}>` : "❌ None Setup", inline: true },
-        { name: "Min Account Age", value: `\`${config.trustedDays} Days\``, inline: true },
-        { name: "Auto-Ban Raids", value: `\`${config.autoban}\``, inline: true },
-        { name: "Auto-Kick Alts", value: `\`${config.autokick}\``, inline: true }
-      )
-      .setFooter({ text: "Double Counter System Integration" });
+    // If they typed "?verify massscan" instead of settings, bypass this
+    if (subCommand !== "massscan") {
+      const config = data.verification;
+      const embed = new EmbedBuilder()
+        .setTitle("🛡️ Verification Suite Settings")
+        .setColor(0x5865f2)
+        .setDescription(`Configure your automated anti-alt gates using choices below:\nUsage: \`${prefix}verify <setting> <value>\``)
+        .addFields(
+          { name: "Verified Role", value: config.verifiedRole ? `<@&${config.verifiedRole}>` : "❌ None Setup", inline: true },
+          { name: "Unverified Role", value: config.unverifiedRole ? `<@&${config.unverifiedRole}>` : "❌ None Setup", inline: true },
+          { name: "Min Account Age", value: `\`${config.trustedDays} Days\``, inline: true }
+        )
+        .setFooter({ text: `Type ${prefix}verify massscan to run a server audit.` });
 
-    return message.reply({ embeds: [embed] });
+      return message.reply({ embeds: [embed] });
+    }
   }
 
-  // 7. ?verify scan @user / ID
+  // 5. ?verify massscan (BRAND NEW DEEP AUDIT ENGINE)
+  if (subCommand === "massscan") {
+    const statusMessage = await message.reply("🔄 Fetching and scanning server directory... Please wait.");
+    
+    // Make sure we have all guild members cached
+    await message.guild.members.fetch().catch(() => {});
+    const members = message.guild.members.cache;
+
+    let totalScanned = 0;
+    let flaggedAlts = [];
+    let unverifiedBots = [];
+    
+    members.forEach((member) => {
+      if (member.user.bot) {
+        // Track unverified bots (bots that don't have an explicit administrator or verified role if you want to inspect them)
+        if (data.verification.verifiedRole && !member.roles.cache.has(data.verification.verifiedRole)) {
+          unverifiedBots.push(member);
+        }
+        return;
+      }
+
+      totalScanned++;
+      const diagnostics = runScanDiagnostics(member, data.verification);
+      
+      if (diagnostics.riskScore >= 40) {
+        flaggedAlts.push({
+          member,
+          score: diagnostics.riskScore,
+          reason: diagnostics.reasons.join(", ")
+        });
+      }
+    });
+
+    // Sort alts by highest risk factor score first
+    flaggedAlts.sort((a, b) => b.score - a.score);
+
+    const embed = new EmbedBuilder()
+      .setTitle("🚨 Server Security Risk Audit Report")
+      .setColor(flaggedAlts.length > 0 ? 0xef4444 : 0x22c55e)
+      .setDescription(`Successfully analyzed **${totalScanned}** humans and **${members.size - totalScanned}** bots.`)
+      .setTimestamp();
+
+    if (flaggedAlts.length > 0) {
+      // Get top 10 highest risk accounts to prevent embed length errors
+      const topFlags = flaggedAlts.slice(0, 10);
+      let listString = topFlags.map(f => `• ${f.member} (\`${f.member.user.tag}\`)\n  **Risk:** \`${f.score}%\` | *${f.reason}*`).join("\n\n");
+      
+      if (flaggedAlts.length > 10) {
+        listString += `\n\n...and **${flaggedAlts.length - 10}** more suspicious targets flagged below a 40% threshold.`;
+      }
+      
+      embed.addFields({ name: `⚠️ Flagged High-Risk Accounts (${flaggedAlts.length} total)`, value: listString });
+    } else {
+      embed.addFields({ name: "⚠️ Flagged High-Risk Accounts", value: "✅ Clean sweep! No suspicious alts or new accounts met threat criteria thresholds." });
+    }
+
+    if (unverifiedBots.length > 0) {
+      embed.addFields({ name: `🤖 Total Bots Found`, value: `Detected **${unverifiedBots.length}** bot applications configured inside guild roles.` });
+    }
+
+    return statusMessage.edit({ content: "✅ Scan complete.", embeds: [embed] });
+  }
+
+  // 6. ?verify scan @user (Single diagnostic scanner)
   if (subCommand === "scan") {
     const targetInput = args[1];
     if (!targetInput) return message.reply(`Usage: \`${prefix}verify scan @user\``);
 
-    // Target extraction helper
     const targetId = targetInput.replace(/[<@!>]/g, "");
     const member = await message.guild.members.fetch(targetId).catch(() => null);
     if (!member) return message.reply("❌ Target member could not be found in this server.");
@@ -95,13 +137,12 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
     const evaluation = runScanDiagnostics(member, data.verification);
     
     const embed = new EmbedBuilder()
-      .setTitle(`🔍 Scanner Report: ${member.user.tag}`)
-      .setColor(evaluation.passed ? 0x22c55e : 0xef4444)
+      .setTitle(`🔍 Diagnostic Profile: ${member.user.tag}`)
+      .setColor(evaluation.riskScore >= 40 ? 0xef4444 : 0x22c55e)
       .addFields(
-        { name: "Account Creation Date", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:F>`, inline: false },
-        { name: "Account Age Status", value: evaluation.agePassed ? "✅ Safe" : `❌ Flagged: Too New (< ${data.verification.trustedDays} Days)`, inline: true },
-        { name: "Has Custom Avatar", value: evaluation.hasAvatar ? "✅ Yes" : "⚠️ Default Avatar", inline: true },
-        { name: "Overall Risk Assessment", value: evaluation.passed ? "🟢 **PASSED / TRUSTED**" : "🔴 **HIGH RISK FLAG**", inline: false }
+        { name: "Account Created", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:F>`, inline: false },
+        { name: "Profile Avatar", value: evaluation.hasAvatar ? "✅ Custom" : "⚠️ Default/None", inline: true },
+        { name: "Risk Assessment Rating", value: `**${evaluation.riskScore}% Threat Rating**\nReasons: *${evaluation.reasons.join(", ") || "None"}*`, inline: false }
       )
       .setTimestamp();
 
@@ -110,21 +151,44 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
 }
 
 /**
- * Engine checking for default avatars, age restrictions, and suspicious patterns
+ * Advanced Multi-Factor Diagnostics Engine
  */
 function runScanDiagnostics(member, config) {
   const accountAgeDays = (Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24);
-  const agePassed = accountAgeDays >= config.trustedDays;
   const hasAvatar = member.user.avatar !== null;
+  
+  let riskScore = 0;
+  let reasons = [];
 
-  // Evaluation criteria flags
-  let passed = true;
-  if (!agePassed) passed = false;
+  // 1. Check strict age barrier
+  if (accountAgeDays < config.trustedDays) {
+    riskScore += 50; 
+    reasons.push(`New Account (${Math.floor(accountAgeDays)}d old)`);
+  } else if (accountAgeDays < 30) {
+    riskScore += 20;
+    reasons.push("Account under 30 days old");
+  }
+
+  // 2. Check profile design aesthetics (Alts rarely set custom avatars right away)
+  if (!hasAvatar) {
+    riskScore += 25;
+    reasons.push("Default Avatar");
+  }
+
+  // 3. Username patterns (Regex checking for common gibberish / randomized text spammers)
+  const username = member.user.username;
+  const hasRandomGibberish = /^[a-z0-9]{8,12}$/i.test(username) && !/[aeiou]/i.test(username);
+  const consecutiveNumbers = /\d{4,}/.test(username);
+
+  if (hasRandomGibberish || consecutiveNumbers) {
+    riskScore += 25;
+    reasons.push("Suspicious name layout");
+  }
 
   return {
-    passed,
-    agePassed,
-    hasAvatar
+    riskScore: Math.min(riskScore, 100), // Cap max threat value at 100%
+    hasAvatar,
+    reasons
   };
 }
 
