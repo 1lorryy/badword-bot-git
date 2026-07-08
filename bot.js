@@ -419,7 +419,14 @@ async function handleCommands(message) {
     return handleBuyCommand(message, args, prefix, canManageGuild, saveData);
   }
   
-  if (command === "afk") return handleAfkCommand(message, args, prefix, getGuildData, saveData);
+  if (command === "afk")
+  return handleAfkCommand(
+    message,
+    args,
+    prefix,
+    getGuildData,
+    saveData
+  );
   if (command === "auction") return handleAuctionCommand(message, args, prefix);
   if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
   
