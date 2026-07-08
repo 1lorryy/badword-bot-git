@@ -44,7 +44,6 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
 
   // 4. ?verify settings
   if (subCommand === "settings" || !subCommand) {
-    // If they typed "?verify massscan" instead of settings, bypass this
     if (subCommand !== "massscan") {
       const config = data.verification;
       const embed = new EmbedBuilder()
@@ -62,28 +61,37 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
     }
   }
 
-  // 5. ?verify massscan (BRAND NEW DEEP AUDIT ENGINE)
+  // 5. ?verify massscan (CRASH-PROOF LIVE ENGINE)
   if (subCommand === "massscan") {
-    const statusMessage = await message.reply("🔄 Fetching and scanning server directory... Please wait.");
-    
-    // Make sure we have all guild members cached
-    await message.guild.members.fetch().catch(() => {});
-    const members = message.guild.members.cache;
+    const progressEmbed = new EmbedBuilder()
+      .setTitle("🔄 Live Security Directory Scan")
+      .setColor(0x3498db)
+      .setDescription("Fetching directory cache and establishing link context...")
+      .setTimestamp();
 
-    let totalScanned = 0;
-    let flaggedAlts = [];
-    let unverifiedBots = [];
+    const statusMessage = await message.reply({ embeds: [progressEmbed] });
     
-    members.forEach((member) => {
+    // Cache directory fetch
+    await message.guild.members.fetch().catch(() => {});
+    const members = Array.from(message.guild.members.cache.values());
+    const totalMembers = members.size || members.length;
+
+    let flaggedAlts = [];
+    let botCount = 0;
+    let processedCount = 0;
+    
+    // Live update frequency chunking (Update UI every 40 items processed to prevent API rate-limits)
+    const updateInterval = 40; 
+
+    for (let i = 0; i < members.length; i++) {
+      const member = members[i];
+      processedCount++;
+
       if (member.user.bot) {
-        // Track unverified bots (bots that don't have an explicit administrator or verified role if you want to inspect them)
-        if (data.verification.verifiedRole && !member.roles.cache.has(data.verification.verifiedRole)) {
-          unverifiedBots.push(member);
-        }
-        return;
+        botCount++;
+        continue;
       }
 
-      totalScanned++;
       const diagnostics = runScanDiagnostics(member, data.verification);
       
       if (diagnostics.riskScore >= 40) {
@@ -93,39 +101,58 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
           reason: diagnostics.reasons.join(", ")
         });
       }
-    });
 
-    // Sort alts by highest risk factor score first
+      // Send updates visually in real-time
+      if (processedCount % updateInterval === 0 || processedCount === totalMembers) {
+        progressEmbed.setDescription(`Analyzing profiles: **${processedCount}**/**${totalMembers}** done.\nFound **${flaggedAlts.length}** high-risk flags so far...`);
+        await statusMessage.edit({ embeds: [progressEmbed] }).catch(() => {});
+      }
+    }
+
+    // Sort threat severity index descending
     flaggedAlts.sort((a, b) => b.score - a.score);
 
-    const embed = new EmbedBuilder()
+    const finalEmbed = new EmbedBuilder()
       .setTitle("🚨 Server Security Risk Audit Report")
       .setColor(flaggedAlts.length > 0 ? 0xef4444 : 0x22c55e)
-      .setDescription(`Successfully analyzed **${totalScanned}** humans and **${members.size - totalScanned}** bots.`)
+      .setDescription(`Successfully audited **${processedCount - botCount}** human users and **${botCount}** application accounts.`)
       .setTimestamp();
 
     if (flaggedAlts.length > 0) {
-      // Get top 10 highest risk accounts to prevent embed length errors
-      const topFlags = flaggedAlts.slice(0, 10);
-      let listString = topFlags.map(f => `• ${f.member} (\`${f.member.user.tag}\`)\n  **Risk:** \`${f.score}%\` | *${f.reason}*`).join("\n\n");
-      
-      if (flaggedAlts.length > 10) {
-        listString += `\n\n...and **${flaggedAlts.length - 10}** more suspicious targets flagged below a 40% threshold.`;
+      let currentFieldText = "";
+      let fieldIndex = 1;
+
+      for (const item of flaggedAlts) {
+        const line = `• ${item.member} (\`${item.member.user.tag}\`)\n  **Risk:** \`${item.score}%\` | *${item.reason}*\n\n`;
+        
+        // Split cleanly into separate fields if we creep near the 1,024 limit
+        if ((currentFieldText + line).length > 950) {
+          finalEmbed.addFields({ name: `⚠️ Flagged Accounts (Part ${fieldIndex})`, value: currentFieldText });
+          currentFieldText = line;
+          fieldIndex++;
+        } else {
+          currentFieldText += line;
+        }
+
+        // Limit maximum display size to top 25 high threat targets so embeds don't hit grand global limits
+        if (fieldIndex > 4) break; 
       }
-      
-      embed.addFields({ name: `⚠️ Flagged High-Risk Accounts (${flaggedAlts.length} total)`, value: listString });
+
+      if (currentFieldText.length > 0) {
+        finalEmbed.addFields({ name: `⚠️ Flagged Accounts ${fieldIndex > 1 ? `(Part ${fieldIndex})` : ""}`, value: currentFieldText });
+      }
+
+      if (flaggedAlts.length > 20) {
+        finalEmbed.setFooter({ text: `Showing top threat vectors. Total hidden matching entries: ${flaggedAlts.length - 20}` });
+      }
     } else {
-      embed.addFields({ name: "⚠️ Flagged High-Risk Accounts", value: "✅ Clean sweep! No suspicious alts or new accounts met threat criteria thresholds." });
+      finalEmbed.addFields({ name: "⚠️ Risk Sweep Status", value: "✅ Clean sweep! No profiles matched threat vectors." });
     }
 
-    if (unverifiedBots.length > 0) {
-      embed.addFields({ name: `🤖 Total Bots Found`, value: `Detected **${unverifiedBots.length}** bot applications configured inside guild roles.` });
-    }
-
-    return statusMessage.edit({ content: "✅ Scan complete.", embeds: [embed] });
+    return statusMessage.edit({ content: "✅ Scan finalized successfully.", embeds: [finalEmbed] });
   }
 
-  // 6. ?verify scan @user (Single diagnostic scanner)
+  // 6. ?verify scan @user
   if (subCommand === "scan") {
     const targetInput = args[1];
     if (!targetInput) return message.reply(`Usage: \`${prefix}verify scan @user\``);
@@ -160,7 +187,6 @@ function runScanDiagnostics(member, config) {
   let riskScore = 0;
   let reasons = [];
 
-  // 1. Check strict age barrier
   if (accountAgeDays < config.trustedDays) {
     riskScore += 50; 
     reasons.push(`New Account (${Math.floor(accountAgeDays)}d old)`);
@@ -169,13 +195,11 @@ function runScanDiagnostics(member, config) {
     reasons.push("Account under 30 days old");
   }
 
-  // 2. Check profile design aesthetics (Alts rarely set custom avatars right away)
   if (!hasAvatar) {
     riskScore += 25;
     reasons.push("Default Avatar");
   }
 
-  // 3. Username patterns (Regex checking for common gibberish / randomized text spammers)
   const username = member.user.username;
   const hasRandomGibberish = /^[a-z0-9]{8,12}$/i.test(username) && !/[aeiou]/i.test(username);
   const consecutiveNumbers = /\d{4,}/.test(username);
@@ -186,7 +210,7 @@ function runScanDiagnostics(member, config) {
   }
 
   return {
-    riskScore: Math.min(riskScore, 100), // Cap max threat value at 100%
+    riskScore: Math.min(riskScore, 100),
     hasAvatar,
     reasons
   };
