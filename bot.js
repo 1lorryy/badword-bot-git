@@ -1,4 +1,3 @@
-const snipes = {};
 const { initTimers, handleTimerCommand } = require("./commands/timer.js");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handleBuyCommand } = require("./commands/buy");
@@ -7,6 +6,8 @@ const { handleAuctionCommand } = require("./commands/auction");
 const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
 const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday");
+const { handleVerifyCommand } = require("./commands/verify");
+const snipes = {};
 const fs = require("fs");
 const path = require("path");
 
@@ -157,10 +158,22 @@ function getGuildData(guildId) {
   if (!store[guildId].modStats || typeof store[guildId].modStats !== "object") {
     store[guildId].modStats = {};
   }
-
+  
   if (!store[guildId].birthdays || typeof store[guildId].birthdays !== "object") {
     store[guildId].birthdays = {};
   }
+  if (!store[guildId].verification || typeof store[guildId].verification !== "object") {
+    store[guildId].verification = {
+      verifiedRole: null,
+      unverifiedRole: null,
+      trustedDays: 7,          // Account age requirement (7 days minimum)
+      autoban: false,
+      autokick: false,
+      flagSuspiciousNames: true
+    };
+  }
+  // =================================================
+
   if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
 
   return store[guildId];
@@ -440,6 +453,11 @@ if (command === "afk") {
     return handleBirthdayCommand(message, args, prefix, getGuildData, saveData);
   }
 
+  // ================= VERIFICATION ROUTING =================
+  if (command === "verify") {
+    return handleVerifyCommand(message, args, prefix, getGuildData, saveData);
+  }
+  
   // ================= PING =================
   if (command === "ping") {
     const msg = await message.reply("🏓 Pinging...").catch(() => null);
@@ -1076,7 +1094,7 @@ if (command === "snipes") {
   return message.reply({ embeds: [embed] });
 }
   
-  // ================= HELP (CLEAN AND SHORT BIRTHDAY SECTION) =================
+// ================= HELP (WITH SEPARATE VERIFICATION SECTION) =================
   if (command === "help") {
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
@@ -1084,22 +1102,30 @@ if (command === "snipes") {
       .setDescription(`Current Prefix: \`${prefix}\``)
       .addFields(
         {
-  name: "🛡️ Moderation",
-  value:
-    `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
-    `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
-    `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
-    `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\``,
-  inline: false
-},
-{
-  name: "⚙️ Server",
-  value:
-    `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
-    `\`${prefix}role\` • \`${prefix}purchase\`\n` +
-    `\`${prefix}snipe/s\` • \`${prefix}snipe (on/off)\``,
-  inline: false
-},
+          name: "🛡️ Moderation",
+          value:
+            `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
+            `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
+            `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
+            `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\``,
+          inline: false
+        },
+        {
+          name: "🔒 Advanced Verification",
+          value:
+            `\`${prefix}verify settings\` • See verification status\n` +
+            `\`${prefix}verify scan @user\` • Diagnostic risk scanner\n` +
+            `\`${prefix}verify\` \`<verifiedrole/unverifiedrole/trusteddays/autoban/autokick>\``,
+          inline: false
+        },
+        {
+          name: "⚙️ Server",
+          value:
+            `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
+            `\`${prefix}role\` • \`${prefix}purchase\`\n` +
+            `\`${prefix}snipe/s\` • \`${prefix}snipe (on/off)\``,
+          inline: false
+        },
         {
           name: "🚫 AutoMod",
           value:
@@ -1119,12 +1145,12 @@ if (command === "snipes") {
           inline: false
         },
         {
-  name: "💤 Utility",
-  value:
-    `\`${prefix}afk (global)\` • \`${prefix}timer\` • \`${prefix}ping\`\n` +
-    `\`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
-  inline: false
-}
+          name: "💤 Utility",
+          value:
+            `\`${prefix}afk (global)\` • \`${prefix}timer\` • \`${prefix}ping\`\n` +
+            `\`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
+          inline: false
+        }
       )
       .setFooter({
         text: "🔥 Don Bot"
