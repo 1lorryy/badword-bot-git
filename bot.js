@@ -2,7 +2,12 @@ const snipes = {};
 const { initTimers, handleTimerCommand } = require("./commands/timer.js");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handleBuyCommand } = require("./commands/buy");
-const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
+const {
+  handleAfkCommand,
+  handleAfkMentionsAndReturn,
+  globalAfkUsers,
+  serverAfkUsers
+} = require("./commands/afk");
 const { handleAuctionCommand } = require("./commands/auction");
 const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
@@ -1178,6 +1183,29 @@ function startBot() {
     console.log(`Ready as ${client.user.tag}`);
 
     initTimers(client);
+
+// ================= RESTORE AFKs =================
+for (const guild of client.guilds.cache.values()) {
+
+  const data = getGuildData(guild.id);
+
+  if (!data.afk) continue;
+
+  // Restore globals
+  if (data.afk.global) {
+    for (const [id, afk] of Object.entries(data.afk.global)) {
+      globalAfkUsers.set(id, afk);
+    }
+  }
+
+  // Restore server AFKs
+  if (data.afk.servers) {
+    for (const [key, afk] of Object.entries(data.afk.servers)) {
+      serverAfkUsers.set(key, afk);
+    }
+  }
+
+}
 
     for (const guild of client.guilds.cache.values()) {
       const me = guild.members.me;
