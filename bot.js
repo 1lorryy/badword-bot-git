@@ -91,21 +91,6 @@ const PROTECTED_BLACKLIST = [
 let client;
 
 // ================= DATA SAVE =================
-function loadData() {
-  try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-  } catch {
-    return {};
-  }
-}
-
-let store = loadData();
-
-function saveData() {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
-}
-
 function getGuildData(guildId) {
   store = loadData();
 
@@ -116,7 +101,7 @@ function getGuildData(guildId) {
       blockedLinks: [],
       customCommands: {},
       warnings: {},
-      cooldowns: {}, 
+      cooldowns: {},
       modStats: {},
       purchaseLinks: {
         classes: [],
@@ -125,27 +110,47 @@ function getGuildData(guildId) {
         extras: []
       },
       birthdays: {},
-snipeEnabled: true,
-snipes: {}
+      snipeEnabled: true,
+      snipes: {},
+
+      // NEW
+      afk: {
+        global: {},
+        servers: {}
+      }
     };
+
     saveData();
   }
 
-  if (!Array.isArray(store[guildId].words)) store[guildId].words = [];
-  if (!Array.isArray(store[guildId].blockedLinks)) store[guildId].blockedLinks = [];
-  if (!store[guildId].customCommands || typeof store[guildId].customCommands !== "object") {
-    store[guildId].customCommands = {};
-  }
-  if (!store[guildId].warnings || typeof store[guildId].warnings !== "object") {
-    store[guildId].warnings = {};
-  }
+  const data = store[guildId];
 
-  if (!store[guildId].cooldowns || typeof store[guildId].cooldowns !== "object") {
-    store[guildId].cooldowns = {};
-  }
+  if (!Array.isArray(data.words)) data.words = [];
+  if (!Array.isArray(data.blockedLinks)) data.blockedLinks = [];
 
-  if (!store[guildId].purchaseLinks || typeof store[guildId].purchaseLinks !== "object") {
-    store[guildId].purchaseLinks = {
+  if (!data.customCommands || typeof data.customCommands !== "object")
+    data.customCommands = {};
+
+  if (!data.warnings || typeof data.warnings !== "object")
+    data.warnings = {};
+
+  if (!data.cooldowns || typeof data.cooldowns !== "object")
+    data.cooldowns = {};
+
+  if (!data.modStats || typeof data.modStats !== "object")
+    data.modStats = {};
+
+  if (!data.birthdays || typeof data.birthdays !== "object")
+    data.birthdays = {};
+
+  if (!data.snipes || typeof data.snipes !== "object")
+    data.snipes = {};
+
+  if (typeof data.snipeEnabled !== "boolean")
+    data.snipeEnabled = true;
+
+  if (!data.purchaseLinks || typeof data.purchaseLinks !== "object") {
+    data.purchaseLinks = {
       classes: [],
       ads6h: [],
       ads24h: [],
@@ -154,21 +159,31 @@ snipes: {}
   }
 
   for (const key of ["classes", "ads6h", "ads24h", "extras"]) {
-    if (!Array.isArray(store[guildId].purchaseLinks[key])) {
-      store[guildId].purchaseLinks[key] = [];
+    if (!Array.isArray(data.purchaseLinks[key])) {
+      data.purchaseLinks[key] = [];
     }
   }
-  
-  if (!store[guildId].modStats || typeof store[guildId].modStats !== "object") {
-    store[guildId].modStats = {};
+
+  // NEW
+  if (!data.afk || typeof data.afk !== "object") {
+    data.afk = {
+      global: {},
+      servers: {}
+    };
   }
 
-  if (!store[guildId].birthdays || typeof store[guildId].birthdays !== "object") {
-    store[guildId].birthdays = {};
-  }
-  if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
+  if (!data.afk.global)
+    data.afk.global = {};
 
-  return store[guildId];
+  if (!data.afk.servers)
+    data.afk.servers = {};
+
+  if (!data.prefix)
+    data.prefix = DEFAULT_PREFIX;
+
+  saveData();
+
+  return data;
 }
 
 // ================= HELPERS =================
@@ -424,7 +439,7 @@ async function handleCommands(message) {
     return handleBuyCommand(message, args, prefix, canManageGuild, saveData);
   }
   
-  if (command === "afk")
+if (command === "afk") {
   return handleAfkCommand(
     message,
     args,
@@ -432,6 +447,7 @@ async function handleCommands(message) {
     getGuildData,
     saveData
   );
+}
   if (command === "auction") return handleAuctionCommand(message, args, prefix);
   if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
   
@@ -1206,27 +1222,6 @@ for (const guild of client.guilds.cache.values()) {
   }
 
 }
-
-    for (const guild of client.guilds.cache.values()) {
-      const me = guild.members.me;
-      if (!me?.permissions.has(PermissionsBitField.Flags.ManageNicknames)) continue;
-
-      const members = await guild.members.fetch().catch(() => null);
-      if (!members) continue;
-
-      for (const member of members.values()) {
-        if (member.user.bot) continue;
-        if (!member.manageable) continue;
-
-        const nick = member.nickname;
-        if (!nick || !nick.startsWith("[AFK] ")) continue;
-
-        const cleanNick = nick.replace(/^\[AFK\]\s*/i, "").slice(0, 32);
-        await member
-          .setNickname(cleanNick || null, "Bot restarted - clearing AFK nickname")
-          .catch(() => null);
-      }
-    }
 
     setInterval(() => {
       checkBirthdays(
