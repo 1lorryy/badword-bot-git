@@ -35,11 +35,31 @@ async function handleAfkCommand(message, args, prefix, getGuildData, saveData) {
   oldNickname
 };
 
+const data = getGuildData(message.guild.id);
+
+if (!data.afk) {
+  data.afk = {
+    global: {},
+    servers: {}
+  };
+}  
+
 if (isGlobal) {
+
   globalAfkUsers.set(message.author.id, afkData);
+
+  data.afk.global[message.author.id] = afkData;
+
 } else {
-  serverAfkUsers.set(`${message.guild.id}:${message.author.id}`, afkData);
+
+  const key = `${message.guild.id}:${message.author.id}`;
+
+  serverAfkUsers.set(key, afkData);
+
+  data.afk.servers[key] = afkData;
 }
+
+saveData();
 
   // AFK nickname
   if (
