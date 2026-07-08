@@ -2,12 +2,7 @@ const snipes = {};
 const { initTimers, handleTimerCommand } = require("./commands/timer.js");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handleBuyCommand } = require("./commands/buy");
-const {
-  handleAfkCommand,
-  handleAfkMentionsAndReturn,
-  globalAfkUsers,
-  serverAfkUsers
-} = require("./commands/afk");
+const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
 const { handleAuctionCommand } = require("./commands/auction");
 const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
@@ -91,6 +86,21 @@ const PROTECTED_BLACKLIST = [
 let client;
 
 // ================= DATA SAVE =================
+function loadData() {
+  try {
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+let store = loadData();
+
+function saveData() {
+  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
+}
+
 function getGuildData(guildId) {
   store = loadData();
 
@@ -101,7 +111,7 @@ function getGuildData(guildId) {
       blockedLinks: [],
       customCommands: {},
       warnings: {},
-      cooldowns: {},
+      cooldowns: {}, 
       modStats: {},
       purchaseLinks: {
         classes: [],
@@ -111,46 +121,26 @@ function getGuildData(guildId) {
       },
       birthdays: {},
       snipeEnabled: true,
-      snipes: {},
-
-      // NEW
-      afk: {
-        global: {},
-        servers: {}
-      }
+      snipes: {}
     };
-
     saveData();
   }
 
-  const data = store[guildId];
+  if (!Array.isArray(store[guildId].words)) store[guildId].words = [];
+  if (!Array.isArray(store[guildId].blockedLinks)) store[guildId].blockedLinks = [];
+  if (!store[guildId].customCommands || typeof store[guildId].customCommands !== "object") {
+    store[guildId].customCommands = {};
+  }
+  if (!store[guildId].warnings || typeof store[guildId].warnings !== "object") {
+    store[guildId].warnings = {};
+  }
 
-  if (!Array.isArray(data.words)) data.words = [];
-  if (!Array.isArray(data.blockedLinks)) data.blockedLinks = [];
+  if (!store[guildId].cooldowns || typeof store[guildId].cooldowns !== "object") {
+    store[guildId].cooldowns = {};
+  }
 
-  if (!data.customCommands || typeof data.customCommands !== "object")
-    data.customCommands = {};
-
-  if (!data.warnings || typeof data.warnings !== "object")
-    data.warnings = {};
-
-  if (!data.cooldowns || typeof data.cooldowns !== "object")
-    data.cooldowns = {};
-
-  if (!data.modStats || typeof data.modStats !== "object")
-    data.modStats = {};
-
-  if (!data.birthdays || typeof data.birthdays !== "object")
-    data.birthdays = {};
-
-  if (!data.snipes || typeof data.snipes !== "object")
-    data.snipes = {};
-
-  if (typeof data.snipeEnabled !== "boolean")
-    data.snipeEnabled = true;
-
-  if (!data.purchaseLinks || typeof data.purchaseLinks !== "object") {
-    data.purchaseLinks = {
+  if (!store[guildId].purchaseLinks || typeof store[guildId].purchaseLinks !== "object") {
+    store[guildId].purchaseLinks = {
       classes: [],
       ads6h: [],
       ads24h: [],
@@ -159,31 +149,21 @@ function getGuildData(guildId) {
   }
 
   for (const key of ["classes", "ads6h", "ads24h", "extras"]) {
-    if (!Array.isArray(data.purchaseLinks[key])) {
-      data.purchaseLinks[key] = [];
+    if (!Array.isArray(store[guildId].purchaseLinks[key])) {
+      store[guildId].purchaseLinks[key] = [];
     }
   }
-
-  // NEW
-  if (!data.afk || typeof data.afk !== "object") {
-    data.afk = {
-      global: {},
-      servers: {}
-    };
+  
+  if (!store[guildId].modStats || typeof store[guildId].modStats !== "object") {
+    store[guildId].modStats = {};
   }
 
-  if (!data.afk.global)
-    data.afk.global = {};
+  if (!store[guildId].birthdays || typeof store[guildId].birthdays !== "object") {
+    store[guildId].birthdays = {};
+  }
+  if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
 
-  if (!data.afk.servers)
-    data.afk.servers = {};
-
-  if (!data.prefix)
-    data.prefix = DEFAULT_PREFIX;
-
-  saveData();
-
-  return data;
+  return store[guildId];
 }
 
 // ================= HELPERS =================
