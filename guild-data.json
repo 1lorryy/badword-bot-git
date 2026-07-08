@@ -2,6 +2,10 @@
   "1481370040899997769": {
     "prefix": "?",
     "words": [],
+    "afk": {
+  "global": {},
+  "servers": {}
+     },
     "blockedLinks": [],
     "customCommands": {
       "bye": {
