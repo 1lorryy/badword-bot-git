@@ -117,21 +117,18 @@ const authorAfk = globalAfk || serverAfk;
     const guildData = getGuildData(message.guild.id);
 
 if (globalAfkUsers.has(message.author.id)) {
-    globalAfkUsers.delete(message.author.id);
 
-    if (guildData.afk?.global) {
-        delete guildData.afk.global[message.author.id];
-    }
+  globalAfkUsers.delete(message.author.id);
+
+  delete data.afk.global[message.author.id];
 
 } else {
 
-    const key = `${message.guild.id}:${message.author.id}`;
+  const key = `${message.guild.id}:${message.author.id}`;
 
-    serverAfkUsers.delete(key);
+  serverAfkUsers.delete(key);
 
-    if (guildData.afk?.servers) {
-        delete guildData.afk.servers[key];
-    }
+  delete data.afk.servers[key];
 }
 
 saveData();
@@ -235,5 +232,7 @@ saveData();
 
 module.exports = {
   handleAfkCommand,
-  handleAfkMentionsAndReturn
+  handleAfkMentionsAndReturn,
+  globalAfkUsers,
+  serverAfkUsers
 };
