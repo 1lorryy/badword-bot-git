@@ -1105,7 +1105,7 @@ if (command === "help") {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle("🔥 Don Bot Commands")
-    .setDescription(`Prefix: \`${prefix}\`
+    .setDescription(`Prefix: \`${prefix}\``) // <-- Fixed missing backtick and parenthesis here
     .addFields(
       {
         name: "🛡️ Moderation & AutoMod",
@@ -1127,7 +1127,7 @@ if (command === "help") {
           `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}purchase\`\n` +
           `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
       },
-     {
+      {
         name: "🌍 Utility & Translation",
         value:
           `\`${prefix}translate\` \`[lang]\` \`[text]\` → \`en\` \`lt\` \`es\` \`fr\` \`de\` \`pl\` \`ru\` \`tr\` \`ja\`\n` +
