@@ -1,9 +1,7 @@
 const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 
-// Global AFKs
+// Global maps initialized to sync across boot schedules
 const globalAfkUsers = new Map();
-
-// Server-specific AFKs
 const serverAfkUsers = new Map();
 
 function formatDuration(ms) {
@@ -20,155 +18,89 @@ function formatDuration(ms) {
 }
 
 async function handleAfkCommand(message, args, prefix, getGuildData, saveData) {
-
   const isGlobal = args[0]?.toLowerCase() === "global";
   const reason = (isGlobal ? args.slice(1) : args).join(" ").trim() || "AFK";
-
   const member = message.member;
-
   const oldNickname = member.nickname || null;
 
   const afkData = {
-  reason,
-  since: Date.now(),
-  pings: [],
-  oldNickname
-};
-
-const data = getGuildData(message.guild.id);
-
-if (!data.afk) {
-  data.afk = {
-    global: {},
-    servers: {}
+    reason,
+    since: Date.now(),
+    pings: [],
+    oldNickname
   };
-}  
 
-if (isGlobal) {
+  const data = getGuildData(message.guild.id);
+  if (!data.afk) {
+    data.afk = { global: {}, servers: {} };
+  }  
 
-  globalAfkUsers.set(message.author.id, afkData);
+  if (isGlobal) {
+    globalAfkUsers.set(message.author.id, afkData);
+    data.afk.global[message.author.id] = afkData;
+  } else {
+    const key = `${message.guild.id}:${message.author.id}`;
+    serverAfkUsers.set(key, afkData);
+    data.afk.servers[key] = afkData;
+  }
 
-  data.afk.global[message.author.id] = afkData;
+  saveData();
 
-} else {
-
-  const key = `${message.guild.id}:${message.author.id}`;
-
-  serverAfkUsers.set(key, afkData);
-
-  data.afk.servers[key] = afkData;
-}
-
-saveData();
-
-  // AFK nickname
-  if (
-    message.guild.members.me.permissions.has(
-      PermissionsBitField.Flags.ManageNicknames
-    ) &&
-    member.manageable
-  ) {
-
-    const base =
-      member.nickname ||
-      member.user.globalName ||
-      member.user.username;
-
+  if (message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames) && member.manageable) {
+    const base = member.nickname || member.user.globalName || member.user.username;
     const clean = base.replace(/^\[AFK\]\s*/i, "");
-
     const newNick = `[AFK] ${clean}`.slice(0, 32);
-
     await member.setNickname(newNick).catch(() => null);
   }
 
   return message.reply({
-  embeds: [
-    new EmbedBuilder()
-      .setColor(0xfacc15)
-      .setDescription(
-        `🌙 **${message.author.username} is AFK** — ${reason}` +
-        (isGlobal ? "\n🌍 Mode: Global" : "\n🏠 Mode: This server")
-      )
-  ],
-  allowedMentions: {
-    parse: []
-  }
-}).catch(() => null);
-  }
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xfacc15)
+        .setDescription(
+          `🌙 **${message.author.username} is AFK** — ${reason}` +
+          (isGlobal ? "\n🌍 Mode: Global" : "\n🏠 Mode: This server")
+        )
+    ],
+    allowedMentions: { parse: [] }
+  }).catch(() => null);
+}
 
-async function handleAfkMentionsAndReturn(
-  message,
-  prefix,
-  getGuildData,
-  saveData
-) {
-
+async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData) {
   if (!message.guild || message.author.bot) return;
 
   const data = getGuildData(message.guild.id);
+  if (!data.afk) data.afk = { global: {}, servers: {} };
 
-const globalAfk = globalAfkUsers.get(message.author.id);
-const serverKey = `${message.guild.id}:${message.author.id}`;
-const serverAfk = serverAfkUsers.get(serverKey);
+  const globalAfk = globalAfkUsers.get(message.author.id);
+  const serverKey = `${message.guild.id}:${message.author.id}`;
+  const serverAfk = serverAfkUsers.get(serverKey);
+  const authorAfk = globalAfk || serverAfk;
 
-const authorAfk = globalAfk || serverAfk;
-
-  // ================= RETURN =================
-  if (
-    authorAfk &&
-    !message.content.startsWith(`${prefix}afk`)
-  ) {
-
-    const guildData = getGuildData(message.guild.id);
-
-if (globalAfkUsers.has(message.author.id)) {
-
-  globalAfkUsers.delete(message.author.id);
-
-  delete data.afk.global[message.author.id];
-
-} else {
-
-  const key = `${message.guild.id}:${message.author.id}`;
-
-  serverAfkUsers.delete(key);
-
-  delete data.afk.servers[key];
-}
-
-saveData();
-
-    const awayFor = formatDuration(
-      Date.now() - authorAfk.since
-    );
-
-    // restore nickname
-    if (
-      message.guild.members.me.permissions.has(
-        PermissionsBitField.Flags.ManageNicknames
-      ) &&
-      message.member.manageable
-    ) {
-
-      await message.member
-        .setNickname(
-          authorAfk.oldNickname || null,
-          "User returned from AFK"
-        )
-        .catch(() => null);
+  // ================= RETURN HANDLER =================
+  if (authorAfk && !message.content.startsWith(`${prefix}afk`)) {
+    
+    if (globalAfkUsers.has(message.author.id)) {
+      globalAfkUsers.delete(message.author.id);
+      if (data.afk.global) delete data.afk.global[message.author.id];
+    } else {
+      serverAfkUsers.delete(serverKey);
+      if (data.afk.servers) delete data.afk.servers[serverKey];
     }
 
-    // ping history
-    let pingList = "NO ONE PINGED U - CRY ABOUT IT";
+    saveData();
 
-    if (authorAfk.pings.length > 0) {
+    const awayFor = formatDuration(Date.now() - authorAfk.since);
 
+    if (message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames) && message.member.manageable) {
+      await message.member.setNickname(authorAfk.oldNickname || null, "Returned from AFK").catch(() => null);
+    }
+
+    let pingList = "No one pinged you while you were away.";
+    if (authorAfk.pings && authorAfk.pings.length > 0) {
       pingList = authorAfk.pings
         .slice(-10)
-        .map(
-          (p, i) =>
-            `${i + 1}. ${p.authorTag} — [jump to message](${p.url})`
-        )
+        .map((p, i) => `${i + 1}. **${p.authorTag}** — [Jump to message](${p.url})`)
         .join("\n")
         .slice(0, 1000);
     }
@@ -177,72 +109,54 @@ saveData();
       embeds: [
         new EmbedBuilder()
           .setColor(0x22c55e)
-          .setAuthor({
-            name: `${message.member.displayName} is back`,
-            iconURL: message.author.displayAvatarURL()
-          })
-          .setDescription(
-            `welcome back\n` +
-            `⏱️ AFK for: ${awayFor}\n` +
-            `💬 Reason: ${authorAfk.reason}`
-          )
-          .addFields({
-            name: "📬 Who pinged you",
-            value: pingList
-          })
+          .setAuthor({ name: `${message.member.displayName} is back`, iconURL: message.author.displayAvatarURL() })
+          .setDescription(`⏱️ **Away for:** ${awayFor}\n💬 **Reason:** ${authorAfk.reason}`)
+          .addFields({ name: "📬 Recent Mentions", value: pingList })
           .setTimestamp()
       ],
-      allowedMentions: {
-        parse: []
-      }
+      allowedMentions: { parse: [] }
     }).catch(() => null);
   }
 
-  // ================= MENTION AFK USER =================
+  // ================= MENTION DETECTOR =================
   for (const user of message.mentions.users.values()) {
+    const targetKey = `${message.guild.id}:${user.id}`;
+    const afkInfo = globalAfkUsers.get(user.id) || serverAfkUsers.get(targetKey);
 
-    const data =
-  globalAfkUsers.get(user.id) ||
-  serverAfkUsers.get(`${message.guild.id}:${user.id}`);
+    if (!afkInfo) continue;
 
-    if (!data) continue;
+    const awayFor = formatDuration(Date.now() - afkInfo.since);
 
-    const awayFor = formatDuration(
-      Date.now() - data.since
-    );
-
-    // save ping
-    data.pings.push({
-      authorTag: message.author.tag,
+    if (!afkInfo.pings) afkInfo.pings = [];
+    afkInfo.pings.push({
+      authorTag: message.author.username,
       url: message.url,
       time: Date.now()
     });
 
-    // limit history
-    if (data.pings.length > 20) {
-      data.pings.shift();
-    }
+    if (afkInfo.pings.length > 20) afkInfo.pings.shift();
 
-saveData();    
+    // Sync back up into data layer structures to prevent file drops
+    if (globalAfkUsers.has(user.id)) {
+      data.afk.global[user.id] = afkInfo;
+    } else {
+      data.afk.servers[targetKey] = afkInfo;
+    }
+    saveData();    
 
     await message.reply({
-      content:
-        `🌙 ${user.username} is AFK — ${data.reason}\n⏱️ Away for: ${awayFor}`,
-      allowedMentions: {
-        parse: []
-      }
+      content: `🌙 **${user.username}** is AFK — ${afkInfo.reason} (${awayFor} ago)`,
+      allowedMentions: { parse: [] }
     }).catch(() => null);
   }
 }
 
-function loadAfks(getGuildData) {
+// Fixed memory cache sync block to pull data on initialization loops
+function loadAfks(allGuildsData) {
+  if (!allGuildsData || typeof allGuildsData !== "object") return;
 
-  const guilds = getGuildData();
-
-  for (const guildId of Object.keys(guilds)) {
-
-    const afk = guilds[guildId].afk;
-
+  for (const guildId of Object.keys(allGuildsData)) {
+    const afk = allGuildsData[guildId]?.afk;
     if (!afk) continue;
 
     if (afk.global) {
@@ -257,6 +171,7 @@ function loadAfks(getGuildData) {
       }
     }
   }
+  console.log(`[AFK INITS] Synced database data back into memory pools smoothly.`);
 }
 
 module.exports = {
