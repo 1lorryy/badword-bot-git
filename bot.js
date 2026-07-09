@@ -1211,12 +1211,17 @@ function startBot() {
     ).catch(console.error);
   });
   
-  // ================= FIXED ANTI-RAID ENGINE JOIN interceptor =================
+  // ================= FIXED ANTI-RAID ENGINE JOIN INTERCEPTOR =================
   client.on("guildMemberAdd", async (member) => {
     try {
       const data = getGuildData(member.guild.id);
-      // Double check spelling matches standard lowercase setting initialization
-      if (!data || !data.verification || !data.verification.autokick) return;
+      if (!data || !data.verification) return;
+
+      const isKickEnabled = data.verification.autokick;
+      const isBanEnabled = data.verification.autoban;
+
+      // Exit early if neither security filter is active
+      if (!isKickEnabled && !isBanEnabled) return;
 
       // Safe pull the tracking verification functions directly
       const verifyEngine = require("./commands/verify.js");
@@ -1226,22 +1231,31 @@ function startBot() {
 
       // Score 50+ guarantees the account is strictly below your 'trustedDays' limit configuration
       if (diagnostics.riskScore >= 50) {
+        const actionType = isBanEnabled ? "BANNED" : "KICKED";
+        const actionEmoji = isBanEnabled ? "🔨" : "🛡️";
+
         const DMEmbed = new EmbedBuilder()
           .setColor(0xef4444)
-          .setTitle("🛡️ Anti-Raid Protection Protocol")
-          .setDescription(`You were automatically kicked from **${member.guild.name}** because your account is too new.\n\nOur safety infrastructure requires joining profiles to be at least \`${data.verification.trustedDays || 7} Days\` old.`);
+          .setTitle(`${actionEmoji} Anti-Raid Protection Protocol`)
+          .setDescription(`You were automatically **${actionType.toLowerCase()}** from **${member.guild.name}** because your account is too new.\n\nOur safety infrastructure requires joining profiles to be at least \`${data.verification.trustedDays || 7} Days\` old.`);
 
-        // Try to alert them privately before running kick steps
+        // Try to alert them privately before running moderate actions
         await member.send({ embeds: [DMEmbed] }).catch(() => {});
-        await member.kick(`Anti-Raid Auto-Kick: Creation age fell below threshold (${diagnostics.reasons.join(", ")})`);
+
+        if (isBanEnabled) {
+          await member.ban({ deleteMessageSeconds: 604800, reason: `Anti-Raid Auto-Ban: Creation age fell below threshold (${diagnostics.reasons.join(", ")})` });
+        } else {
+          await member.kick(`Anti-Raid Auto-Kick: Creation age fell below threshold (${diagnostics.reasons.join(", ")})`);
+        }
         
         // Log cleanly to your staff tracking panel
         const alertEmbed = new EmbedBuilder()
-          .setTitle("🛡️ Secure Anti-Raid Action Executed")
+          .setTitle(`${actionEmoji} Secure Anti-Raid Action Executed`)
           .setColor(0xef4444)
           .addFields(
+            { name: "Action Taken", value: `\`AUTO-${actionType}\``, inline: true },
             { name: "Target Profile", value: `\`${member.user.username}\` (<@${member.id}>)`, inline: true },
-            { name: "Threat Diagnostics", value: `\`${diagnostics.riskScore}%\` (${diagnostics.reasons.join(", ")})`, inline: true }
+            { name: "Threat Diagnostics", value: `\`${diagnostics.riskScore}%\` (${diagnostics.reasons.join(", ")})`, inline: false }
           )
           .setTimestamp();
           
