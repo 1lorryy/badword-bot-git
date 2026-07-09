@@ -1093,59 +1093,35 @@ function startBot() {
       const wasCommand = await handleCommands(message);
       if (wasCommand) return;
 
-      // 4. ================= AI FALLBACK ENGINE INTERCEPT =================
-      try {
-        if (!global.aiChannelSessions) global.aiChannelSessions = {};
-        if (!global.aiChannelSessions[message.channel.id]) {
-          global.aiChannelSessions[message.channel.id] = {
-            messageCount: 0,
-            currentPersonaIndex: Math.floor(Math.random() * 5)
-          };
+      // 4. ================= AI TRIGGER ENGINE =================
+      // Condition A: Explicitly using command (e.g., ?ai prompt)
+      const isAiCommand = message.content.startsWith(`${prefix}ai`);
+      
+      // Condition B: Replying directly to the bot
+      let isReplyToBot = false;
+      if (message.reference && message.reference.messageId) {
+        const repliedMsg = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+        if (repliedMsg && repliedMsg.author.id === client.user.id) {
+          isReplyToBot = true;
         }
+      }
 
-        const session = global.aiChannelSessions[message.channel.id];
-        session.messageCount++;
+      // If it doesn't meet either condition, stop here and do not trigger OpenAI
+      if (!isAiCommand && !isReplyToBot) return;
 
-        if (session.messageCount >= 15) {
-          session.messageCount = 0;
-          session.currentPersonaIndex = (session.currentPersonaIndex + 1) % 5;
-        }
+      // Clean the clean input text trigger if it was a command
+      let triggerText = message.content;
+      if (isAiCommand) {
+        triggerText = message.content.slice(`${prefix}ai`.length).trim();
+        if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
+      }
 
-        const messages = await message.channel.messages.fetch({ limit: 30 });
-        const history = [];
-
-        for (const msg of [...messages.values()].reverse()) {
-          let replyContext = "";
-          
-          if (msg.reference && msg.reference.messageId) {
-            const repliedMsg = messages.get(msg.reference.messageId) || 
-                               await message.channel.messages.fetch(msg.reference.messageId).catch(() => null);
-            if (repliedMsg) {
-              replyContext = `[Replying to ${repliedMsg.author.username}: "${repliedMsg.content.slice(0, 50)}"] `;
-            }
-          }
-
-          history.push({
-            author: msg.author.bot ? "Bot" : msg.author.username,
-            content: `${replyContext}${msg.content}`
-          });
-        }
-
-        const aiReply = await generateAiReply(
-          message, 
-          message.content, 
-          history, 
-          session.currentPersonaIndex
-        );
-
-        if (aiReply) {
-          return message.reply({ 
-            content: aiReply, 
-            allowedMentions: { parse: [], repliedUser: true }
-          });
-        }
-      } catch (aiErr) {
-        console.error("AI Fallback system encountered a processing breakdown:", aiErr);
+      const aiReply = await generateAiReply(message, triggerText, []);
+      if (aiReply) {
+        return message.reply({ 
+          content: aiReply, 
+          allowedMentions: { parse: [], repliedUser: true }
+        });
       }
 
     } catch (err) {
