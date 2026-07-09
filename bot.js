@@ -2,6 +2,7 @@ const { initTimers, handleTimerCommand } = require("./commands/timer.js");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handleBuyCommand } = require("./commands/buy");
 const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
+const { handleTranslateCommand } = require("./commands/translate");
 const { handleAuctionCommand } = require("./commands/auction");
 const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
@@ -467,6 +468,11 @@ if (command === "afk") {
     const api = Math.round(client.ws.ping);
     return msg.edit(`🏓 Pong!\n📨 Message: \`${latency}ms\`\n🌐 API: \`${api}ms\``).catch(() => null);
   }
+
+  // ================= TRANSLATE =================
+if (command === "translate") {
+  return handleTranslateCommand(message, args);
+}
 
   // ================= PREFIX =================
   if (command === "prefix") {
@@ -1147,12 +1153,23 @@ if (command === "snipes") {
           inline: false
         },
         {
-          name: "💤 Utility",
-          value:
-            `\`${prefix}afk (global)\` • \`${prefix}timer\` • \`${prefix}ping\`\n` +
-            `\`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
-          inline: false
-        }
+  name: "💤 Utility",
+  value:
+    `\`${prefix}afk (global)\` • \`${prefix}timer\`\n` +
+    `\`${prefix}ping\` • \`${prefix}translate\`\n` +
+    `\`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
+  inline: false
+}
+        {
+  name: "🌍 Translate Languages",
+  value:
+    "`en` English • `lt` Lithuanian • `ru` Russian\n" +
+    "`uk` Ukrainian • `pl` Polish • `de` German\n" +
+    "`fr` French • `es` Spanish • `it` Italian\n" +
+    "`tr` Turkish • `ja` Japanese • `ko` Korean\n" +
+    "`zh` Chinese • `nl` Dutch • `sv` Swedish",
+  inline: false
+}
       )
       .setFooter({
         text: "🔥 Don Bot"
