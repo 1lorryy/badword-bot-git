@@ -116,6 +116,8 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
       ],
       allowedMentions: { parse: [] }
     }).catch(() => null);
+
+    return true; // <--- MAKE SURE THIS IS HERE!
   }
 
   // ================= MENTION DETECTOR =================
