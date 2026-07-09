@@ -27,7 +27,7 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
     saveData();
     return message.reply(`✅ Unverified tracker role set to: **${role.name}**`);
   }
-  if (subCommand === "trusteddays") {
+    if (subCommand === "trusteddays") {
     const days = parseInt(args[1], 10);
     if (isNaN(days) || days < 0) return message.reply(`Usage: \`${prefix}verify trusteddays <days>\``);
     data.verification.trustedDays = days;
