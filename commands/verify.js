@@ -81,8 +81,16 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
 
   if (subCommand === "autokick") {
     data.verification.autokick = !data.verification.autokick;
+    if (data.verification.autokick) data.verification.autoban = false; // Turn off autoban if autokick is enabled
     saveData();
     return message.reply(`🛡️ **Auto-Kick for untrusted accounts:** ${data.verification.autokick ? "🟩 ENABLED" : "🟥 DISABLED"}`);
+  }
+
+  if (subCommand === "autoban") {
+    data.verification.autoban = !data.verification.autoban;
+    if (data.verification.autoban) data.verification.autokick = false; // Turn off autokick if autoban is enabled
+    saveData();
+    return message.reply(`🔨 **Auto-Ban for untrusted accounts:** ${data.verification.autoban ? "🟩 ENABLED" : "🟥 DISABLED"}`);
   }
 
   // 2. Full Help & Dashboard Setup Layout
@@ -98,14 +106,16 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
           `• Verified Role: ${config.verifiedRole ? `<@&${config.verifiedRole}>` : "❌ None"}\n` +
           `• Unverified Role: ${config.unverifiedRole ? `<@&${config.unverifiedRole}>` : "❌ None"}\n` +
           `• Min Account Age: \`${config.trustedDays || 7} Days\`\n` +
-          `• Auto-Kick Raider Alts: ${config.autokick ? "🟩 **Enabled**" : "🟥 **Disabled**"}\n\n` +
+          `• Auto-Kick Raider Alts: ${config.autokick ? "🟩 **Enabled**" : "🟥 **Disabled**"}\n` +
+          `• Auto-Ban Raider Alts: ${config.autoban ? "🟩 **Enabled**" : "🟥 **Disabled**"}\n\n` +
           `⚙️ **How to configure / Full Command List:**\n` +
-          `\`${prefix}verify verifiedrole @role\`\n└ Sets the final role given to clean profiles.\n\n` +
-          `\`${prefix}verify unverifiedrole @role\`\n└ Sets the holding role given to unverified entry tags.\n\n` +
-          `\`${prefix}verify trusteddays <days>\`\n└ Set age limit (e.g. \`30\`). Profiles newer than this get flagged.\n\n` +
-          `\`${prefix}verify autokick\`\n└ **Toggle active protection.** Instantly kicks any user whose creation age fails your limit.\n\n` +
-          `\`${prefix}verify scan @user\`\n└ Force-runs active data risk algorithms against a specific user profile.\n\n` +
-          `\`${prefix}verify massscan\`\n└ Audits your full member database directory for hidden alts.`
+          `\`${prefix}verify verifiedrole @role\`\n└ Sets final verification role.\n\n` +
+          `\`${prefix}verify unverifiedrole @role\`\n└ Sets unverified jail holding role.\n\n` +
+          `\`${prefix}verify trusteddays <days>\`\n└ Sets flag threshold limit (e.g. \`30\`).\n\n` +
+          `\`${prefix}verify autokick\`\n└ Toggles active instant-kick on joining alts.\n\n` +
+          `\`${prefix}verify autoban\`\n└ Toggles active permanent-ban on joining alts.\n\n` +
+          `\`${prefix}verify scan @user\`\n└ Audits a specific user profile instantly.\n\n` +
+          `\`${prefix}verify massscan\`\n└ Audits full server database directory for hidden alts.`
         )
         .setFooter({ text: `Don Bot Security Systems` })
         .setTimestamp();
