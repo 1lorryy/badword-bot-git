@@ -878,8 +878,8 @@ function startBot() {
     ]
   });
 
-  // FIXED: Hooked event engine setup to standard "ready" event
-  client.once("ready", () => {
+// FIXED: Updated to v15 standards to remove deprecation warnings & stop double logs
+  client.once("clientReady", () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
     try {
       const { loadAfks } = require("./commands/afk.js");
