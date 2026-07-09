@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
-const translate = require("@vitalets/google-translate-api");
+const { translate } = require("@vitalets/google-translate-api");
 
 // Supported languages mapping
 const LANGUAGES = {
