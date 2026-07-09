@@ -1305,7 +1305,7 @@ function startBot() {
     }
   });
 
-  client.on("messageDelete", async (message) => {
+client.on("messageDelete", async (message) => {
     try {
       if (!message.guild) return;
       if (!message.author) return;
@@ -1314,6 +1314,42 @@ function startBot() {
       saveSnipe(message);
     } catch (err) {
       console.error(err);
+    }
+  });
+  
+  // ================= AUTO-KICK ANTI-RAID PROTECTION =================
+  client.on("guildMemberAdd", async (member) => {
+    try {
+      const data = getGuildData(member.guild.id);
+      if (!data || !data.verification || !data.verification.autokick) return;
+
+      // Run your multi-factor diagnostics engine from verify.js
+      const { runScanDiagnostics } = require("./commands/verify.js");
+      const diagnostics = runScanDiagnostics(member, data.verification);
+
+      // If threat score hits 50+ points (meaning account age is below your minimum threshold)
+      if (diagnostics.riskScore >= 50) {
+        const kickEmbed = new EmbedBuilder()
+          .setColor(0xef4444)
+          .setTitle("🛡️ Security Protection")
+          .setDescription(`You have been automatically removed from **${member.guild.name}** because your account is too new.\n\nOur server requires accounts to be at least \`${data.verification.trustedDays || 7} days\` old to prevent automated bot raids.`);
+
+        await member.send({ embeds: [kickEmbed] }).catch(() => console.log(`Could not DM user ${member.user.tag}`));
+        await member.kick("Anti-Raid: Account fell below minimum age threshold.");
+        
+        // Log to your custom logging channel
+        const embedLog = new EmbedBuilder()
+          .setTitle("🛡️ Anti-Raid Auto-Kick Triggered")
+          .setColor(0xef4444)
+          .addFields(
+            { name: "User", value: `${member.user.tag} (${member.id})`, inline: true },
+            { name: "Reason", value: diagnostics.reasons.join(", "), inline: true }
+          )
+          .setTimestamp();
+        await sendModLog(embedLog);
+      }
+    } catch (err) {
+      console.error("Auto-kick handler error:", err);
     }
   });
   
