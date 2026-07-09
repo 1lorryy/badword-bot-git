@@ -849,23 +849,66 @@ async function handleCommands(message) {
     return message.reply({ embeds: [embed] });
   }
 
-  // ================= AI FALLBACK INTERCEPT =================
+// ================= AI FALLBACK INTERCEPT =================
   try {
+    // 1. Initialize or maintain a rolling persona counter per channel
+    if (!global.aiChannelSessions) global.aiChannelSessions = {};
+    if (!global.aiChannelSessions[message.channel.id]) {
+      global.aiChannelSessions[message.channel.id] = {
+        messageCount: 0,
+        currentPersonaIndex: Math.floor(Math.random() * 5) // or total personas available
+      };
+    }
+
+    const session = global.aiChannelSessions[message.channel.id];
+    session.messageCount++;
+
+    // Cycle to a new persona strictly once every 15 messages
+    if (session.messageCount >= 15) {
+      session.messageCount = 0;
+      session.currentPersonaIndex = (session.currentPersonaIndex + 1) % 5; // Adjust '5' to your max personas count
+    }
+
+    // 2. Fetch the true rolling 30-message contextual timeline
     const messages = await message.channel.messages.fetch({ limit: 30 });
-    const history = [...messages.values()]
-      .reverse()
-      .filter(m => !m.author.bot)
-      .map(m => ({ author: m.author.username, content: m.content }));
-    const aiReply = await generateAiReply(message, message.content, history);
+    const history = [];
+
+    // Reverse them so they read from oldest to newest
+    for (const msg of [...messages.values()].reverse()) {
+      let replyContext = "";
+      
+      // Check if this message was a reply to another user
+      if (msg.reference && msg.reference.messageId) {
+        const repliedMsg = messages.get(msg.reference.messageId) || 
+                           await message.channel.messages.fetch(msg.reference.messageId).catch(() => null);
+        if (repliedMsg) {
+          replyContext = `[Replying to ${repliedMsg.author.username}: "${repliedMsg.content.slice(0, 50)}"] `;
+        }
+      }
+
+      history.push({
+        author: msg.author.bot ? "Bot" : msg.author.username,
+        content: `${replyContext}${msg.content}`
+      });
+    }
+
+    // 3. Fire your generation engine passing the full chat history map + pinned persona pointer
+    const aiReply = await generateAiReply(
+      message, 
+      message.content, 
+      history, 
+      session.currentPersonaIndex
+    );
+
     if (aiReply) {
-      return message.reply({ content: aiReply, allowedMentions: { parse: [], repliedUser: false } });
+      return message.reply({ 
+        content: aiReply, 
+        allowedMentions: { parse: [], repliedUser: true } // Keeps replies looking natural
+      });
     }
   } catch (err) {
-    console.error("AI Fallback error:", err);
+    console.error("AI Fallback system encountered a processing breakdown:", err);
   }
-
-  return true;
-}
 
 // ================= BOT INTENT INITIALIZATION =================
 function startBot() {
