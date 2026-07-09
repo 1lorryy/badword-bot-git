@@ -1153,23 +1153,23 @@ if (command === "snipes") {
           inline: false
         },
         {
-  name: "💤 Utility",
-  value:
-    `\`${prefix}afk (global)\` • \`${prefix}timer\`\n` +
-    `\`${prefix}ping\` • \`${prefix}translate\`\n` +
-    `\`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
-  inline: false
-}
+          name: "💤 Utility",
+          value:
+            `\`${prefix}afk (global)\` • \`${prefix}timer\`\n` +
+            `\`${prefix}ping\` • \`${prefix}translate\`\n` +
+            `\`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
+          inline: false
+        }, // <--- FIXED: Added this missing comma here!
         {
-  name: "🌍 Translate Languages",
-  value:
-    "`en` English • `lt` Lithuanian • `ru` Russian\n" +
-    "`uk` Ukrainian • `pl` Polish • `de` German\n" +
-    "`fr` French • `es` Spanish • `it` Italian\n" +
-    "`tr` Turkish • `ja` Japanese • `ko` Korean\n" +
-    "`zh` Chinese • `nl` Dutch • `sv` Swedish",
-  inline: false
-}
+          name: "🌍 Translate Languages",
+          value:
+            "`en` English • `lt` Lithuanian • `ru` Russian\n" +
+            "`uk` Ukrainian • `pl` Polish • `de` German\n" +
+            "`fr` French • `es` Spanish • `it` Italian\n" +
+            "`tr` Turkish • `ja` Japanese • `ko` Korean\n" +
+            "`zh` Chinese • `nl` Dutch • `sv` Swedish",
+          inline: false
+        }
       )
       .setFooter({
         text: "🔥 Don Bot"
@@ -1189,7 +1189,6 @@ if (command === "snipes") {
 
     return message.reply({ embeds: [embed] });
   }
-
   // ================= AI FALLBACK CHAT =================
   const messages = await message.channel.messages.fetch({ limit: 30 });
   const history = [...messages.values()]
