@@ -167,7 +167,7 @@ function getGuildData(guildId) {
     store[guildId].verification = {
       verifiedRole: null,
       unverifiedRole: null,
-      trustedDays: 7,          // Account age requirement (7 days minimum)
+      trustedDays: 7,
       autoban: false,
       autokick: false,
       flagSuspiciousNames: true
@@ -361,7 +361,6 @@ async function handleCommands(message) {
   if (data.customCommands?.[command]) {
     const custom = data.customCommands[command];
 
-    // AI trigger
     if (typeof custom === "object" && custom.ai === true) {
       let aiReply = null;
       try {
@@ -376,7 +375,6 @@ async function handleCommands(message) {
       return message.channel.send(aiReply);
     }
 
-    // EMBED TRIGGER
     if (typeof custom === "object" && custom.type === "embed") {
       const embed = new EmbedBuilder()
         .setTitle(custom.title || "Embed")
@@ -389,7 +387,6 @@ async function handleCommands(message) {
       return message.channel.send({ embeds: [embed] });
     }
 
-    // NORMAL RESPONSE
     const response = typeof custom === "string" ? custom : custom.response || "No response set.";
     return message.channel.send({
       content: response,
@@ -397,7 +394,6 @@ async function handleCommands(message) {
     });
   }
 
-  // ================= AFK / AUCTION / CHANNEL TOOLS =================
   if (command === "timer") {
     return handleTimerCommand(message, args);
   }
@@ -1020,7 +1016,7 @@ async function handleCommands(message) {
     return message.reply({ embeds: [embed] });
   }
 
-  return true;
+  return false;
 }
 
 // ================= BOT START =================
@@ -1034,7 +1030,8 @@ function startBot() {
     ]
   });
 
-  client.once("clientReady", () => {
+  // FIXED: Changed event handler name back to "ready" to repair boot sequence crash
+  client.once("ready", () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
     try {
       const { loadAfks } = require("./commands/afk.js");
@@ -1102,7 +1099,7 @@ function startBot() {
         if (!global.aiChannelSessions[message.channel.id]) {
           global.aiChannelSessions[message.channel.id] = {
             messageCount: 0,
-            currentPersonaIndex: Math.floor(Math.random() * 5) // Matches your 5 total custom cleanup styles
+            currentPersonaIndex: Math.floor(Math.random() * 5)
           };
         }
 
