@@ -1105,7 +1105,7 @@ if (command === "help") {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle("🔥 Don Bot Commands")
-    .setDescription(`Prefix: \`${prefix}\` • [Support Server](https://example.com)`) // Quick tip: added a place for a link if you ever want one!
+    .setDescription(`Prefix: \`${prefix}\`
     .addFields(
       {
         name: "🛡️ Moderation & AutoMod",
