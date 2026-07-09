@@ -173,7 +173,6 @@ function getGuildData(guildId) {
       flagSuspiciousNames: true
     };
   }
-  // =================================================
 
   if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
 
@@ -348,7 +347,7 @@ function saveSnipe(message) {
   saveData();
 }
 
-// ================= COMMANDS =================
+// ================= COMMAND ROUTER =================
 async function handleCommands(message) {
   const data = getGuildData(message.guild.id);
   const prefix = data.prefix || DEFAULT_PREFIX;
@@ -360,142 +359,72 @@ async function handleCommands(message) {
 
   // ================= CUSTOM COMMANDS =================
   if (data.customCommands?.[command]) {
-  const custom = data.customCommands[command];
+    const custom = data.customCommands[command];
 
-  // AI trigger
-  if (typeof custom === "object" && custom.ai === true) {
-    let aiReply = null;
-
-    try {
-      aiReply = await generateAiReply(
-        message,
-        message.content
-      );
-    } catch (err) {
-      console.error(err);
-      return true;
+    // AI trigger
+    if (typeof custom === "object" && custom.ai === true) {
+      let aiReply = null;
+      try {
+        aiReply = await generateAiReply(message, message.content);
+      } catch (err) {
+        console.error(err);
+        return true;
+      }
+      if (!aiReply) return message.reply("AI unavailable.");
+      return message.channel.send(aiReply);
     }
 
-    if (!aiReply) {
-      return message.reply("AI unavailable.");
+    // EMBED TRIGGER
+    if (typeof custom === "object" && custom.type === "embed") {
+      const embed = new EmbedBuilder()
+        .setTitle(custom.title || "Embed")
+        .setDescription(custom.description || "")
+        .setColor(custom.color ? parseInt(custom.color.replace("#", ""), 16) : 0x5865f2);
+
+      if (custom.url) embed.setURL(custom.url);
+      return message.channel.send({ embeds: [embed] });
     }
 
-    return message.channel.send(aiReply);
+    // NORMAL RESPONSE
+    const response = typeof custom === "string" ? custom : custom.response || "No response set.";
+    return message.channel.send({ content: response, allowedMentions: { parse: [] } });
   }
 
-  // EMBED TRIGGER
-  if (
-    typeof custom === "object" &&
-    custom.type === "embed"
-  ) {
-    const embed = new EmbedBuilder()
-      .setTitle(custom.title || "Embed")
-      .setDescription(custom.description || "")
-      .setColor(
-        custom.color
-          ? parseInt(
-              custom.color.replace("#", ""),
-              16
-            )
-          : 0x5865f2
-      );
-
-    if (custom.url) {
-      embed.setURL(custom.url);
-    }
-
-    return message.channel.send({
-      embeds: [embed]
-    });
-  }
-
-  // NORMAL RESPONSE
-  const response =
-    typeof custom === "string"
-      ? custom
-      : custom.response || "No response set.";
-
-  return message.channel.send({
-    content: response,
-    allowedMentions: { parse: [] }
-  });
-}
-
-// ================= AFK / AUCTION / CHANNEL TOOLS =================
-  if (command === "timer") {
-    return handleTimerCommand(message, args);
-  }
-  if (command === "slowmode") {
-    return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
-  }
-  
-  if (command === "purchase") {
-    return handleBuyCommand(message, args, prefix, canManageGuild, saveData);
-  }
-  
-if (command === "afk") {
-  return handleAfkCommand(
-    message,
-    args,
-    prefix,
-    getGuildData,
-    saveData
-  );
-}
+  // ================= STANDARD ROUTING =================
+  if (command === "timer") return handleTimerCommand(message, args);
+  if (command === "slowmode") return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
+  if (command === "purchase") return handleBuyCommand(message, args, prefix, canManageGuild, saveData);
+  if (command === "afk") return handleAfkCommand(message, args, prefix, getGuildData, saveData);
   if (command === "auction") return handleAuctionCommand(message, args, prefix);
   if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
-  
-  if (command === "modlogs") {
-    return handleModLogsCommand(message, args, prefix, getGuildData);
-  }
+  if (command === "modlogs") return handleModLogsCommand(message, args, prefix, getGuildData);
+  if (command === "bday" || command === "birthday") return handleBirthdayCommand(message, args, prefix, getGuildData, saveData);
+  if (command === "verify") return handleVerifyCommand(message, args, prefix, getGuildData, saveData);
 
-  // ================= FIXED: BIRTHDAY COMMAND ROUTING =================
-  if (command === "bday" || command === "birthday") {
-    return handleBirthdayCommand(message, args, prefix, getGuildData, saveData);
-  }
-
-  // ================= VERIFICATION ROUTING =================
-  if (command === "verify") {
-    return handleVerifyCommand(message, args, prefix, getGuildData, saveData);
-  }
-  
   // ================= PING =================
   if (command === "ping") {
     const msg = await message.reply("🏓 Pinging...").catch(() => null);
     if (!msg) return true;
-
     const latency = msg.createdTimestamp - message.createdTimestamp;
     const api = Math.round(client.ws.ping);
     return msg.edit(`🏓 Pong!\n📨 Message: \`${latency}ms\`\n🌐 API: \`${api}ms\``).catch(() => null);
   }
 
   // ================= TRANSLATE =================
-if (command === "translate") {
-  return handleTranslateCommand(message, args);
-}
+  if (command === "translate") return handleTranslateCommand(message, args);
 
-  // ================= PREFIX =================
-  if (command === "prefix") {
-    return message.reply(`Current prefix: \`${prefix}\``);
-  }
-
+  // ================= PREFIX SETTINGS =================
+  if (command === "prefix") return message.reply(`Current prefix: \`${prefix}\``);
   if (command === "setprefix") {
-    if (!canBanUsers(message)) {
-      return message.reply("❌ Only admin+ can change prefix.");
-    }
-
+    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can change prefix.");
     const newPrefix = args[0];
-    if (!newPrefix || newPrefix.length > 3) {
-      return message.reply(`Usage: \`${prefix}setprefix ?\``);
-    }
-
+    if (!newPrefix || newPrefix.length > 3) return message.reply(`Usage: \`${prefix}setprefix ?\``);
     data.prefix = newPrefix;
     saveData();
-
     return message.reply(`✅ Prefix updated to \`${newPrefix}\``);
   }
 
-  // ================= WARN =================
+  // ================= WARN MODULE =================
   if (command === "warn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const member = await findTargetMember(message, args);
@@ -504,29 +433,13 @@ if (command === "translate") {
     const reason = args.slice(1).join(" ") || "No reason";
     const warnId = Date.now().toString();
 
-    // 1. Save data for the bot's custom paginated embed system
     if (!data.warnings[member.id]) data.warnings[member.id] = [];
-    data.warnings[member.id].push({
-      id: warnId,
-      reason,
-      mod: message.author.id,
-      date: new Date().toISOString()
-    });
+    data.warnings[member.id].push({ id: warnId, reason, mod: message.author.id, date: new Date().toISOString() });
 
-    // 2. Save data for your Web Dashboard panel to read instantly
     if (!data.modLogs) data.modLogs = [];
-    data.modLogs.unshift({
-      type: "WARN",
-      modId: message.author.id,
-      userId: member.id,
-      reason: reason,
-      date: new Date().toISOString()
-    });
+    data.modLogs.unshift({ type: "WARN", modId: message.author.id, userId: member.id, reason: reason, date: new Date().toISOString() });
 
-    // 3. Increment moderator stats counter
-    if (!data.modStats[message.author.id]) {
-      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
-    }
+    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
     data.modStats[message.author.id].warns++;
     saveData();
 
@@ -542,15 +455,13 @@ if (command === "translate") {
       .setTimestamp();
     await sendModLog(embed);
     await member.send({ embeds: [embed] }).catch(() => null);
-
     return message.reply(`✅ Warned ${member.user.tag}\nWarn ID: \`${warnId}\``);
   }
 
-  // ================= WARNINGS (PAGINATED EMBED GRID) =================
+  // ================= WARNINGS RECORD =================
   if (command === "warnings") {
     const member = await findTargetMember(message, args) || message.member;
     const warnings = data.warnings[member.id] || [];
-
     if (!warnings.length) return message.reply(`${member.user.tag} has no warnings.`);
 
     const perPage = 5;
@@ -560,7 +471,6 @@ if (command === "translate") {
     const generateWarningEmbed = (page) => {
       const start = page * perPage;
       const current = warnings.slice(start, start + perPage);
-
       const description = current
         .map((w, i) => `**#${start + i + 1}** ID: \`${w.id}\` • By: <@${w.mod}>\n└ **Reason:** ${w.reason}`)
         .join("\n\n");
@@ -620,7 +530,6 @@ if (command === "translate") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const member = await findTargetMember(message, args);
     const warnId = args[1];
-
     if (!member || !warnId) return message.reply(`Usage: \`${prefix}unwarn @user warnId\``);
     const warnings = data.warnings[member.id] || [];
     const before = warnings.length;
@@ -631,88 +540,38 @@ if (command === "translate") {
     return message.reply(`✅ Removed warning \`${warnId}\``);
   }
 
-  // ================= SETNICK =================
+  // ================= NICKNAME MODERATION =================
   if (command === "setnick") {
-    if (!canManageGuild(message)) {
-      return message.reply("❌ No permission.");
-    }
-
-    if (
-      !message.guild.members.me.permissions.has(
-        PermissionsBitField.Flags.ManageNicknames
-      )
-    ) {
-      return message.reply(
-        "❌ I need Manage Nicknames permission."
-      );
-    }
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames)) return message.reply("❌ I need Manage Nicknames permission.");
 
     const member = await findTargetMember(message, args);
-    if (!member) {
-      return message.reply(
-        `Usage: \`${prefix}setnick @user new nickname\``
-      );
-    }
-
     const newNick = args.slice(1).join(" ").trim();
-
-    if (!newNick) {
-      return message.reply(
-        `Usage: \`${prefix}setnick @user new nickname\``
-      );
-    }
-
-    if (newNick.length > 32) {
-      return message.reply(
-        "❌ Nickname max length is 32 characters."
-      );
-    }
+    if (!member || !newNick) return message.reply(`Usage: \`${prefix}setnick @user new nickname\``);
+    if (newNick.length > 32) return message.reply("❌ Nickname max length is 32 characters.");
 
     try {
-      await member.setNickname(
-        newNick,
-        `Changed by ${message.author.tag}`
-      );
+      await member.setNickname(newNick, `Changed by ${message.author.tag}`);
       const embed = new EmbedBuilder()
         .setTitle("✏️ Nickname Changed")
         .setColor(0x5865f2)
         .addFields(
-          {
-            name: "User",
-            value: `${member.user.tag}`,
-            inline: true
-          },
-          {
-            name: "Moderator",
-            value: `${message.author.tag}`,
-            inline: true
-          },
-          {
-            name: "New Nickname",
-            value: newNick,
-            inline: false
-          }
+          { name: "User", value: `${member.user.tag}`, inline: true },
+          { name: "Moderator", value: `${message.author.tag}`, inline: true },
+          { name: "New Nickname", value: newNick, inline: false }
         )
         .setTimestamp();
       await sendModLog(embed);
-
-      return message.reply(
-        `✅ Changed nickname for ${member.user.tag} to **${newNick}**`
-      );
+      return message.reply(`✅ Changed nickname for ${member.user.tag} to **${newNick}**`);
     } catch (err) {
-      console.error("Setnick error:", err);
-      return message.reply(
-        "❌ I cannot change that nickname. My role must be above the target user's highest role."
-      );
+      return message.reply("❌ I cannot change that nickname. My position must be higher than the target's highest role.");
     }
   }
 
-  // ================= MUTE =================
+  // ================= TIMEOUTS =================
   if (command === "mute" || command === "timeout") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
-      return message.reply("I need Moderate Members permission.");
-    }
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ModerateMembers)) return message.reply("I need Moderate Members permission.");
 
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}mute @user 1min reason\``);
@@ -724,9 +583,7 @@ if (command === "translate") {
     const reason = args.slice(2).join(" ") || "No reason";
 
     await member.timeout(durationMs, reason);
-    if (!data.modStats[message.author.id]) {
-      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
-    }
+    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
     data.modStats[message.author.id].mutes++;
     saveData();
 
@@ -743,29 +600,23 @@ if (command === "translate") {
     return message.reply(`🔇 Muted ${member.user.tag} for ${durationText}`);
   }
 
-  // ================= UNMUTE =================
   if (command === "unmute") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}unmute @user\``);
-
     await member.timeout(null);
     return message.reply(`🔊 Unmuted ${member.user.tag}`);
   }
 
-  // ================= KICK =================
+  // ================= REMOVAL SYSTEMS =================
   if (command === "kick") {
     if (!args[0]) return message.reply(`Usage: \`${prefix}kick @user reason\``);
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.KickMembers)) {
-      return message.reply("❌ I need Kick Members permission.");
-    }
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.KickMembers)) return message.reply("❌ I need Kick Members permission.");
 
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}kick @user reason\``);
-    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.kickable) {
-      return;
-    }
+    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.kickable) return;
 
     const reason = args.slice(1).join(" ") || "No reason";
     const embed = new EmbedBuilder()
@@ -780,29 +631,21 @@ if (command === "translate") {
     await member.send({ embeds: [embed] }).catch(() => null);
     await member.kick(reason);
 
-    if (!data.modStats[message.author.id]) {
-      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
-    }
+    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
     data.modStats[message.author.id].kicks++;
     saveData();
     await sendModLog(embed);
-
     return message.reply(`👢 Kicked ${member.user.tag}`);
   }
 
-  // ================= BAN =================
   if (command === "ban") {
     if (!args[0]) return message.reply(`Usage: \`${prefix}ban @user reason\``);
     if (!canBanUsers(message)) return message.reply("❌ Only admin+ can ban.");
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-      return message.reply("❌ I need Ban Members permission.");
-    }
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) return message.reply("❌ I need Ban Members permission.");
 
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}ban @user reason\``);
-    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.bannable) {
-      return;
-    }
+    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.bannable) return;
 
     const reason = args.slice(1).join(" ") || "No reason";
     const embed = new EmbedBuilder()
@@ -816,54 +659,35 @@ if (command === "translate") {
       .setTimestamp();
     await member.send({ embeds: [embed] }).catch(() => null);
     await member.ban({ reason });
-    if (!data.modStats[message.author.id]) {
-      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
-    }
+
+    if (!data.modStats[message.author.id]) data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
     data.modStats[message.author.id].bans++;
     saveData();
     await sendModLog(embed);
-
     return message.reply(`🔨 Banned ${member.user.tag}`);
   }
 
- // ================= UNBAN =================
-if (command === "unban") {
-  if (!canBanUsers(message))
-    return message.reply("❌ Only admin+ can unban.");
+  if (command === "unban") {
+    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can unban.");
+    const userId = args[0];
+    if (!userId) return message.reply(`Usage: \`${prefix}unban USER_ID reason\``);
+    const reason = args.slice(1).join(" ") || "No reason";
 
-  const userId = args[0];
-
-  if (!userId)
-    return message.reply(`Usage: \`${prefix}unban USER_ID reason\``);
-
-  const reason = args.slice(1).join(" ") || "No reason";
-
-  try {
-    await message.guild.members.unban(userId, reason);
-
-    return message.reply(
-      `✅ Successfully unbanned \`${userId}\``
-    );
-  } catch (err) {
-    console.error("UNBAN ERROR:", err);
-
-    return message.reply(
-      `❌ Failed to unban user.\n\`${err.message}\``
-    );
+    try {
+      await message.guild.members.unban(userId, reason);
+      return message.reply(`✅ Successfully unbanned \`${userId}\``);
+    } catch (err) {
+      return message.reply(`❌ Failed to unban user.\n\`${err.message}\``);
+    }
   }
-}
 
-  // ================= PURGE =================
+  // ================= CHAT CLEANERS =================
   if (command === "purge") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-      return message.reply("I need Manage Messages permission.");
-    }
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) return message.reply("I need Manage Messages permission.");
 
     const amount = parseInt(args[0], 10);
-    if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
-      return message.reply(`Usage: \`${prefix}purge 1\``);
-    }
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100) return message.reply(`Usage: \`${prefix}purge 1\``);
 
     const deleted = await message.channel.bulkDelete(amount, true).catch(() => null);
     if (!deleted) return message.reply("Could not purge messages.");
@@ -873,124 +697,79 @@ if (command === "unban") {
     return true;
   }
 
-  // ================= ROLE =================
+  // ================= ROLES MANAGEMENTS =================
   if (command === "role") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return message.reply("I need Manage Roles permission.");
-    }
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) return message.reply("I need Manage Roles permission.");
 
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}role @user role\``);
     const roleInput = args.slice(1).join(" ").trim();
     if (!roleInput) return message.reply(`Usage: \`${prefix}role @user role\``);
-    const role =
-      message.mentions.roles.first() ||
+
+    const role = message.mentions.roles.first() ||
       message.guild.roles.cache.get(roleInput.replace(/[<@&>]/g, "")) ||
-      message.guild.roles.cache.find(
-        r => r.name.toLowerCase() === roleInput.toLowerCase()
-      );
+      message.guild.roles.cache.find(r => r.name.toLowerCase() === roleInput.toLowerCase());
+
     if (!role) return message.reply("Role not found.");
     if (role.managed) return message.reply("I cannot manage that role.");
-    if (role.position >= message.guild.members.me.roles.highest.position) {
-      return message.reply("❌ That role is higher than or equal to my highest role.");
-    }
-    if (role.position >= message.member.roles.highest.position) {
-      return message.reply("❌ You cannot give/remove a role equal or higher than your highest role.");
-    }
+    if (role.position >= message.guild.members.me.roles.highest.position) return message.reply("❌ That role is higher than or equal to my highest role.");
+    if (role.position >= message.member.roles.highest.position) return message.reply("❌ You cannot manage a role equal to or higher than your own.");
 
     if (member.roles.cache.has(role.id)) {
       await member.roles.remove(role);
       return message.reply(`✅ Removed **${role.name}** from ${member.user.tag}`);
     }
-
     await member.roles.add(role);
     return message.reply(`✅ Added **${role.name}** to ${member.user.tag}`);
   }
 
-  // ================= BLACKLIST ADD =================
+  // ================= AUTOMOD FILTER COMMANDS =================
   if (command === "bl" || command === "blacklist") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const word = args.join(" ").trim().toLowerCase();
     if (!word) return message.reply(`Usage: \`${prefix}bl word\``);
     if (CORE_BLACKLIST.includes(word) || data.words.includes(word)) {
       const reply = await message.reply(`⚠️ \`${word}\` is already blacklisted.`);
-      await deleteAfter(reply);
-      await deleteAfter(message);
-      return true;
+      await deleteAfter(reply); await deleteAfter(message); return true;
     }
-
     data.words.push(word);
     saveData();
     const reply = await message.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle("🚫 Word Blacklisted")
-          .setColor(0xef4444)
-          .setDescription(`Added \`${word}\` to the blacklist.`)
-          .setFooter({ text: "AutoMod updated" })
-          .setTimestamp()
-      ]
+      embeds: [new EmbedBuilder().setTitle("🚫 Word Blacklisted").setColor(0xef4444).setDescription(`Added \`${word}\` to the blacklist.`).setTimestamp()]
     }).catch(() => null);
-    await deleteAfter(reply);
-    await deleteAfter(message);
-    return true;
+    await deleteAfter(reply); await deleteAfter(message); return true;
   }
 
-  // ================= BLACKLIST REMOVE =================
   if (command === "unbl" || command === "unblacklist") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const word = args.join(" ").trim().toLowerCase();
     if (!word) return message.reply(`Usage: \`${prefix}unbl word\``);
     if (CORE_BLACKLIST.includes(word)) {
       const reply = await message.reply(`❌ \`${word}\` is protected and cannot be removed.`);
-      await deleteAfter(reply);
-      await deleteAfter(message);
-      return true;
+      await deleteAfter(reply); await deleteAfter(message); return true;
     }
-
     const before = data.words.length;
     data.words = data.words.filter(w => w !== word);
     saveData();
 
     if (before === data.words.length) {
       const reply = await message.reply(`⚠️ \`${word}\` was not found in blacklist.`);
-      await deleteAfter(reply);
-      await deleteAfter(message);
-      return true;
+      await deleteAfter(reply); await deleteAfter(message); return true;
     }
-
     const reply = await message.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle("✅ Word Removed")
-          .setColor(0x22c55e)
-          .setDescription(`Removed \`${word}\` from the blacklist.`)
-          .setFooter({ text: "AutoMod updated" })
-          .setTimestamp()
-      ]
+      embeds: [new EmbedBuilder().setTitle("✅ Word Removed").setColor(0x22c55e).setDescription(`Removed \`${word}\` from the blacklist.`).setTimestamp()]
     }).catch(() => null);
-
-    await deleteAfter(reply);
-    await deleteAfter(message);
-    return true;
+    await deleteAfter(reply); await deleteAfter(message); return true;
   }
 
-  // ================= BLACKLIST WORDS =================
   if (command === "words") {
     const allWords = [...new Set([...CORE_BLACKLIST, ...data.words])];
     return message.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle("🚫 Blacklisted Words")
-          .setColor(0x5865f2)
-          .setDescription(allWords.map(w => `\`${w}\``).join(", ").slice(0, 4000))
-          .setFooter({ text: `${allWords.length} word(s) blocked` })
-      ]
+      embeds: [new EmbedBuilder().setTitle("🚫 Blacklisted Words").setColor(0x5865f2).setDescription(allWords.map(w => `\`${w}\``).join(", ").slice(0, 4000)).setFooter({ text: `${allWords.length} word(s) blocked` })]
     });
   }
 
-  // ================= MOD STATS =================
   if (command === "modstats") {
     const member = (await findTargetMember(message, args)) || message.member;
     const stats = data.modStats[member.id] || { warns: 0, mutes: 0, kicks: 0, bans: 0 };
@@ -1007,166 +786,88 @@ if (command === "unban") {
     return message.reply({ embeds: [embed] });
   }
 
-// ================= SNIPE =================
-if (command === "snipe") {
+  // ================= SNIVER SYSTEMS =================
+  if (command === "snipe") {
+    if (args[0]?.toLowerCase() === "on") {
+      if (!canManageGuild(message)) return message.reply("❌ No permission.");
+      data.snipeEnabled = true; saveData(); return message.reply("✅ Snipe enabled.");
+    }
+    if (args[0]?.toLowerCase() === "off") {
+      if (!canManageGuild(message)) return message.reply("❌ No permission.");
+      data.snipeEnabled = false; saveData(); return message.reply("❌ Snipe disabled.");
+    }
+    if (!data.snipeEnabled) return message.reply("❌ Snipe is disabled.");
 
-  if (args[0]?.toLowerCase() === "on") {
-    if (!canManageGuild(message))
-      return message.reply("❌ No permission.");
+    const activeSnipes = data.snipes?.[message.channel.id];
+    if (!activeSnipes || !activeSnipes.length) return message.reply("Nothing to snipe.");
 
-    data.snipeEnabled = true;
-    saveData();
+    const index = parseInt(args[0]) || 1;
+    const snipe = activeSnipes[index - 1];
+    if (!snipe) return message.reply(`Only ${activeSnipes.length} deleted messages stored.`);
 
-    return message.reply("✅ Snipe enabled.");
+    const embed = new EmbedBuilder()
+      .setTitle(`📌 Sniped Message #${index}`)
+      .setColor(0x5865f2)
+      .addFields(
+        { name: "Author", value: `<@${snipe.authorId}>`, inline: true },
+        { name: "Deleted", value: `<t:${Math.floor(snipe.deletedAt / 1000)}:R>`, inline: true },
+        { name: "Message", value: snipe.content.slice(0, 1024) }
+      )
+      .setFooter({ text: `${index}/${activeSnipes.length} stored snipes` });
+    return message.reply({ embeds: [embed] });
   }
 
-  if (args[0]?.toLowerCase() === "off") {
-    if (!canManageGuild(message))
-      return message.reply("❌ No permission.");
+  if (command === "snipes") {
+    const activeSnipes = data.snipes?.[message.channel.id];
+    if (!activeSnipes || !activeSnipes.length) return message.reply("Nothing to snipe.");
 
-    data.snipeEnabled = false;
-    saveData();
-
-    return message.reply("❌ Snipe disabled.");
+    const embed = new EmbedBuilder()
+      .setTitle("📌 Recent Deleted Messages")
+      .setColor(0x5865f2)
+      .setDescription(activeSnipes.slice(0, 5).map((s, i) => `**${i + 1}.** <@${s.authorId}> • <t:${Math.floor(s.deletedAt / 1000)}:R>\n${s.content}`).join("\n\n"))
+      .setFooter({ text: `${activeSnipes.length} stored deleted messages` });
+    return message.reply({ embeds: [embed] });
   }
 
-  if (!data.snipeEnabled) {
-    return message.reply("❌ Snipe is disabled.");
+  // ================= SYSTEM HELP MENU =================
+  if (command === "help") {
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle("🔥 Don Bot Commands")
+      .setDescription(`Prefix: \`${prefix}\``)
+      .addFields(
+        { name: "🛡️ Moderation & AutoMod", value: `\`${prefix}warn\` \`${prefix}warnings\` \`${prefix}unwarn\` \`${prefix}mute\` \`${prefix}unmute\`\n\`${prefix}kick\` \`${prefix}ban\` \`${prefix}unban\` \`${prefix}purge\` \`${prefix}modstats\` \`${prefix}modlogs\`\n\`${prefix}bl\` \`${prefix}unbl\` \`${prefix}words\`` },
+        { name: "🔒 Advanced Verification", value: `\`${prefix}verify settings\` • \`${prefix}verify scan @user\` • \`${prefix}verify massscan\`\n\`${prefix}verify verifiedrole\` • \`${prefix}verify unverifiedrole\`\n\`${prefix}verify trusteddays\` • \`${prefix}verify autoban\` • \`${prefix}verify autokick\`` },
+        { name: "⚙️ Server, Auction & Channels", value: `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}purchase\`\n\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\`` },
+        { name: "🌍 Utility & Translation", value: `\`${prefix}translate\` \`[lang]\` \`[text]\` → \`en\` \`lt\` \`es\` \`fr\` \`de\` \`pl\` \`ru\` \`tr\` \`ja\`\n▫️ \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\`` }
+      )
+      .setTimestamp();
+
+    if (data.customCommands && Object.keys(data.customCommands).length) {
+      embed.addFields({ name: "💬 Custom", value: Object.keys(data.customCommands).map(cmd => `\`${prefix}${cmd}\``).join(" ").slice(0, 1024) });
+    }
+    return message.reply({ embeds: [embed] });
   }
 
-  const snipes = data.snipes?.[message.channel.id];
-
-  if (!snipes || !snipes.length) {
-    return message.reply("Nothing to snipe.");
-  }
-
-  const index = parseInt(args[0]) || 1;
-
-  const snipe = snipes[index - 1];
-
-  if (!snipe) {
-    return message.reply(`Only ${snipes.length} deleted messages stored.`);
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle(`📌 Sniped Message #${index}`)
-    .setColor(0x5865f2)
-    .addFields(
-      {
-        name: "Author",
-        value: `<@${snipe.authorId}>`,
-        inline: true
-      },
-      {
-        name: "Deleted",
-        value: `<t:${Math.floor(snipe.deletedAt / 1000)}:R>`,
-        inline: true
-      },
-      {
-        name: "Message",
-        value: snipe.content.slice(0, 1024)
-      }
-    )
-    .setFooter({
-      text: `${index}/${snipes.length} stored snipes`
-    });
-
-  return message.reply({ embeds: [embed] });
-}
-  
-// ================= SNIPES =================
-if (command === "snipes") {
-  const snipes = data.snipes?.[message.channel.id];
-
-  if (!snipes || !snipes.length) {
-    return message.reply("Nothing to snipe.");
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle("📌 Recent Deleted Messages")
-    .setColor(0x5865f2)
-    .setDescription(
-      snipes
-        .slice(0, 5)
-        .map((s, i) =>
-          `**${i + 1}.** <@${s.authorId}> • <t:${Math.floor(s.deletedAt / 1000)}:R>\n${s.content}`
-        )
-        .join("\n\n")
-    )
-    .setFooter({
-      text: `${snipes.length} stored deleted messages`
-    });
-
-  return message.reply({ embeds: [embed] });
-}
-  
-// ================= HELP (SLEEK & CONDENSED VERSION) =================
-if (command === "help") {
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle("🔥 Don Bot Commands")
-    .setDescription(`Prefix: \`${prefix}\``) // <-- Fixed missing backtick and parenthesis here
-    .addFields(
-      {
-        name: "🛡️ Moderation & AutoMod",
-        value: 
-          `\`${prefix}warn\` \`${prefix}warnings\` \`${prefix}unwarn\` \`${prefix}mute\` \`${prefix}unmute\`\n` +
-          `\`${prefix}kick\` \`${prefix}ban\` \`${prefix}unban\` \`${prefix}purge\` \`${prefix}modstats\` \`${prefix}modlogs\`\n` +
-          `\`${prefix}bl\` \`${prefix}unbl\` \`${prefix}words\``
-      },
-      {
-        name: "🔒 Advanced Verification",
-        value:
-          `\`${prefix}verify settings\` • \`${prefix}verify scan @user\` • \`${prefix}verify massscan\`\n` +
-          `\`${prefix}verify verifiedrole\` • \`${prefix}verify unverifiedrole\`\n` +
-          `\`${prefix}verify trusteddays\` • \`${prefix}verify autoban\` • \`${prefix}verify autokick\``
-      },
-      {
-        name: "⚙️ Server, Auction & Channels",
-        value:
-          `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}purchase\`\n` +
-          `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
-      },
-      {
-        name: "🌍 Utility & Translation",
-        value:
-          `\`${prefix}translate\` \`[lang]\` \`[text]\` → \`en\` \`lt\` \`es\` \`fr\` \`de\` \`pl\` \`ru\` \`tr\` \`ja\`\n` +
-          `▫️ \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\``
-      }
-    )
-    .setTimestamp();
-    
-  if (data.customCommands && Object.keys(data.customCommands).length) {
-    embed.addFields({
-      name: "💬 Custom",
-      value: Object.keys(data.customCommands).map(cmd => `\`${prefix}${cmd}\``).join(" ").slice(0, 1024)
-    });
-  }
-
-  return message.reply({ embeds: [embed] });
-}
-  
-  // ================= AI FALLBACK CHAT =================
-  const messages = await message.channel.messages.fetch({ limit: 30 });
-  const history = [...messages.values()]
-    .reverse()
-    .filter(m => !m.author.bot)
-    .map(m => ({
-      author: m.author.username,
-      content: m.content
-    }));
-  const aiReply = await generateAiReply(message, message.content, history);
-  if (aiReply) {
-    return message.reply({
-      content: aiReply,
-      allowedMentions: { parse: [], repliedUser: false }
-    });
+  // ================= AI FALLBACK INTERCEPT =================
+  try {
+    const messages = await message.channel.messages.fetch({ limit: 30 });
+    const history = [...messages.values()]
+      .reverse()
+      .filter(m => !m.author.bot)
+      .map(m => ({ author: m.author.username, content: m.content }));
+    const aiReply = await generateAiReply(message, message.content, history);
+    if (aiReply) {
+      return message.reply({ content: aiReply, allowedMentions: { parse: [], repliedUser: false } });
+    }
+  } catch (err) {
+    console.error("AI Fallback error:", err);
   }
 
   return true;
 }
 
-// ================= BOT START =================
+// ================= BOT INTENT INITIALIZATION =================
 function startBot() {
   client = new Client({
     intents: [
@@ -1177,41 +878,86 @@ function startBot() {
     ]
   });
 
-  client.once("clientReady", () => {
+  // FIXED: Hooked event engine setup to standard "ready" event
+  client.once("ready", () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
-    
-    // Trigger memory synchronization for AFK modules on boot up sequence
     try {
       const { loadAfks } = require("./commands/afk.js");
-      
-      // We pull the raw database records right from your operational storage function
       const databaseCache = typeof getGuildData === "function" ? getGuildData() : {};
       loadAfks(databaseCache || {}); 
+      console.log("[AFK INITS] Synced database data back into memory pools smoothly.");
     } catch(err) {
       console.error("Failed to load AFK memory layers on setup:", err);
     }
 
-    // Initialize real-time timers
     initTimers(client);
+    console.log("⏰ Real-time dynamic timer system initialized.");
 
-    // Run hourly birthday checks
     setInterval(() => {
-      checkBirthdays(
-        client,
-        getGuildData,
-        saveData
-      ).catch(console.error);
+      checkBirthdays(client, getGuildData, saveData).catch(console.error);
     }, 60 * 60 * 1000);
 
-    // Initial birthday check on startup
-    checkBirthdays(
-      client,
-      getGuildData,
-      saveData
-    ).catch(console.error);
+    checkBirthdays(client, getGuildData, saveData).catch(console.error);
+  });
+
+  // FIXED: Linked the critical message handler execution pipeline
+  client.on("messageCreate", async (message) => {
+    try {
+      if (message.author.bot) return;
+      if (!message.guild) return;
+      if (!message.content) return;
+
+      const data = getGuildData(message.guild.id);
+      const prefix = data.prefix || DEFAULT_PREFIX;
+
+      // 1. Check if user is returning from AFK state
+      const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
+      if (userReturned) return;
+
+      // 2. Automod Filter Core Evaluation
+      const bypassRoleId = "1492630307650666546";
+      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
+      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
+      const containsDiscordInvite = discordInviteRegex.test(message.content);
+      const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
+
+      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+      if (protectedWord) {
+        await message.delete().catch(() => null);
+        await sendAutomodLog(message, protectedWord);
+        return;
+      }
+
+      if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
+        const word = containsBlacklistedWord(message.content, [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]);
+        if (word) {
+          await message.delete().catch(() => null);
+          await sendAutomodLog(message, word);
+          return;
+        }
+      }
+
+      // 3. Process Standard Commands
+      await handleCommands(message);
+    } catch (err) {
+      console.error("Error running inside messageCreate pipeline:", err);
+    }
+  });
+
+  // BACKGROUND TASK: Save snipes when messages are deleted
+  client.on("messageDelete", async (message) => {
+    try {
+      if (!message.guild || message.author?.bot) return;
+      const data = getGuildData(message.guild.id);
+      if (data.snipeEnabled) {
+        saveSnipe(message);
+      }
+    } catch (err) {
+      console.error("Error executing background snipe logger:", err);
+    }
   });
   
-  // ================= FIXED ANTI-RAID ENGINE JOIN INTERCEPTOR =================
+  // SECURITY HANDLER: Anti-Raid Joins Gatekeeper Interceptor
   client.on("guildMemberAdd", async (member) => {
     try {
       const data = getGuildData(member.guild.id);
@@ -1219,17 +965,13 @@ function startBot() {
 
       const isKickEnabled = data.verification.autokick;
       const isBanEnabled = data.verification.autoban;
-
-      // Exit early if neither security filter is active
       if (!isKickEnabled && !isBanEnabled) return;
 
-      // Safe pull the tracking verification functions directly
       const verifyEngine = require("./commands/verify.js");
       if (!verifyEngine || typeof verifyEngine.runScanDiagnostics !== "function") return;
 
       const diagnostics = verifyEngine.runScanDiagnostics(member, data.verification);
 
-      // Score 50+ guarantees the account is strictly below your 'trustedDays' limit configuration
       if (diagnostics.riskScore >= 50) {
         const actionType = isBanEnabled ? "BANNED" : "KICKED";
         const actionEmoji = isBanEnabled ? "🔨" : "🛡️";
@@ -1239,7 +981,6 @@ function startBot() {
           .setTitle(`${actionEmoji} Anti-Raid Protection Protocol`)
           .setDescription(`You were automatically **${actionType.toLowerCase()}** from **${member.guild.name}** because your account is too new.\n\nOur safety infrastructure requires joining profiles to be at least \`${data.verification.trustedDays || 7} Days\` old.`);
 
-        // Try to alert them privately before running moderate actions
         await member.send({ embeds: [DMEmbed] }).catch(() => {});
 
         if (isBanEnabled) {
@@ -1248,7 +989,6 @@ function startBot() {
           await member.kick(`Anti-Raid Auto-Kick: Creation age fell below threshold (${diagnostics.reasons.join(", ")})`);
         }
         
-        // Log cleanly to your staff tracking panel
         const alertEmbed = new EmbedBuilder()
           .setTitle(`${actionEmoji} Secure Anti-Raid Action Executed`)
           .setColor(0xef4444)
