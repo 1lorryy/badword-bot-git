@@ -1,6 +1,48 @@
 const { EmbedBuilder, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 /**
+ * Advanced Multi-Factor Diagnostics Engine
+ */
+function runScanDiagnostics(member, config) {
+  const accountAgeDays = (Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24);
+  const hasAvatar = member.user.avatar !== null;
+  
+  let riskScore = 0;
+  let reasons = [];
+
+  // Account age thresholds
+  if (accountAgeDays < (config.trustedDays || 7)) {
+    riskScore += 50; 
+    reasons.push(`${Math.floor(accountAgeDays)}d old`);
+  } else if (accountAgeDays < 30) {
+    riskScore += 20;
+    reasons.push("Under 30d old");
+  }
+
+  // Avatar validation
+  if (!hasAvatar) {
+    riskScore += 25;
+    reasons.push("Default Avatar");
+  }
+
+  // Name layout validation
+  const username = member.user.username;
+  const hasRandomGibberish = /^[a-z0-9]{8,12}$/i.test(username) && !/[aeiou]/i.test(username);
+  const consecutiveNumbers = /\d{4,}/.test(username);
+
+  if (hasRandomGibberish || consecutiveNumbers) {
+    riskScore += 25;
+    reasons.push("Suspicious name layout");
+  }
+
+  return {
+    riskScore: Math.min(riskScore, 100),
+    hasAvatar,
+    reasons
+  };
+}
+
+/**
  * Main handler routing all ?verify controls
  */
 async function handleVerifyCommand(message, args, prefix, getGuildData, saveData) {
@@ -12,14 +54,15 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
 
   const subCommand = (args[0] || "").toLowerCase();
 
-  // 1. ?verify verifiedrole / unverifiedrole / trusteddays
+  // 1. Core Config Subcommands
   if (subCommand === "verifiedrole") {
-    const role = message.mentions.roles.first() || message.guild.roles.roles.cache.get(args[1]);
+    const role = message.mentions.roles.first() || message.guild.roles.cache.get(args[1]);
     if (!role) return message.reply(`Usage: \`${prefix}verify verifiedrole @role\``);
     data.verification.verifiedRole = role.id;
     saveData();
     return message.reply(`✅ Verified role set to: **${role.name}**`);
   }
+
   if (subCommand === "unverifiedrole") {
     const role = message.mentions.roles.first() || message.guild.roles.cache.get(args[1]);
     if (!role) return message.reply(`Usage: \`${prefix}verify unverifiedrole @role\``);
@@ -27,7 +70,8 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
     saveData();
     return message.reply(`✅ Unverified tracker role set to: **${role.name}**`);
   }
-    if (subCommand === "trusteddays") {
+
+  if (subCommand === "trusteddays") {
     const days = parseInt(args[1], 10);
     if (isNaN(days) || days < 0) return message.reply(`Usage: \`${prefix}verify trusteddays <days>\``);
     data.verification.trustedDays = days;
@@ -35,24 +79,42 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
     return message.reply(`✅ Minimum age threshold adjusted to **${days}** days.`);
   }
 
-  // 2. Dashboard Settings Panel
+  if (subCommand === "autokick") {
+    data.verification.autokick = !data.verification.autokick;
+    saveData();
+    return message.reply(`🛡️ **Auto-Kick for untrusted accounts:** ${data.verification.autokick ? "🟩 ENABLED" : "🟥 DISABLED"}`);
+  }
+
+  // 2. Full Help & Dashboard Setup Layout
   if (subCommand === "settings" || !subCommand) {
-    if (subCommand !== "massscan") {
+    if (subCommand !== "massscan" && subCommand !== "scan") {
       const config = data.verification;
+      
       const embed = new EmbedBuilder()
-        .setTitle("🛡️ Verification Suite Settings")
+        .setTitle("🛡️ Verification & Anti-Raid Manual")
         .setColor(0x5865f2)
-        .addFields(
-          { name: "Verified Role", value: config.verifiedRole ? `<@&${config.verifiedRole}>` : "❌ None", inline: true },
-          { name: "Unverified Role", value: config.unverifiedRole ? `<@&${config.unverifiedRole}>` : "❌ None", inline: true },
-          { name: "Min Account Age", value: `\`${config.trustedDays} Days\``, inline: true }
+        .setDescription(
+          `**Current Status Panel:**\n` +
+          `• Verified Role: ${config.verifiedRole ? `<@&${config.verifiedRole}>` : "❌ None"}\n` +
+          `• Unverified Role: ${config.unverifiedRole ? `<@&${config.unverifiedRole}>` : "❌ None"}\n` +
+          `• Min Account Age: \`${config.trustedDays || 7} Days\`\n` +
+          `• Auto-Kick Raider Alts: ${config.autokick ? "🟩 **Enabled**" : "🟥 **Disabled**"}\n\n` +
+          `⚙️ **How to configure / Full Command List:**\n` +
+          `\`${prefix}verify verifiedrole @role\`\n└ Sets the final role given to clean profiles.\n\n` +
+          `\`${prefix}verify unverifiedrole @role\`\n└ Sets the holding role given to unverified entry tags.\n\n` +
+          `\`${prefix}verify trusteddays <days>\`\n└ Set age limit (e.g. \`30\`). Profiles newer than this get flagged.\n\n` +
+          `\`${prefix}verify autokick\`\n└ **Toggle active protection.** Instantly kicks any user whose creation age fails your limit.\n\n` +
+          `\`${prefix}verify scan @user\`\n└ Force-runs active data risk algorithms against a specific user profile.\n\n` +
+          `\`${prefix}verify massscan\`\n└ Audits your full member database directory for hidden alts.`
         )
-        .setFooter({ text: `Type ${prefix}verify massscan to execute a deep audit.` });
+        .setFooter({ text: `Don Bot Security Systems` })
+        .setTimestamp();
+
       return message.reply({ embeds: [embed] });
     }
   }
 
-  // 3. ?verify massscan (COMPRESSED + INTERACTIVE PAGINATION EDITION)
+  // 3. ?verify massscan (Interactive Pagination)
   if (subCommand === "massscan") {
     const progressEmbed = new EmbedBuilder()
       .setTitle("🔄 Live Security Directory Scan")
@@ -106,18 +168,15 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
       return statusMessage.edit({ embeds: [cleanEmbed] });
     }
 
-    // Pagination chunking configurations (10 compressed records per page view)
     const itemsPerPage = 10;
     const totalPages = Math.ceil(flaggedAlts.length / itemsPerPage);
     let currentPage = 1;
 
-    // Helper to generate custom compressed block pages
     const generatePageEmbed = (page) => {
       const start = (page - 1) * itemsPerPage;
       const end = start + itemsPerPage;
       const pageItems = flaggedAlts.slice(start, end);
 
-      // Create a super compact row structure 
       let tableRows = pageItems.map(item => 
         `\`[${item.score}%]\` ${item.mention} (\`${item.tag}\`)\n└ *${item.reason}*`
       ).join("\n");
@@ -130,7 +189,6 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
         .setTimestamp();
     };
 
-    // Build pagination navigation row
     const getRow = (page) => {
       return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -146,25 +204,20 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
       );
     };
 
-    // Push first page print layout out
     await statusMessage.edit({
       content: "✅ Scan complete.",
       embeds: [generatePageEmbed(currentPage)],
       components: [getRow(currentPage)]
     });
 
-    // Create a temporary live collector stream targeting button updates (lasts 5 minutes)
     const collector = statusMessage.createMessageComponentCollector({
       filter: (i) => i.user.id === message.author.id,
       time: 300000 
     });
 
     collector.on("collect", async (interaction) => {
-      if (interaction.customId === "prev_page") {
-        currentPage--;
-      } else if (interaction.customId === "next_page") {
-        currentPage++;
-      }
+      if (interaction.customId === "prev_page") currentPage--;
+      else if (interaction.customId === "next_page") currentPage++;
 
       await interaction.update({
         embeds: [generatePageEmbed(currentPage)],
@@ -173,7 +226,6 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
     });
 
     collector.on("end", () => {
-      // Clean up buttons and strip them out when interaction session expires
       statusMessage.edit({ components: [] }).catch(() => {});
     });
     return;
@@ -198,45 +250,6 @@ async function handleVerifyCommand(message, args, prefix, getGuildData, saveData
       );
     return message.reply({ embeds: [embed] });
   }
-}
-
-/**
- * Advanced Multi-Factor Diagnostics Engine
- */
-function runScanDiagnostics(member, config) {
-  const accountAgeDays = (Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24);
-  const hasAvatar = member.user.avatar !== null;
-  
-  let riskScore = 0;
-  let reasons = [];
-
-  if (accountAgeDays < config.trustedDays) {
-    riskScore += 50; 
-    reasons.push(`${Math.floor(accountAgeDays)}d old`);
-  } else if (accountAgeDays < 30) {
-    riskScore += 20;
-    reasons.push("Under 30d old");
-  }
-
-  if (!hasAvatar) {
-    riskScore += 25;
-    reasons.push("Default Avatar");
-  }
-
-  const username = member.user.username;
-  const hasRandomGibberish = /^[a-z0-9]{8,12}$/i.test(username) && !/[aeiou]/i.test(username);
-  const consecutiveNumbers = /\d{4,}/.test(username);
-
-  if (hasRandomGibberish || consecutiveNumbers) {
-    riskScore += 25;
-    reasons.push("Suspicious name layout");
-  }
-
-  return {
-    riskScore: Math.min(riskScore, 100),
-    hasAvatar,
-    reasons
-  };
 }
 
 module.exports = {
