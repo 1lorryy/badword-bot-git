@@ -1117,9 +1117,9 @@ if (command === "help") {
       {
         name: "🔒 Advanced Verification",
         value:
-          `\`verify settings\` • \`verify scan @user\` • \`verify massscan\`\n` +
-          `\`verify verifiedrole\` • \`verify unverifiedrole\`\n` +
-          `\`verify trusteddays\` • \`verify autoban\` • \`verify autokick\``
+          `\`${prefix}verify settings\` • \`${prefix}verify scan @user\` • \`${prefix}verify massscan\`\n` +
+          `\`${prefix}verify verifiedrole\` • \`${prefix}verify unverifiedrole\`\n` +
+          `\`${prefix}verify trusteddays\` • \`${prefix}verify autoban\` • \`${prefix}verify autokick\``
       },
       {
         name: "⚙️ Server, Auction & Channels",
