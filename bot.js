@@ -1177,8 +1177,18 @@ function startBot() {
     ]
   });
 
-  client.once("ready", async () => {
-    console.log(`Ready as ${client.user.tag}`);
+  client.once("ready", () => {
+    console.log(`🤖 Logged in as ${client.user.tag}!`);
+    
+    // Trigger memory synchronization for AFK modules on boot up sequence
+    try {
+      const { loadAfks } = require("./commands/afk.js");
+      // Pass your complete database object straight through to load the data maps
+      loadAfks(guildsData || data || {}); 
+    } catch(err) {
+      console.error("Failed to load AFK memory layers on setup:", err);
+    }
+  });
 
     // Initialize real-time timers
     initTimers(client);
