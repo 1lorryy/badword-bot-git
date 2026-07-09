@@ -1183,8 +1183,10 @@ function startBot() {
     // Trigger memory synchronization for AFK modules on boot up sequence
     try {
       const { loadAfks } = require("./commands/afk.js");
-      // Safely pass the actual guildsData variable into the loader
-      loadAfks(guildsData || {}); 
+      
+      // We pull the raw database records right from your operational storage function
+      const databaseCache = typeof getGuildData === "function" ? getGuildData() : {};
+      loadAfks(databaseCache || {}); 
     } catch(err) {
       console.error("Failed to load AFK memory layers on setup:", err);
     }
@@ -1207,7 +1209,7 @@ function startBot() {
       getGuildData,
       saveData
     ).catch(console.error);
-  }); // <-- This now correctly closes the ready event block!
+  });
   
   // ================= FIXED ANTI-RAID ENGINE JOIN interceptor =================
   client.on("guildMemberAdd", async (member) => {
