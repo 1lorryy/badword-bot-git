@@ -1177,7 +1177,7 @@ function startBot() {
     ]
   });
 
-  client.once("ready", () => {
+  client.once("clientReady", () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
     
     // Trigger memory synchronization for AFK modules on boot up sequence
