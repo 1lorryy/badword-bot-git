@@ -1127,12 +1127,11 @@ if (command === "help") {
           `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}purchase\`\n` +
           `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
       },
-      {
+     {
         name: "🌍 Utility & Translation",
         value:
-          `\`${prefix}translate <lang> <text>\` *(Example: \`${prefix}translate en labas\`)*\n` +
-          `\`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\`\n` +
-          `**Codes:** \`en\` \`es\` \`fr\` \`de\` \`it\` \`pl\` \`ru\` \`uk\` \`tr\` \`ja\` \`ko\` \`zh\` \`lt\``
+          `\`${prefix}translate\` \`[lang]\` \`[text]\` → \`en\` \`lt\` \`es\` \`fr\` \`de\` \`pl\` \`ru\` \`tr\` \`ja\`\n` +
+          `▫️ \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\``
       }
     )
     .setTimestamp();
