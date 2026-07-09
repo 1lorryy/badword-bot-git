@@ -1183,12 +1183,11 @@ function startBot() {
     // Trigger memory synchronization for AFK modules on boot up sequence
     try {
       const { loadAfks } = require("./commands/afk.js");
-      // Pass your complete database object straight through to load the data maps
-      loadAfks(guildsData || data || {}); 
+      // Safely pass the actual guildsData variable into the loader
+      loadAfks(guildsData || {}); 
     } catch(err) {
       console.error("Failed to load AFK memory layers on setup:", err);
     }
-  });
 
     // Initialize real-time timers
     initTimers(client);
@@ -1208,123 +1207,7 @@ function startBot() {
       getGuildData,
       saveData
     ).catch(console.error);
-  });
-
-  client.on("messageCreate", async (message) => {
-    try {
-      if (message.author.bot) return;
-      if (!message.guild) return;
-      if (!message.content) return;
-
-      const data = getGuildData(message.guild.id);
-      const prefix = data.prefix || DEFAULT_PREFIX;
-
-      if (message.reference && message.reference.messageId) {
-        const replied = await message.channel.messages
-          .fetch(message.reference.messageId)
-          .catch(() => null);
-
-        if (replied && replied.author.id === client.user.id) {
-          let aiReply = null;
-          try {
-            const messages = await message.channel.messages.fetch({ limit: 30 });
-            const history = [...messages.values()]
-              .reverse()
-              .filter(m => !m.author.bot)
-              .map(m => ({
-                author: m.author.username,
-                content: m.content
-              }));
-
-            aiReply = await generateAiReply(message, message.content, history);
-          } catch (err) {
-            console.error("Reply AI error:", err);
-          }
-
-          if (aiReply) {
-            return message.reply({
-              content: aiReply,
-              allowedMentions: { parse: [], repliedUser: false }
-            });
-          }
-        }
-      }
-
-      // Automatically handles checking AFK statuses and tracking returns
-      await handleAfkMentionsAndReturn(
-        message,
-        prefix,
-        getGuildData,
-        saveData
-      );
-      
-      const bypassRoleId = "1492630307650666546";
-      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
-      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
-      const containsDiscordInvite = discordInviteRegex.test(message.content);
-      const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
-      
-      const isCommand = message.content.startsWith(prefix);
-      const isBypass = typeof hasBypassRole === "function" ? hasBypassRole(message) : false;
-
-      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
-      if (protectedWord) {
-        await message.delete().catch(() => null);
-        await sendAutomodLog(message, protectedWord);
-        return;
-      }
-
-      if (!isCommand && !isBypass && !allowDiscordInvite) {
-        const word = containsBlacklistedWord(
-          message.content,
-          [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]
-        );
-        if (word) {
-          await message.delete().catch(() => null);
-          await sendAutomodLog(message, word);
-          return;
-        }
-      }
-
-      const usedCommand = await handleCommands(message);
-      
-      if (!usedCommand) {
-        const freshData = getGuildData(message.guild.id);
-        const msg = message.content.toLowerCase().trim();
-        const custom = freshData.customCommands?.[msg];
-
-        if (custom) {
-          const response = typeof custom === "string" ? custom : custom.response || "No response set.";
-          const allowPings = typeof custom === "object" && custom.allowPings === true;
-          if (allowPings) {
-            return message.reply({
-              content: response,
-              allowedMentions: { repliedUser: true }
-            });
-          }
-
-          return message.channel.send({
-            content: response,
-            allowedMentions: { parse: [] }
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Bot error:", err);
-    }
-  });
-
-client.on("messageDelete", async (message) => {
-    try {
-      if (!message.guild) return;
-      if (!message.author) return;
-      if (message.author.bot) return;
-
-      saveSnipe(message);
-    } catch (err) {
-      console.error(err);
-    }
-  });
+  }); // <-- This now correctly closes the ready event block!
   
   // ================= FIXED ANTI-RAID ENGINE JOIN interceptor =================
   client.on("guildMemberAdd", async (member) => {
