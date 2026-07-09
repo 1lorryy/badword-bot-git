@@ -1317,39 +1317,44 @@ client.on("messageDelete", async (message) => {
     }
   });
   
-  // ================= AUTO-KICK ANTI-RAID PROTECTION =================
+  // ================= FIXED ANTI-RAID ENGINE JOIN interceptor =================
   client.on("guildMemberAdd", async (member) => {
     try {
       const data = getGuildData(member.guild.id);
+      // Double check spelling matches standard lowercase setting initialization
       if (!data || !data.verification || !data.verification.autokick) return;
 
-      // Run your multi-factor diagnostics engine from verify.js
-      const { runScanDiagnostics } = require("./commands/verify.js");
-      const diagnostics = runScanDiagnostics(member, data.verification);
+      // Safe pull the tracking verification functions directly
+      const verifyEngine = require("./commands/verify.js");
+      if (!verifyEngine || typeof verifyEngine.runScanDiagnostics !== "function") return;
 
-      // If threat score hits 50+ points (meaning account age is below your minimum threshold)
+      const diagnostics = verifyEngine.runScanDiagnostics(member, data.verification);
+
+      // Score 50+ guarantees the account is strictly below your 'trustedDays' limit configuration
       if (diagnostics.riskScore >= 50) {
-        const kickEmbed = new EmbedBuilder()
+        const DMEmbed = new EmbedBuilder()
           .setColor(0xef4444)
-          .setTitle("🛡️ Security Protection")
-          .setDescription(`You have been automatically removed from **${member.guild.name}** because your account is too new.\n\nOur server requires accounts to be at least \`${data.verification.trustedDays || 7} days\` old to prevent automated bot raids.`);
+          .setTitle("🛡️ Anti-Raid Protection Protocol")
+          .setDescription(`You were automatically kicked from **${member.guild.name}** because your account is too new.\n\nOur safety infrastructure requires joining profiles to be at least \`${data.verification.trustedDays || 7} Days\` old.`);
 
-        await member.send({ embeds: [kickEmbed] }).catch(() => console.log(`Could not DM user ${member.user.tag}`));
-        await member.kick("Anti-Raid: Account fell below minimum age threshold.");
+        // Try to alert them privately before running kick steps
+        await member.send({ embeds: [DMEmbed] }).catch(() => {});
+        await member.kick(`Anti-Raid Auto-Kick: Creation age fell below threshold (${diagnostics.reasons.join(", ")})`);
         
-        // Log to your custom logging channel
-        const embedLog = new EmbedBuilder()
-          .setTitle("🛡️ Anti-Raid Auto-Kick Triggered")
+        // Log cleanly to your staff tracking panel
+        const alertEmbed = new EmbedBuilder()
+          .setTitle("🛡️ Secure Anti-Raid Action Executed")
           .setColor(0xef4444)
           .addFields(
-            { name: "User", value: `${member.user.tag} (${member.id})`, inline: true },
-            { name: "Reason", value: diagnostics.reasons.join(", "), inline: true }
+            { name: "Target Profile", value: `\`${member.user.username}\` (<@${member.id}>)`, inline: true },
+            { name: "Threat Diagnostics", value: `\`${diagnostics.riskScore}%\` (${diagnostics.reasons.join(", ")})`, inline: true }
           )
           .setTimestamp();
-        await sendModLog(embedLog);
+          
+        await sendModLog(alertEmbed);
       }
     } catch (err) {
-      console.error("Auto-kick handler error:", err);
+      console.error("Critical Failure in Security Join Handler:", err);
     }
   });
   
