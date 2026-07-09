@@ -1100,95 +1100,53 @@ if (command === "snipes") {
   return message.reply({ embeds: [embed] });
 }
   
-// ================= HELP (WITH SEPARATE VERIFICATION SECTION) =================
-  if (command === "help") {
-    const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle("🔥 Dashboard Bot Commands")
-      .setDescription(`Current Prefix: \`${prefix}\``)
-      .addFields(
-        {
-          name: "🛡️ Moderation",
-          value:
-            `\`${prefix}warn\` • \`${prefix}warnings\` • \`${prefix}unwarn\`\n` +
-            `\`${prefix}mute\` • \`${prefix}unmute\`\n` +
-            `\`${prefix}kick\` • \`${prefix}ban\` • \`${prefix}unban\`\n` +
-            `\`${prefix}purge\` • \`${prefix}modstats\` • \`${prefix}modlogs\``,
-          inline: false
-        },
-        {
-          name: "🔒 Advanced Verification",
-          value:
-            `\`${prefix}verify settings\` • See verification status\n` +
-            `\`${prefix}verify scan @user\` • Diagnostic risk scanner\n` +
-            `\`${prefix}verify massscan\` • Scan all members instantly for alts & bots\n` +
-            `\`${prefix}verify verifiedrole\` • \`${prefix}verify unverifiedrole\`\n` +
-            `\`${prefix}verify trusteddays\` • \`${prefix}verify autoban\` • \`${prefix}verify autokick\``,
-          inline: false
-        },
-        {
-          name: "⚙️ Server",
-          value:
-            `\`${prefix}setprefix\` • \`${prefix}setnick\`\n` +
-            `\`${prefix}role\` • \`${prefix}purchase\`\n` +
-            `\`${prefix}snipe/s\` • \`${prefix}snipe (on/off)\``,
-          inline: false
-        },
-        {
-          name: "🚫 AutoMod",
-          value:
-            `\`${prefix}bl\` • \`${prefix}unbl\` • \`${prefix}words\``,
-          inline: false
-        },
-        {
-          name: "🏆 Auction",
-          value:
-            `\`${prefix}auction\` • \`${prefix}bid\``,
-          inline: false
-        },
-        {
-          name: "🔒 Channels",
-          value:
-            `\`${prefix}slowmode\``,
-          inline: false
-        },
-        {
-          name: "💤 Utility",
-          value:
-            `\`${prefix}afk (global)\` • \`${prefix}timer\`\n` +
-            `\`${prefix}ping\` • \`${prefix}translate\`\n` +
-            `\`${prefix}birthday (set/me/closest)\` • \`${prefix}bday\``,
-          inline: false
-        }, // <--- FIXED: Added this missing comma here!
-        {
-          name: "🌍 Translate Languages",
-          value:
-            "`en` English • `lt` Lithuanian • `ru` Russian\n" +
-            "`uk` Ukrainian • `pl` Polish • `de` German\n" +
-            "`fr` French • `es` Spanish • `it` Italian\n" +
-            "`tr` Turkish • `ja` Japanese • `ko` Korean\n" +
-            "`zh` Chinese • `nl` Dutch • `sv` Swedish",
-          inline: false
-        }
-      )
-      .setFooter({
-        text: "🔥 Don Bot"
-      })
-      .setTimestamp();
-      
-    if (data.customCommands && Object.keys(data.customCommands).length) {
-      embed.addFields({
-        name: "💬 Custom Commands",
-        value: Object.keys(data.customCommands)
-          .map(cmd => `\`${prefix}${cmd}\``)
-          .join(" • ")
-          .slice(0, 1000),
-        inline: false
-      });
-    }
-
-    return message.reply({ embeds: [embed] });
+// ================= HELP (SLEEK & CONDENSED VERSION) =================
+if (command === "help") {
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle("🔥 Don Bot Commands")
+    .setDescription(`Prefix: \`${prefix}\` • [Support Server](https://example.com)`) // Quick tip: added a place for a link if you ever want one!
+    .addFields(
+      {
+        name: "🛡️ Moderation & AutoMod",
+        value: 
+          `\`${prefix}warn\` \`${prefix}warnings\` \`${prefix}unwarn\` \`${prefix}mute\` \`${prefix}unmute\`\n` +
+          `\`${prefix}kick\` \`${prefix}ban\` \`${prefix}unban\` \`${prefix}purge\` \`${prefix}modstats\` \`${prefix}modlogs\`\n` +
+          `\`${prefix}bl\` \`${prefix}unbl\` \`${prefix}words\``
+      },
+      {
+        name: "🔒 Advanced Verification",
+        value:
+          `\`verify settings\` • \`verify scan @user\` • \`verify massscan\`\n` +
+          `\`verify verifiedrole\` • \`verify unverifiedrole\`\n` +
+          `\`verify trusteddays\` • \`verify autoban\` • \`verify autokick\``
+      },
+      {
+        name: "⚙️ Server, Auction & Channels",
+        value:
+          `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}purchase\`\n` +
+          `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
+      },
+      {
+        name: "🌍 Utility & Translation",
+        value:
+          `\`${prefix}translate <lang> <text>\` *(Example: \`${prefix}translate en labas\`)*\n` +
+          `\`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\`\n` +
+          `**Codes:** \`en\` \`es\` \`fr\` \`de\` \`it\` \`pl\` \`ru\` \`uk\` \`tr\` \`ja\` \`ko\` \`zh\` \`lt\``
+      }
+    )
+    .setTimestamp();
+    
+  if (data.customCommands && Object.keys(data.customCommands).length) {
+    embed.addFields({
+      name: "💬 Custom",
+      value: Object.keys(data.customCommands).map(cmd => `\`${prefix}${cmd}\``).join(" ").slice(0, 1024)
+    });
   }
+
+  return message.reply({ embeds: [embed] });
+}
+  
   // ================= AI FALLBACK CHAT =================
   const messages = await message.channel.messages.fetch({ limit: 30 });
   const history = [...messages.values()]
