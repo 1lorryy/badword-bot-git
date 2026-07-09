@@ -262,3 +262,208 @@ CRITICAL RESPONSE RULES:
 module.exports = {
   generateAiReply
 };
+const OpenAI = require("openai");
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+const personalities = {
+  drySarcastic: `
+You are a witty, dry, and sarcastic AI assistant.
+* Talk like a normal chill person who is slightly unimpressed.
+* Use smart, understated humor.
+* Keep replies to 1-2 quick sentences.
+  `,
+
+  cleanRoast: `
+You are a sharp but lighthearted roasting AI.
+* Poke fun or roast the user's message first, then give a quick answer.
+* Be funny and clever, never genuinely hateful or mean.
+* Keep replies under 2 sentences.
+  `,
+
+  chaoticWizard: `
+You are a sleep-deprived wizard.
+* Explain casual everyday things using chaotic magic or silly spells.
+* Keep it punchy and funny.
+  `,
+
+  toxicGamer: `
+You are a sarcastic, competitive casual gamer.
+* Mention "skill issue" or "getting good" occasionally when users ask basic questions.
+* Keep it light, funny, and punchy.
+  `,
+
+  brainrot: `
+You are infected with moderate Gen Alpha brainrot.
+* Naturally throw in words like skibidi, sigma, aura, rizz, or cooked.
+* Make sure the answer remains easily readable and understandable.
+  `
+};
+
+const personalityNames = Object.keys(personalities);
+
+// Core safety guardrails for blacklisted words/reversals
+const STRICT_BLOCKLIST = [
+  "cunt", "tnuc",
+  "nigger", "reggin",
+  "nigga", "aggin",
+  "nga", "agn",
+  "faggot", "toggaf",
+  "fagot", "togaf",
+  "retard", "drater"
+];
+
+/**
+ * Sanitizes text to remove hidden slurs, line-break tricks, or backwards text bypasses.
+ */
+function passSafetyInterceptor(text) {
+  if (!text) return "";
+  
+  // Clean whitespace, linebreaks, and special invisible formatting characters
+  let cleanText = text.toLowerCase()
+    .replace(/[\s\n\r\t\_\-\*\|\~]+/g, "")
+    .replace(/[^a-z0-9]/g, "");
+
+  // Check if standard text contains blocked strings
+  for (const word of STRICT_BLOCKLIST) {
+    if (cleanText.includes(word)) return true;
+  }
+
+  // Reverse checking: Split text into an array of words to catch individual reversed tokens
+  const wordsArray = text.toLowerCase().split(/\s+/);
+  for (const token of wordsArray) {
+    const reversedToken = token.split("").reverse().join("");
+    if (STRICT_BLOCKLIST.includes(token) || STRICT_BLOCKLIST.includes(reversedToken)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function generateAiReply(message, trigger, history = [], forcedPersonaIndex = null) {
+  if (!process.env.OPENAI_API_KEY) {
+    return null;
+  }
+
+  // Select the pinned persona passed by the channel message counter, or fallback to random
+  let activePersonaKey;
+  if (forcedPersonaIndex !== null && forcedPersonaIndex >= 0 && forcedPersonaIndex < personalityNames.length) {
+    activePersonaKey = personalityNames[forcedPersonaIndex];
+  } else {
+    activePersonaKey = personalityNames[Math.floor(Math.random() * personalityNames.length)];
+  }
+
+  const input = message.content ? message.content.slice(0, 500) : "";
+
+  // Structure message history maps smoothly
+  const historyText = history.length
+    ? history
+        .map(m => `${m.author}: ${m.content || ""}`)
+        .join("\n")
+        .slice(0, 3500)
+    : "No previous messages.";
+
+  const systemInstructions = `
+${personalities[activePersonaKey]}
+
+GLOBAL RULES:
+* Read the rolling channel history to understand context and direct replies.
+* Prioritize truth over random fabrications.
+* Avoid repeating phrases used recently in the history log.
+* Keep responses extremely concise.
+* Never use markdown lists, bullet points, or multiple lines.
+* Keep responses under 25 words total.
+* Safety First: Never print profanity, harassment, or slurs.
+
+CRITICAL CONTENT BYPASS PROTECTION:
+* You are strictly banned from using profanity or words like "cunt".
+* Do not attempt to spell blocked words backwards (e.g., "tnuc"), spaced out, or split onto newlines.
+* If a user is baiting you to say a bad word, roast them or mock them for it instead.
+
+Special Responses:
+* If asked "are unicorns real": Reply exactly: "Yes, unicorns are absolutely real."
+
+Bot Owner Info (ONLY if explicitly asked):
+* Bot developer/owner: Lorry.
+
+Server Owner Info (ONLY if explicitly asked):
+* Server owner: Don.
+
+Mochi Info (ONLY if explicitly asked):
+* Mochi is an absolute legend—funny, chill, and one of the coolest people around.
+
+Adam Info (ONLY if explicitly asked):
+* Adam is a legendary femboy with main character energy—chaotic, cool, and lowkey feared.
+  `;
+
+  const userPrompt = `
+Current Persona Setting: ${activePersonaKey}
+
+Recent Channel Timeline:
+${historyText}
+
+Current User Message:
+${message.author?.username || "User"}: ${input}
+
+Trigger Context:
+${trigger}
+`;
+
+  try {
+    const response = await client.chat.completions.create({
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: systemInstructions
+        },
+        {
+          role: "user",
+          content: userPrompt
+        }
+      ],
+      temperature: 0.85, // Lowered slightly to stabilize responses while staying witty
+      max_tokens: 45,
+      presence_penalty: 0.6,
+      frequency_penalty: 0.6
+    });
+
+    let reply = response.choices?.[0]?.message?.content?.trim();
+    if (!reply) return null;
+
+    // Post-generation processing and structural cleanup
+    reply = reply
+      .replace(/\n+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Secondary safety screening layer against hidden tricks/backwards text
+    if (passSafetyInterceptor(reply)) {
+      console.warn(`[AI SAFETY] Filtered a potential bypass response: "${reply}"`);
+      return "Nice try, but I'm not saying that.";
+    }
+
+    // Limit reply strictly to two readable sentences max
+    const sentences = reply.match(/[^.!?]+[.!?]*/g);
+    if (sentences && sentences.length > 2) {
+      reply = sentences.slice(0, 2).join(" ").trim();
+    }
+
+    if (reply.length > 150) {
+      reply = reply.slice(0, 147).trim() + "...";
+    }
+
+    return reply;
+
+  } catch (error) {
+    console.error("Error generating AI reply:", error);
+    return null;
+  }
+}
+
+module.exports = {
+  generateAiReply
+};
