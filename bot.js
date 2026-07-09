@@ -921,7 +921,7 @@ function startBot() {
     ]
   });
 
-// FIXED: Updated to v15 standards to remove deprecation warnings & stop double logs
+  // FIXED: Updated to v15 standards to remove deprecation warnings & stop double logs
   client.once("clientReady", () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
     try {
@@ -943,7 +943,7 @@ function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-  // FIXED: Linked the critical message handler execution pipeline
+  // Linked the critical message handler execution pipeline
   client.on("messageCreate", async (message) => {
     try {
       if (message.author.bot) return;
