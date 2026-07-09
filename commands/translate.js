@@ -1,7 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
 const translate = require("@vitalets/google-translate-api");
 
-const languages = {
+// Supported languages mapping
+const LANGUAGES = {
   en: "English 🇬🇧",
   lt: "Lithuanian 🇱🇹",
   ru: "Russian 🇷🇺",
@@ -17,87 +18,79 @@ const languages = {
   zh: "Chinese 🇨🇳"
 };
 
-async function handleTranslateCommand(message, args) {
+// Helper to generate a code-blocked list of available languages
+const SUPPORTED_LANG_LIST = `\`${Object.keys(LANGUAGES).join(", ")}\``;
 
+async function handleTranslateCommand(message, args) {
+    // 1. Validation: Ensure we have at least a language code and one word of text
     if (args.length < 2) {
         return message.reply({
             embeds: [
                 new EmbedBuilder()
                     .setColor("Orange")
-                    .setTitle("🌍 Translate")
-                    .setDescription(
-                        "**Usage:**\n`?translate <text> <language>`\n\nExample:\n`?translate hello lt`\n`?translate kaip sekasi en`"
+                    .setTitle("🌍 Translation Tool")
+                    .setDescription("**Usage:** `?translate <language_code> <text>`")
+                    .addFields(
+                        { name: "💡 Examples", value: "`?translate lt Hello world`\n`?translate en Kaip sekasi?`" },
+                        { name: "📋 Supported Languages", value: SUPPORTED_LANG_LIST }
                     )
-                    .addFields({
-                        name: "Supported Languages",
-                        value: Object.keys(languages).join(", ")
-                    })
+                    .setTimestamp()
             ]
         });
     }
 
-    const target = args[args.length - 1].toLowerCase();
+    // 2. Extract target language and text
+    // Format is now: ?translate <lang> <text...> 
+    const targetLang = args[0].toLowerCase();
+    const textToTranslate = args.slice(1).join(" ");
 
-    if (!languages[target]) {
+    // 3. Validation: Check if the language is supported
+    if (!LANGUAGES[targetLang]) {
         return message.reply({
             embeds: [
                 new EmbedBuilder()
                     .setColor("Red")
-                    .setDescription(
-                        "❌ Unknown language.\nSupported:\n`" +
-                        Object.keys(languages).join(", ") +
-                        "`"
-                    )
+                    .setTitle("❌ Unsupported Language")
+                    .setDescription(`\`${targetLang}\` is not a valid language code.`)
+                    .addFields({ name: "Available Codes", value: SUPPORTED_LANG_LIST })
             ]
         });
     }
 
-    const text = args.slice(0, -1).join(" ");
-
+    // 4. Execute Translation
     try {
+        // Show a "typing..." or processing state if the API takes time
+        await message.channel.sendTyping();
 
-        const result = await translate(text, {
-            to: target
-        });
+        const result = await translate(textToTranslate, { to: targetLang });
+        const detectedIso = result.from?.language?.iso;
+        const detectedLang = LANGUAGES[detectedIso] || detectedIso || "Unknown";
 
-        return message.reply({
-            embeds: [
-                new EmbedBuilder()
-                    .setColor("Green")
-                    .setTitle("🌍 Translation")
-                    .addFields(
-                        {
-                            name: "Detected",
-                            value: languages[result.from.language.iso] || result.from.language.iso,
-                            inline: true
-                        },
-                        {
-                            name: "Translated To",
-                            value: languages[target],
-                            inline: true
-                        },
-                        {
-                            name: "Result",
-                            value: result.text
-                        }
-                    )
-            ]
-        });
+        const responseEmbed = new EmbedBuilder()
+            .setColor("Green")
+            .setTitle("🌍 Translation Successful")
+            .addFields(
+                { name: "📥 Original Text", value: `\`\`\`${textToTranslate}\`\`\`` },
+                { name: "📤 Translated Text", value: `\`\`\`${result.text}\`\`\`` },
+                { name: "🌐 Details", value: `**From:** ${detectedLang}\n**To:** ${LANGUAGES[targetLang]}` }
+            )
+            .setFooter({ text: `Requested by ${message.author.tag}`, iconURL: message.author.displayAvatarURL() })
+            .setTimestamp();
+
+        return message.reply({ embeds: [responseEmbed] });
 
     } catch (err) {
-
-        console.error(err);
+        console.error("Translation Error:", err);
 
         return message.reply({
             embeds: [
                 new EmbedBuilder()
                     .setColor("Red")
-                    .setDescription("❌ Translation failed.")
+                    .setTitle("⚠️ Error")
+                    .setDescription("An error occurred while trying to translate your text. Please try again later.")
             ]
         });
-
     }
-
 }
 
 module.exports = {
