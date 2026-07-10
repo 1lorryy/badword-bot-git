@@ -1257,11 +1257,14 @@ function startBot() {
       const wasCommand = await handleCommands(message);
       if (wasCommand) return;
 
-      // 4. ================= AI TRIGGER ENGINE =================
-      // Condition A: Explicitly using command (e.g., ?ai prompt)
+      // 4. ================= AI TRIGGER ENGINE & PERSONA ROTATOR =================
+      // Initialize configuration fields securely if missing
+      if (!data.channelCounters) data.channelCounters = {};
+      if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
+      if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
+
       const isAiCommand = message.content.startsWith(`${prefix}ai`);
       
-      // Condition B: Replying directly to the bot
       let isReplyToBot = false;
       if (message.reference && message.reference.messageId) {
         const repliedMsg = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
@@ -1270,33 +1273,32 @@ function startBot() {
         }
       }
 
-      // Condition C: Trigger every 50 general chat messages in this channel
+      // Increment channel counter for general traffic
       let isEvery50Messages = false;
       if (!isAiCommand && !isReplyToBot) {
-        if (!data.channelCounters) data.channelCounters = {};
-        if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
-        
         data.channelCounters[message.channel.id]++;
-        saveData();
-
+        
         if (data.channelCounters[message.channel.id] >= 50) {
-          data.channelCounters[message.channel.id] = 0; // Reset counter
-          saveData();
+          data.channelCounters[message.channel.id] = 0; // Reset chat loop
+          
+          // CYCLE PERSONA INDEX FORWARD
+          data.currentPersonaIndex += 1; 
           isEvery50Messages = true;
         }
+        saveData();
       }
 
-      // If it doesn't meet any of the conditions, stop here
+      // If it doesn't match a structural prompt scenario, drop execution
       if (!isAiCommand && !isReplyToBot && !isEvery50Messages) return;
 
-      // Clean the clean input text trigger if it was a command
       let triggerText = message.content;
       if (isAiCommand) {
         triggerText = message.content.slice(`${prefix}ai`.length).trim();
         if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
       }
 
-      const aiReply = await generateAiReply(message, triggerText, []);
+      // Pass data.currentPersonaIndex directly into your generator pipeline
+      const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
       if (aiReply) {
         return message.reply({ 
           content: aiReply, 
