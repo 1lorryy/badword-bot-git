@@ -174,6 +174,8 @@ function getGuildData(guildId) {
     };
   }
 
+  if (!store[guildId].tempRoles) store[guildId].tempRoles = [];
+
   if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
 
   return store[guildId];
@@ -839,37 +841,93 @@ async function handleCommands(message) {
     return true;
   }
 
-  // ================= ROLE =================
+// ================= ROLE COMMAND (NO PING) =================
   if (command === "role") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return message.reply("I need Manage Roles permission.");
+      return message.reply("❌ I need Manage Roles permission.");
     }
 
     const member = await findTargetMember(message, args);
-    if (!member) return message.reply(`Usage: \`${prefix}role @user role\``);
-    const roleInput = args.slice(1).join(" ").trim();
-    if (!roleInput) return message.reply(`Usage: \`${prefix}role @user role\``);
-    const role =
-      message.mentions.roles.first() ||
-      message.guild.roles.cache.get(roleInput.replace(/[<@&>]/g, "")) ||
-      message.guild.roles.cache.find(r => r.name.toLowerCase() === roleInput.toLowerCase());
-    if (!role) return message.reply("Role not found.");
-    if (role.managed) return message.reply("I cannot manage that role.");
+    if (!member) return message.reply(`Usage: \`${prefix}role @user [role name or ID]\``);
+
+    const roleQuery = args.slice(1).join(" ").trim();
+    if (!roleQuery) return message.reply("❌ Please provide a role name or ID.");
+
+    // Find role by text matching or ID directly without looking at mentions to avoid pings
+    const role = message.guild.roles.cache.find(r => r.id === roleQuery || r.name.toLowerCase() === roleQuery.toLowerCase());
+    if (!role) return message.reply(`❌ Could not find a role matching \`${roleQuery}\`.`);
+    if (role.managed) return message.reply("❌ I cannot manage an integration role.");
     if (role.position >= message.guild.members.me.roles.highest.position) {
       return message.reply("❌ That role is higher than or equal to my highest role.");
     }
     if (role.position >= message.member.roles.highest.position) {
-      return message.reply("❌ You cannot give/remove a role equal or higher than your highest role.");
+      return message.reply("❌ You cannot give/remove a role equal to or higher than your highest role.");
     }
 
-    if (member.roles.cache.has(role.id)) {
-      await member.roles.remove(role);
-      return message.reply(`✅ Removed **${role.name}** from ${member.user.tag}`);
+    try {
+      if (member.roles.cache.has(role.id)) {
+        await member.roles.remove(role, `Toggled by ${message.author.tag}`);
+        return message.reply(`✅ Removed role **${role.name}** from ${member.user.tag} (No Pings).`);
+      } else {
+        await member.roles.add(role, `Toggled by ${message.author.tag}`);
+        return message.reply(`✅ Added role **${role.name}** to ${member.user.tag} (No Pings).`);
+      }
+    } catch (err) {
+      console.error(err);
+      return message.reply("❌ Unable to modify user roles.");
+    }
+  }
+
+  // ================= TEMPORARY ROLE COMMAND (NO PING) =================
+  if (command === "temprole") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission.");
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+      return message.reply("❌ I need Manage Roles permission.");
     }
 
-    await member.roles.add(role);
-    return message.reply(`✅ Added **${role.name}** to ${member.user.tag}`);
+    // Expecting: ?temprole @user 7d VIP
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}temprole @user [duration] [role name]\` (e.g., \`${prefix}temprole @user 7d Premium\`)`);
+
+    const durationText = args[1];
+    const durationMs = parseDuration(durationText);
+    if (!durationMs) return message.reply("❌ Invalid duration format. Use formatting like `1h`, `12h`, `3d`, or `7d`.");
+
+    const roleQuery = args.slice(2).join(" ").trim();
+    if (!roleQuery) return message.reply("❌ Please specify the role name or ID to grant.");
+
+    const role = message.guild.roles.cache.find(r => r.id === roleQuery || r.name.toLowerCase() === roleQuery.toLowerCase());
+    if (!role) return message.reply(`❌ Could not find a role matching \`${roleQuery}\`.`);
+    if (role.managed) return message.reply("❌ I cannot manage an integration role.");
+    if (role.position >= message.guild.members.me.roles.highest.position) {
+      return message.reply("❌ That role is higher than or equal to my highest role.");
+    }
+    if (role.position >= message.member.roles.highest.position) {
+      return message.reply("❌ You cannot give a role equal to or higher than your highest role.");
+    }
+
+    try {
+      // Grant role instantly
+      await member.roles.add(role, `Temp role assigned by ${message.author.tag} for ${durationText}`);
+
+      const expiryTimestamp = Date.now() + durationMs;
+      
+      // Filter out any existing tracking entries for this specific user and role combo to prevent duplication issues
+      data.tempRoles = data.tempRoles.filter(r => !(r.userId === member.id && r.roleId === role.id));
+      
+      data.tempRoles.push({
+        userId: member.id,
+        roleId: role.id,
+        expiry: expiryTimestamp
+      });
+      saveData();
+
+      return message.reply(`⏳ Added temporary role **${role.name}** to ${member.user.tag} for **${durationText}** (No Pings).`);
+    } catch (err) {
+      console.error(err);
+      return message.reply("❌ Failed to assign temporary role configuration.");
+    }
   }
 
   // ================= BLACKLIST ADD =================
@@ -1100,6 +1158,45 @@ function startBot() {
   // FIXED: Changed event handler name back to "ready" to repair boot sequence crash
   client.once("ready", () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
+    // Look for and strip expired temporary roles every 60 seconds
+    setInterval(async () => {
+      const now = Date.now();
+      // Loop through all guilds stored in database
+      for (const guildId in store) {
+        const guildData = store[guildId];
+        if (!guildData.tempRoles || !guildData.tempRoles.length) continue;
+
+        const remainingTempRoles = [];
+        let dataChanged = false;
+
+        for (const record of guildData.tempRoles) {
+          if (now >= record.expiry) {
+            dataChanged = true;
+            try {
+              const guild = await client.guilds.fetch(guildId).catch(() => null);
+              if (!guild) continue;
+
+              const member = await guild.members.fetch(record.userId).catch(() => null);
+              const role = await guild.roles.fetch(record.roleId).catch(() => null);
+
+              if (member && role && member.roles.cache.has(role.id)) {
+                await member.roles.remove(role, "Temporary role duration expired.");
+                console.log(`[TEMPROLE] Removed ${role.name} from ${member.user.tag}.`);
+              }
+            } catch (err) {
+              console.error("[TEMPROLE ERROR] Failed to process expiration:", err);
+            }
+          } else {
+            remainingTempRoles.push(record);
+          }
+        }
+
+        if (dataChanged) {
+          store[guildId].tempRoles = remainingTempRoles;
+          saveData();
+        }
+      }
+    }, 60 * 1000);
     try {
       const { loadAfks } = require("./commands/afk.js");
       const databaseCache = typeof getGuildData === "function" ? getGuildData() : {};
