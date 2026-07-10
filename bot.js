@@ -1155,7 +1155,7 @@ function startBot() {
     ]
   });
 
-  // FIXED: Changed event handler name back to "ready" to repair boot sequence crash
+// FIXED: Changed event handler name back to "ready" to repair boot sequence crash
   client.once("ready", () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
     // Look for and strip expired temporary roles every 60 seconds
@@ -1197,11 +1197,11 @@ function startBot() {
         }
       }
     }, 60 * 1000);
+    
     try {
       const { loadAfks } = require("./commands/afk.js");
-      const databaseCache = typeof getGuildData === "function" ? getGuildData() : {};
-      loadAfks(databaseCache || {}); 
-      console.log("[AFK INITS] Synced database data back into memory pools smoothly.");
+      // FIXED: Pass the raw complete database 'store' instead of an empty getGuildData call
+      loadAfks(store || {}); 
     } catch(err) {
       console.error("Failed to load AFK memory layers on setup:", err);
     }
