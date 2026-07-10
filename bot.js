@@ -1216,7 +1216,7 @@ function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-  // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
     try {
       if (message.author.bot) return;
@@ -1270,8 +1270,24 @@ function startBot() {
         }
       }
 
-      // If it doesn't meet either condition, stop here and do not trigger OpenAI
-      if (!isAiCommand && !isReplyToBot) return;
+      // Condition C: Trigger every 50 general chat messages in this channel
+      let isEvery50Messages = false;
+      if (!isAiCommand && !isReplyToBot) {
+        if (!data.channelCounters) data.channelCounters = {};
+        if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
+        
+        data.channelCounters[message.channel.id]++;
+        saveData();
+
+        if (data.channelCounters[message.channel.id] >= 50) {
+          data.channelCounters[message.channel.id] = 0; // Reset counter
+          saveData();
+          isEvery50Messages = true;
+        }
+      }
+
+      // If it doesn't meet any of the conditions, stop here
+      if (!isAiCommand && !isReplyToBot && !isEvery50Messages) return;
 
       // Clean the clean input text trigger if it was a command
       let triggerText = message.content;
