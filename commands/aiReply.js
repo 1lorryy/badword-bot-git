@@ -20,9 +20,16 @@ const BLOCKLIST = ["cunt", "nigger", "nigga", "nga", "faggot", "fagot", "retard"
 async function generateAiReply(message, trigger, history = [], forcedPersonaIndex = null) {
   if (!process.env.OPENAI_API_KEY) return null;
 
-  // Pick a random persona from the keys array
-  const randomKey = keys[Math.floor(Math.random() * keys.length)];
-  const systemInstruction = personalities[randomKey];
+  // FIXED: If an index is provided by bot.js, use a modulo calculation to cycle keys. 
+  // Otherwise, fall back to a random choice if called from somewhere else.
+  let selectedKey;
+  if (typeof forcedPersonaIndex === "number") {
+    selectedKey = keys[forcedPersonaIndex % keys.length];
+  } else {
+    selectedKey = keys[Math.floor(Math.random() * keys.length)];
+  }
+
+  const systemInstruction = personalities[selectedKey];
 
   try {
     const response = await client.chat.completions.create({
@@ -41,19 +48,6 @@ async function generateAiReply(message, trigger, history = [], forcedPersonaInde
       max_tokens: 40
     });
 
-    let reply = response.choices?.[0]?.message?.content?.trim();
-    if (!reply) return null;
-
-    // Flatten lines into a single sentence string
-    reply = reply.replace(/\n+/g, " ").trim();
-
-    // Quick safety filter check
-    const lowerReply = reply.toLowerCase();
-    if (BLOCKLIST.some(word => lowerReply.includes(word))) {
-      return "Nice try, but I'm not saying that.";
-    }
-
-    return reply;
   } catch (error) {
     console.error("AI Generation Error:", error);
     return null;
