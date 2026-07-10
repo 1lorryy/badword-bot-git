@@ -1095,11 +1095,11 @@ async function handleCommands(message) {
     return message.reply({ embeds: [embed] });
   }
   
-  // ================= HELP =================
+// ================= HELP =================
   if (command === "help") {
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
-      .setTitle("🔥 Don Bot Commands")
+      .setTitle("🔥 Don Don Commands")
       .setDescription(`Prefix: \`${prefix}\``)
       .addFields(
         {
@@ -1119,7 +1119,7 @@ async function handleCommands(message) {
         {
           name: "⚙️ Server, Auction & Channels",
           value:
-            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}purchase\`\n` +
+            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\` \`${prefix}purchase\`\n` +
             `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
         },
         {
