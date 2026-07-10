@@ -451,7 +451,7 @@ async function handleCommands(message) {
     return message.reply(`✅ Prefix updated to \`${newPrefix}\``);
   }
 
-  // ================= WARN =================
+ // ================= WARN =================
   if (command === "warn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const member = await findTargetMember(message, args);
@@ -580,8 +580,8 @@ async function handleCommands(message) {
 
     data.warnings[member.id] = warnings.filter(w => w.id !== warnId);
     saveData();
-    if (before === data.warnings[member.id].length) return message.reply("Warn ID not found.");
-    return message.reply(`✅ Removed warning \`${warnId}\``);
+    if (before === data.warnings[member.id].length) return message.reply("❌ Warn ID not found.");
+    return message.reply(`✅ Removed warning \`${warnId}\` from ${member.user.tag}`);
   }
 
   // ================= SETNICK =================
@@ -613,44 +613,51 @@ async function handleCommands(message) {
       return message.reply(`✅ Changed nickname for ${member.user.tag} to **${newNick}**`);
     } catch (err) {
       console.error("Setnick error:", err);
-      return message.reply("❌ I cannot change that nickname. My role must be above the target user's highest role.");
+      return message.reply("❌ I cannot change that nickname. Check role hierarchy permissions.");
     }
   }
 
-  // ================= MUTE =================
+  // ================= MUTE / TIMEOUT =================
   if (command === "mute" || command === "timeout") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
-      return message.reply("I need Moderate Members permission.");
+      return message.reply("❌ I need Moderate Members permission.");
     }
 
     const member = await findTargetMember(message, args);
-    if (!member) return message.reply(`Usage: \`${prefix}mute @user 1min reason\``);
+    if (!member) return message.reply(`Usage: \`${prefix}mute @user 10m [reason]\``);
     const durationText = args[1];
     const durationMs = parseDuration(durationText);
 
-    if (!durationMs) return message.reply("Use time like `10s`, `1min`, `1h`, `1d`.");
-    if (durationMs > 14 * 24 * 60 * 60 * 1000) return message.reply("Max mute is 14 days.");
-    const reason = args.slice(2).join(" ") || "No reason";
+    if (!durationMs) return message.reply("❌ Use time values like `10s`, `5m`, `2h`, `1d`.");
+    if (durationMs > 14 * 24 * 60 * 60 * 1000) return message.reply("❌ Maximum timeout length is 14 days.");
+    const reason = args.slice(2).join(" ") || "No reason specified";
 
-    await member.timeout(durationMs, reason);
-    if (!data.modStats[message.author.id]) {
-      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+    try {
+      await member.timeout(durationMs, reason);
+      
+      if (!data.modStats[message.author.id]) {
+        data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+      }
+      data.modStats[message.author.id].mutes++;
+      saveData();
+
+      const embed = new EmbedBuilder()
+        .setTitle("🔇 User Muted")
+        .setColor(0x3b82f6)
+        .addFields(
+          { name: "User", value: `${member.user.tag}`, inline: true },
+          { name: "Moderator", value: `${message.author.tag}`, inline: true },
+          { name: "Duration", value: durationText, inline: true },
+          { name: "Reason", value: reason, inline: false }
+        )
+        .setTimestamp();
+      await sendModLog(embed);
+      return message.reply(`🔇 **Muted** ${member.user.tag} for ${durationText} | Reason: *${reason}*`);
+    } catch (err) {
+      console.error("Mute error:", err);
+      return message.reply("❌ Failed to mute user. Their role level may be higher than mine.");
     }
-    data.modStats[message.author.id].mutes++;
-    saveData();
-
-    const embed = new EmbedBuilder()
-      .setTitle("🔇 User Muted")
-      .setColor(0x3b82f6)
-      .addFields(
-        { name: "User", value: `${member.user.tag}`, inline: true },
-        { name: "Duration", value: durationText, inline: true },
-        { name: "Reason", value: reason, inline: false }
-      )
-      .setTimestamp();
-    await sendModLog(embed);
-    return message.reply(`🔇 Muted ${member.user.tag} for ${durationText}`);
   }
 
   // ================= UNMUTE =================
@@ -659,99 +666,159 @@ async function handleCommands(message) {
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}unmute @user\``);
 
-    await member.timeout(null);
-    return message.reply(`🔊 Unmuted ${member.user.tag}`);
+    try {
+      if (!member.communicationDisabledUntilTimestamp) {
+        return message.reply(`ℹ️ **${member.user.tag}** is not currently muted.`);
+      }
+
+      await member.timeout(null);
+      return message.reply(`🔊 **Unmuted** ${member.user.tag}`);
+    } catch (err) {
+      console.error("Unmute error:", err);
+      return message.reply("❌ Failed to remove timeout from member.");
+    }
   }
 
   // ================= KICK =================
   if (command === "kick") {
-    if (!args[0]) return message.reply(`Usage: \`${prefix}kick @user reason\``);
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.KickMembers)) {
       return message.reply("❌ I need Kick Members permission.");
     }
 
     const member = await findTargetMember(message, args);
-    if (!member) return message.reply(`Usage: \`${prefix}kick @user reason\``);
+    if (!member) return message.reply(`Usage: \`${prefix}kick @user [reason]\``);
     if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.kickable) {
-      return;
+      return message.reply("❌ I cannot kick this user. They are staff or hold a higher role.");
     }
 
-    const reason = args.slice(1).join(" ") || "No reason";
-    const embed = new EmbedBuilder()
-      .setTitle("👢 User Kicked")
-      .setColor(0xef4444)
-      .addFields(
-        { name: "User", value: `${member.user.tag}`, inline: true },
-        { name: "Moderator", value: `${message.author.tag}`, inline: true },
-        { name: "Reason", value: reason, inline: false }
-      )
-      .setTimestamp();
-    await member.send({ embeds: [embed] }).catch(() => null);
-    await member.kick(reason);
+    const reason = args.slice(1).join(" ") || "No reason specified";
 
-    if (!data.modStats[message.author.id]) {
-      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+    try {
+      const embed = new EmbedBuilder()
+        .setTitle("👢 User Kicked")
+        .setColor(0xef4444)
+        .addFields(
+          { name: "User", value: `${member.user.tag}`, inline: true },
+          { name: "Moderator", value: `${message.author.tag}`, inline: true },
+          { name: "Reason", value: reason, inline: false }
+        )
+        .setTimestamp();
+      
+      await member.send({ embeds: [embed] }).catch(() => null);
+      await member.kick(reason);
+
+      if (!data.modStats[message.author.id]) {
+        data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+      }
+      data.modStats[message.author.id].kicks++;
+      saveData();
+      await sendModLog(embed);
+
+      return message.reply(`👢 **Kicked** ${member.user.tag}`);
+    } catch (err) {
+      console.error("Kick error:", err);
+      return message.reply("❌ A structural error occurred while executing the kick.");
     }
-    data.modStats[message.author.id].kicks++;
-    saveData();
-    await sendModLog(embed);
-
-    return message.reply(`👢 Kicked ${member.user.tag}`);
   }
 
   // ================= BAN =================
   if (command === "ban") {
-    if (!args[0]) return message.reply(`Usage: \`${prefix}ban @user reason\``);
     if (!canBanUsers(message)) return message.reply("❌ Only admin+ can ban.");
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-      return message.reply("❌ I need Ban Members permission.");
-    }
-
     const member = await findTargetMember(message, args);
-    if (!member) return message.reply(`Usage: \`${prefix}ban @user reason\``);
-    if (member.id === message.author.id || member.id === message.guild.ownerId || isStaffMember(member) || !member.bannable) {
-      return;
-    }
+    if (!member) return message.reply(`Usage: \`${prefix}ban @user [reason]\``);
+    if (!member.bannable) return message.reply("❌ I cannot ban this member (higher roles or missing permissions).");
 
-    const reason = args.slice(1).join(" ") || "No reason";
-    const embed = new EmbedBuilder()
-      .setTitle("🔨 User Banned")
-      .setColor(0xef4444)
-      .addFields(
-        { name: "User", value: `${member.user.tag}`, inline: true },
-        { name: "Moderator", value: `${message.author.tag}`, inline: true },
-        { name: "Reason", value: reason, inline: false }
-      )
-      .setTimestamp();
-    await member.send({ embeds: [embed] }).catch(() => null);
-    await member.ban({ reason });
-    if (!data.modStats[message.author.id]) {
-      data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
-    }
-    data.modStats[message.author.id].bans++;
-    saveData();
-    await sendModLog(embed);
+    const reason = args.slice(1).join(" ") || "No reason specified";
 
-    return message.reply(`🔨 Banned ${member.user.tag}`);
+    try {
+      await member.ban({ 
+        deleteMessageSeconds: 604800, 
+        reason: reason 
+      });
+
+      if (!data.modStats[message.author.id]) {
+        data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+      }
+      data.modStats[message.author.id].bans++;
+      saveData();
+
+      const embed = new EmbedBuilder()
+        .setTitle("🔨 Member Banned & Cleared")
+        .setColor(0xef4444)
+        .addFields(
+          { name: "User", value: `${member.user.tag} (${member.id})`, inline: true },
+          { name: "Moderator", value: `${message.author.tag}`, inline: true },
+          { name: "Reason", value: reason, inline: false },
+          { name: "Action Taken", value: "Banned permanently + 7 days of message history deleted.", inline: false }
+        )
+        .setTimestamp();
+      await sendModLog(embed);
+
+      return message.reply(`🔨 **Banned** ${member.user.tag} and wiped their recent messages.`);
+    } catch (err) {
+      console.error("Ban error:", err);
+      return message.reply("❌ Failed to process server ban configuration.");
+    }
+  }
+
+  // ================= SOFTBAN =================
+  if (command === "softban") {
+    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can softban.");
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}softban @user [reason]\``);
+    if (!member.bannable) return message.reply("❌ I cannot softban this member.");
+
+    const reason = args.slice(1).join(" ") || "Raid/Spam cleanup";
+
+    try {
+      await member.ban({ 
+        deleteMessageSeconds: 604800, 
+        reason: `[Softban] ${reason}` 
+      });
+      await message.guild.members.unban(member.id, "Softban completion (unban)").catch(() => null);
+
+      if (!data.modStats[message.author.id]) {
+        data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+      }
+      data.modStats[message.author.id].kicks++; // Counts dynamically as message scrubbing/kick profile
+      saveData();
+
+      const embed = new EmbedBuilder()
+        .setTitle("🛡️ Member Softbanned")
+        .setColor(0x3b82f6)
+        .addFields(
+          { name: "User", value: `${member.user.tag} (${member.id})`, inline: true },
+          { name: "Moderator", value: `${message.author.tag}`, inline: true },
+          { name: "Reason", value: reason, inline: false },
+          { name: "Action Taken", value: "Kicked from server + 7 days of message history wiped.", inline: false }
+        )
+        .setTimestamp();
+      await sendModLog(embed);
+
+      return message.reply(`🛡️ **Softbanned** ${member.user.tag} (Messages wiped, user kicked).`);
+    } catch (err) {
+      console.error("Softban error:", err);
+      return message.reply("❌ Failed to finish target account softban.");
+    }
   }
 
   // ================= UNBAN =================
   if (command === "unban") {
     if (!canBanUsers(message)) return message.reply("❌ Only admin+ can unban.");
     const userId = args[0];
-    if (!userId) return message.reply(`Usage: \`${prefix}unban USER_ID reason\``);
+    if (!userId) return message.reply(`Usage: \`${prefix}unban USER_ID [reason]\``);
 
-    const reason = args.slice(1).join(" ") || "No reason";
+    const reason = args.slice(1).join(" ") || "No reason specified";
     try {
       await message.guild.members.unban(userId, reason);
       return message.reply(`✅ Successfully unbanned \`${userId}\``);
     } catch (err) {
       console.error("UNBAN ERROR:", err);
-      return message.reply(`❌ Failed to unban user.\n\`${err.message}\``);
+      return message.reply(`❌ Failed to unban user ID.\n\`${err.message}\``);
     }
   }
-
+  
   // ================= PURGE =================
   if (command === "purge") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
