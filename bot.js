@@ -1128,6 +1128,11 @@ async function handleCommands(message) {
             `\`${prefix}translate\` \`[lang]\` \`[text]\` → \`en\` \`lt\` \`es\` \`fr\` \`de\` \`pl\` \`ru\` \`tr\` \`ja\`\n` +
             `▫️ \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\``
         }
+        { 
+  name: `\`${prefix}status\``, 
+  value: "Check bot uptime, response latency, system RAM usage, and view the active AI persona.", 
+  inline: false 
+}
       )
       .setTimestamp();
       
