@@ -350,7 +350,7 @@ function saveSnipe(message) {
 }
 
 // ================= COMMANDS =================
-async function handleCommands(message) {
+async function handleCommands(message, getGuildData) {
   const data = getGuildData(message.guild.id);
   const prefix = data.prefix || DEFAULT_PREFIX;
   if (!message.content.startsWith(prefix)) return false;
@@ -394,6 +394,11 @@ async function handleCommands(message) {
       content: response,
       allowedMentions: { parse: [] }
     });
+  }
+
+if (command === "status") {
+    const statusCmd = require("./commands/status.js");
+    return statusCmd.execute(message, args, client, getGuildData);
   }
 
   if (command === "timer") {
@@ -1122,17 +1127,17 @@ async function handleCommands(message) {
             `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\` \`${prefix}purchase\`\n` +
             `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
         },
-        {
+       {
           name: "🌍 Utility & Translation",
           value:
             `\`${prefix}translate\` \`[lang]\` \`[text]\` → \`en\` \`lt\` \`es\` \`fr\` \`de\` \`pl\` \`ru\` \`tr\` \`ja\`\n` +
             `▫️ \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\``
-        }
+        },
         { 
-  name: `\`${prefix}status\``, 
-  value: "Check bot uptime, response latency, system RAM usage, and view the active AI persona.", 
-  inline: false 
-}
+          name: `\`${prefix}status\``, 
+          value: "Check bot uptime, response latency, system RAM usage, and view the active AI persona.", 
+          inline: false 
+        }
       )
       .setTimestamp();
       
@@ -1259,7 +1264,7 @@ function startBot() {
       }
 
       // 3. Process Standard Commands
-      const wasCommand = await handleCommands(message);
+      const wasCommand = await handleCommands(message, getGuildData);
       if (wasCommand) return;
 
       // 4. ================= AI TRIGGER ENGINE & PERSONA ROTATOR =================
