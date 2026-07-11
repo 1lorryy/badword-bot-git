@@ -736,7 +736,12 @@ if (command === "status") {
 
   // ================= BAN =================
   if (command === "ban") {
-    if (!canBanUsers(message)) return message.reply("❌ Only admin+ can ban.");
+    // Hard check for the actual Administrator permission node
+    const { PermissionFlagsBits } = require("discord.js");
+    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return message.reply("❌ Only admin+ can ban.");
+    }
+    
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}ban @user [reason]\``);
     if (!member.bannable) return message.reply("❌ I cannot ban this member (higher roles or missing permissions).");
@@ -1137,7 +1142,7 @@ if (command === "status") {
           value:
             `\`${prefix}translate [lang] [text]\` • Auto-detects text to target language.\n` +
             `▫️ Languages: \`en\`, \`lt\`, \`es\`, \`fr\`, \`de\`, \`pl\`, \`ru\`, \`tr\`, \`ja\`\n` +
-            `▫️ Utilities: \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\` \`${prefix}status\``
+            `▫️ Utilities: \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\` \`${prefix}status\` \`${prefix}joininfo\``
         }
       )
       .setTimestamp();
