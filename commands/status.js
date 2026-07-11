@@ -1,17 +1,10 @@
-// ====================================================================
-// SYSTEM MODULES & CONFIGURATION DEPENDENCIES
-// ====================================================================
-const { EmbedBuilder, version: djsVersion } = require("discord.js");
-const os = require("os");
+const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
   name: "status",
-  description: "Displays advanced tech metrics, bot uptime, and active AI configurations.",
+  description: "Displays live engine specs and active AI cycle configurations.",
   async execute(message, args, client, getGuildData) {
-    
-    // ----------------------------------------------------------------
-    // 1. TIME & PERFORMANCE METRICS
-    // ----------------------------------------------------------------
+    // Calculate precise uptime string
     const totalSeconds = Math.floor(client.uptime / 1000);
     const days = Math.floor(totalSeconds / 86400);
     const hours = Math.floor((totalSeconds % 86400) / 3600);
@@ -19,13 +12,9 @@ module.exports = {
     const uptimeString = `${days}d ${hours}h ${minutes}m`;
 
     const ping = client.ws.ping;
-
-    // Calculate RAM footprint (converts heapUsed into Megabytes)
     const memoryUsed = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1);
 
-    // ----------------------------------------------------------------
-    // 2. GUILD DATA & PERSONA TRACKING
-    // ----------------------------------------------------------------
+    // Fetch live guild data 
     const data = getGuildData ? getGuildData(message.guild.id) : {};
     
     const personalities = [
@@ -36,31 +25,28 @@ module.exports = {
     const index = data.currentPersonaIndex || 0;
     const currentPersonaName = personalities[index % personalities.length];
     
-    const channelCounter = data.channelCounters?.[message.channel.id] || 0;
+    // FIX: Look directly into the live channel counter map data
+    if (!data.channelCounters) data.channelCounters = {};
+    const channelCounter = data.channelCounters[message.channel.id] || 0;
     const msgsRemaining = Math.max(0, 50 - channelCounter);
 
-    // ----------------------------------------------------------------
-    // 3. RENDER ULTRA-COMPACT STATUS CARD
-    // ----------------------------------------------------------------
+    // Custom visual progress bar for the 50-message rotation track
+    const progressBarLength = 10;
+    const completedBlocks = Math.min(progressBarLength, Math.floor((channelCounter / 50) * progressBarLength));
+    const remainingBlocks = progressBarLength - completedBlocks;
+    const progressVisual = "🟦".repeat(completedBlocks) + "⬛".repeat(remainingBlocks);
+
     const statusEmbed = new EmbedBuilder()
       .setColor("#5865F2")
-      .setTitle("⚙️ Grand Regent • System Diagnostics")
+      .setTitle("👑 GRAND REGENT • ENGINE STATUS")
       .addFields(
-        // Line 1: Bot Connection Core
-        { name: "⚡ Ping", value: `\`${ping}ms\``, inline: true },
-        { name: "⏱️ Uptime", value: `\`${uptimeString}\``, inline: true },
-        { name: "💾 Memory", value: `\`${memoryUsed} MB\``, inline: true },
-        
-        // Line 2: Server Stats
-        { name: "🌐 Active Servers", value: `\`${client.guilds.cache.size}\` Guilds`, inline: true },
-        { name: "👥 Node Engine", value: `\`${process.version}\``, inline: true },
-        { name: "📦 Library", value: `\`djs v${djsVersion}\``, inline: true },
-        
-        // Line 3: AI Engine Loop Parameters
-        { name: "🤖 Active Persona State", value: `**${currentPersonaName}**`, inline: false },
-        { name: "📊 AI Cycle Progress", value: `\`${msgsRemaining}\` messages remaining in this channel until rotation trigger.`, inline: false }
+        { name: "📡 Network Ping", value: `\`${ping}ms\``, inline: true },
+        { name: "🔋 Live Uptime", value: `\`${uptimeString}\``, inline: true },
+        { name: "🎛️ RAM Allocation", value: `\`${memoryUsed} MB\``, inline: true },
+        { name: "🎭 Active AI Persona Frequency", value: `**${currentPersonaName}**`, inline: false },
+        { name: "🔄 Next Persona Rotation Cycle", value: `${progressVisual} \`${msgsRemaining}\` messages left\n*Currently tracked at: ${channelCounter}/50 messages in <#${message.channel.id}>*`, inline: false }
       )
-      .setFooter({ text: `Host Architecture: Railway Platform Linux Container`, iconURL: client.user.displayAvatarURL() })
+      .setFooter({ text: "Infrastructure Hosted Live Via Railway Container Services" })
       .setTimestamp();
 
     return message.reply({ embeds: [statusEmbed] });
