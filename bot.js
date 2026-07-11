@@ -1130,8 +1130,9 @@ if (command === "status") {
        {
           name: "🌍 Utility & Translation",
           value:
-            `\`${prefix}translate\` \`[lang]\` \`[text]\` → \`en\` \`lt\` \`es\` \`fr\` \`de\` \`pl\` \`ru\` \`tr\` \`ja\`\n` +
-            `▫️ \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\``
+            `\`${prefix}translate [lang] [text]\` • Auto-detects text to target language.\n` +
+            `▫️ Languages: \`en\`, \`lt\`, \`es\`, \`fr\`, \`de\`, \`pl\`, \`ru\`, \`tr\`, \`ja\`\n` +
+            `▫️ Utilities: \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\``
         },
         { 
           name: `\`${prefix}status\``, 
