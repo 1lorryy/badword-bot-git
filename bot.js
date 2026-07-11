@@ -1259,7 +1259,7 @@ function startBot() {
         }
       }
 
-      // 3. INITIALIZE COUNTER FIELDS SECURITY (Moved up)
+      // 3. INITIALIZE COUNTER FIELDS SECURITY
       if (!data.channelCounters) data.channelCounters = {};
       if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
       if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
@@ -1275,18 +1275,15 @@ function startBot() {
         }
       }
 
-      // 4. INCREMENT CHAT ENTRIES (Counts standard messages before running handleCommands)
-      let isEvery50Messages = false;
+      // 4. INCREMENT CHAT ENTRIES (Tracks message counts silently)
       if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
         data.channelCounters[message.channel.id]++;
         
         if (data.channelCounters[message.channel.id] >= 50) {
-          data.channelCounters[message.channel.id] = 0; // Reset chat loop
-          data.currentPersonaIndex += 1; // Cycle forward
-          isEvery50Messages = true;
+          data.channelCounters[message.channel.id] = 0; // Reset counter for the channel
+          data.currentPersonaIndex += 1; // Swap to the next persona configuration array index
         }
         
-        // Force sync local memory states before saving to disk
         store[message.guild.id] = data;
         saveData();
       }
@@ -1296,7 +1293,8 @@ function startBot() {
       if (wasCommand) return;
 
       // 6. ================= AI TRIGGER ENGINE RESPONSES =================
-      if (!isAiCommand && !isReplyToBot && !isEvery50Messages) return;
+      // Now it ONLY triggers if they explicitly typed an AI command or replied directly to the bot
+      if (!isAiCommand && !isReplyToBot) return;
 
       let triggerText = message.content;
       if (isAiCommand) {
@@ -1330,22 +1328,27 @@ function startBot() {
     }
   });
   
-  // SECURITY HANDLER: Anti-Raid Joins Gatekeeper Interceptor
+ // SECURITY HANDLER & WELCOME LOGGER: Anti-Raid Gatekeeper & Member Milestones
   client.on("guildMemberAdd", async (member) => {
     try {
       const data = getGuildData(member.guild.id);
       if (!data || !data.verification) return;
 
+      // Calculate total server member milestones
+      const memberCount = member.guild.memberCount;
+
       const isKickEnabled = data.verification.autokick;
       const isBanEnabled = data.verification.autoban;
-      if (!isKickEnabled && !isBanEnabled) return;
 
       const verifyEngine = require("./commands/verify.js");
-      if (!verifyEngine || typeof verifyEngine.runScanDiagnostics !== "function") return;
+      let diagnostics = { riskScore: 0, reasons: [] };
+      
+      if (verifyEngine && typeof verifyEngine.runScanDiagnostics === "function") {
+        diagnostics = verifyEngine.runScanDiagnostics(member, data.verification);
+      }
 
-      const diagnostics = verifyEngine.runScanDiagnostics(member, data.verification);
-
-      if (diagnostics.riskScore >= 50) {
+      // If the account fails creation age checks
+      if ((isKickEnabled || isBanEnabled) && diagnostics.riskScore >= 50) {
         const actionType = isBanEnabled ? "BANNED" : "KICKED";
         const actionEmoji = isBanEnabled ? "🔨" : "🛡️";
 
@@ -1373,7 +1376,21 @@ function startBot() {
           .setTimestamp();
           
         await sendModLog(alertEmbed);
+        return; // Exits so it doesn't log a standard join card
       }
+
+      // STANDARD SLEEK LOG CARD (Runs if the user passes security checks)
+      const joinEmbed = new EmbedBuilder()
+        .setAuthor({ name: `${member.user.tag} joined the server`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+        .setColor("#22C55E")
+        .setDescription(`📥 <@${member.id}> is the **${memberCount}th** member to join!`)
+        .addFields(
+          { name: "📅 Account Created", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:F> (<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>)`, inline: false }
+        )
+        .setTimestamp();
+
+      await sendModLog(joinEmbed);
+
     } catch (err) {
       console.error("Critical Failure in Security Join Handler:", err);
     }
