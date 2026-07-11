@@ -736,9 +736,13 @@ if (command === "status") {
 
   // ================= BAN =================
   if (command === "ban") {
-    // Hard check for the actual Administrator permission node
+    // Stage 1: Fall back on your custom helper check, but enforce a hard Administrator permission fallback
     const { PermissionFlagsBits } = require("discord.js");
-    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    
+    const isCustomMod = typeof canBanUsers === "function" && canBanUsers(message);
+    const isHardAdmin = message.member.permissions.has(PermissionFlagsBits.Administrator);
+
+    if (!isCustomMod && !isHardAdmin) {
       return message.reply("❌ Only admin+ can ban.");
     }
     
@@ -1338,13 +1342,13 @@ function startBot() {
     }
   });
   
- // SECURITY HANDLER & WELCOME LOGGER: Anti-Raid Gatekeeper & Member Milestones
+// SECURITY HANDLER & WELCOME LOGGER: Anti-Raid Gatekeeper & Member Milestones
   client.on("guildMemberAdd", async (member) => {
     try {
       const data = getGuildData(member.guild.id);
       if (!data || !data.verification) return;
 
-      // Calculate total server member milestones
+      // Calculate total server member milestones live
       const memberCount = member.guild.memberCount;
 
       const isKickEnabled = data.verification.autokick;
@@ -1357,7 +1361,7 @@ function startBot() {
         diagnostics = verifyEngine.runScanDiagnostics(member, data.verification);
       }
 
-      // If the account fails creation age checks
+      // 1. If the account fails security age checks, run secure log action and exit early
       if ((isKickEnabled || isBanEnabled) && diagnostics.riskScore >= 50) {
         const actionType = isBanEnabled ? "BANNED" : "KICKED";
         const actionEmoji = isBanEnabled ? "🔨" : "🛡️";
@@ -1386,19 +1390,24 @@ function startBot() {
           .setTimestamp();
           
         await sendModLog(alertEmbed);
-        return; // Exits so it doesn't log a standard join card
+        return; 
       }
 
-      // STANDARD SLEEK LOG CARD (Runs if the user passes security checks)
+      // 2. STANDARD SLEEK LOG CARD: Keeps account creation date and join milestone in your logs forever!
       const joinEmbed = new EmbedBuilder()
         .setAuthor({ name: `${member.user.tag} joined the server`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
         .setColor("#22C55E")
-        .setDescription(`📥 <@${member.id}> is the **${memberCount}th** member to join!`)
+        .setDescription(`📥 <@${member.id}> is **Member #${memberCount}** to arrive!`)
         .addFields(
-          { name: "📅 Account Created", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:F> (<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>)`, inline: false }
+          { 
+            name: "📅 Account Created", 
+            value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:F> (<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>)`, 
+            inline: false 
+          }
         )
         .setTimestamp();
 
+      // This pushes it straight to your designated logging channel text stream
       await sendModLog(joinEmbed);
 
     } catch (err) {
