@@ -401,6 +401,11 @@ if (command === "status") {
     return statusCmd.execute(message, args, client, getGuildData);
   }
 
+  if (command === "joininfo") {
+    const joinInfoCmd = require("./commands/joininfo.js");
+    return joinInfoCmd.execute(message, args);
+  }
+
   if (command === "timer") {
     return handleTimerCommand(message, args);
   }
