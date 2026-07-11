@@ -1264,17 +1264,13 @@ function startBot() {
         }
       }
 
-      // 3. Process Standard Commands
-      const wasCommand = await handleCommands(message, getGuildData);
-      if (wasCommand) return;
-
-      // 4. ================= AI TRIGGER ENGINE & PERSONA ROTATOR =================
-      // Initialize configuration fields securely if missing
+      // 3. INITIALIZE COUNTER FIELDS SECURITY (Moved up)
       if (!data.channelCounters) data.channelCounters = {};
       if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
       if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
 
       const isAiCommand = message.content.startsWith(`${prefix}ai`);
+      const isStatusCommand = message.content.startsWith(`${prefix}status`);
       
       let isReplyToBot = false;
       if (message.reference && message.reference.messageId) {
@@ -1284,22 +1280,27 @@ function startBot() {
         }
       }
 
-      // Increment channel counter for general traffic
+      // 4. INCREMENT CHAT ENTRIES (Counts standard messages before running handleCommands)
       let isEvery50Messages = false;
-      if (!isAiCommand && !isReplyToBot) {
+      if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
         data.channelCounters[message.channel.id]++;
         
         if (data.channelCounters[message.channel.id] >= 50) {
           data.channelCounters[message.channel.id] = 0; // Reset chat loop
-          
-          // CYCLE PERSONA INDEX FORWARD
-          data.currentPersonaIndex += 1; 
+          data.currentPersonaIndex += 1; // Cycle forward
           isEvery50Messages = true;
         }
+        
+        // Force sync local memory states before saving to disk
+        store[message.guild.id] = data;
         saveData();
       }
 
-      // If it doesn't match a structural prompt scenario, drop execution
+      // 5. Process Standard Commands
+      const wasCommand = await handleCommands(message, getGuildData);
+      if (wasCommand) return;
+
+      // 6. ================= AI TRIGGER ENGINE RESPONSES =================
       if (!isAiCommand && !isReplyToBot && !isEvery50Messages) return;
 
       let triggerText = message.content;
@@ -1308,7 +1309,6 @@ function startBot() {
         if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
       }
 
-      // Pass data.currentPersonaIndex directly into your generator pipeline
       const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
       if (aiReply) {
         return message.reply({ 
