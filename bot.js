@@ -1132,12 +1132,7 @@ if (command === "status") {
           value:
             `\`${prefix}translate [lang] [text]\` • Auto-detects text to target language.\n` +
             `▫️ Languages: \`en\`, \`lt\`, \`es\`, \`fr\`, \`de\`, \`pl\`, \`ru\`, \`tr\`, \`ja\`\n` +
-            `▫️ Utilities: \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\``
-        },
-        { 
-          name: `\`${prefix}status\``, 
-          value: "Check bot uptime, response latency, system RAM usage, and view the active AI persona.", 
-          inline: false 
+            `▫️ Utilities: \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\` \`${prefix}status\``
         }
       )
       .setTimestamp();
