@@ -262,7 +262,6 @@ function renderPage({ req, guildId, tab, title, content }) {
             <a class="nav ${tab === "words" ? "active" : ""}" href="${sidebarBase}/words">🚫 AutoMod Words</a>
             <a class="nav ${tab === "links" ? "active" : ""}" href="${sidebarBase}/links">🔗 Blocked Links</a>
             <a class="nav ${tab === "prefix" ? "active" : ""}" href="${sidebarBase}/prefix">⚙️ Prefix</a>
-            <a class="nav ${tab === "warnings" ? "active" : ""}" href="${sidebarBase}/warnings">⚠️ Warnings</a>
             <a class="nav ${tab === "custom" ? "active" : ""}" href="${sidebarBase}/custom">💬 Custom Commands</a>
             <a class="nav ${tab === "purchase" ? "active" : ""}" href="${sidebarBase}/purchase">🛒 Purchase Links</a>
             <a class="nav ${tab === "info" ? "active" : ""}" href="${sidebarBase}/info">📊 Info</a>
@@ -510,35 +509,6 @@ app.post("/dashboard/:guildId/prefix", requireLogin, requireGuildAdmin, (req, re
   }
 
   res.redirect(`/dashboard/${req.params.guildId}/prefix`);
-});
-
-// ================= WARNINGS =================
-app.get("/dashboard/:guildId/warnings", requireLogin, requireGuildAdmin, (req, res) => {
-  const { guildId } = req.params;
-  const cfg = getGuildData(guildId);
-
-  const warningCards = Object.entries(cfg.warnings || {}).map(([userId, warnings]) => {
-    const warns = Array.isArray(warnings) ? warnings : [];
-
-    const list = warns.map(w => `
-      <div class="warn-box">
-        <b>ID:</b> ${escapeHtml(w.id)}<br/>
-        <b>Reason:</b> ${escapeHtml(w.reason || "No reason")}<br/>
-        <b>Moderator:</b> ${escapeHtml(w.mod || "Unknown")}<br/>
-        <b>Date:</b> ${escapeHtml(w.date || "Unknown")}
-      </div>
-    `).join("");
-
-    return `<div class="card"><h3>User ID: ${escapeHtml(userId)}</h3>${list}</div>`;
-  }).join("");
-
-  res.send(renderPage({
-    req,
-    guildId,
-    tab: "warnings",
-    title: "Warnings",
-    content: warningCards || `<div class="card"><h2>No warnings saved.</h2></div>`
-  }));
 });
 
 // ================= CUSTOM COMMANDS & EMBED BUILDER =================
