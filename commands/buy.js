@@ -45,21 +45,18 @@ function renderLinks(items) {
 }
 
 async function handleBuyCommand(message, args, prefix, canManageGuild, saveData) {
-  // Delete user trigger invocation
   await message.delete().catch(() => null);
 
   const fullData = loadFullData();
   const guildSettings = fullData[message.guild.id] || {};
-  
-  // Use custom panel link objects if configured, otherwise fallback smoothly to default presets
-  const purchaseLinks = guildSettings.purchaseLinks || DEFAULT_PURCHASE_LINKS;
-  const meta = purchaseLinks.embedSettings || {
+  const purchaseLinks = guildSettings.purchaseLinks;
+
+  const meta = guildSettings.purchaseEmbedSettings || {
     title: "🛒 Purchase Links",
     description: "Select the upgrade or add-on you want below.",
     color: "#5865f2"
   };
 
-  // Convert Hex string into integer for Discord Embed
   let embedColor = 0x5865f2;
   if (meta.color) {
     embedColor = parseInt(meta.color.replace("#", ""), 16);
@@ -69,26 +66,35 @@ async function handleBuyCommand(message, args, prefix, canManageGuild, saveData)
     .setTitle(meta.title)
     .setDescription(meta.description)
     .setColor(embedColor)
-    .addFields(
-      {
-        name: "✈️ Classes",
-        value: renderLinks(purchaseLinks.classes || DEFAULT_PURCHASE_LINKS.classes)
-      },
-      {
-        name: "⏱️ 10M–6H Ads",
-        value: renderLinks(purchaseLinks.ads6h || DEFAULT_PURCHASE_LINKS.ads6h)
-      },
-      {
-        name: "🕒 6H–24H Ads",
-        value: renderLinks(purchaseLinks.ads24h || DEFAULT_PURCHASE_LINKS.ads24h)
-      },
-      {
-        name: "➕ Extras",
-        value: renderLinks(purchaseLinks.extras || DEFAULT_PURCHASE_LINKS.extras)
-      }
-    )
     .setFooter({ text: "💳 Purchase your ads & upgrades above" })
     .setTimestamp();
+
+  // DASHBOARD HANDLING: If dashboard saved it as a flat array of custom items
+  if (Array.isArray(purchaseLinks)) {
+    if (purchaseLinks.length === 0) {
+      embed.addFields({ name: "Store Available Items", value: "No active links configured on dashboard." });
+    } else {
+      embed.addFields({ name: "✨ Available Shop Items", value: renderLinks(purchaseLinks) });
+    }
+  } 
+  // CATEGORY HANDLING: Fallback if it matches the older group layout structures
+  else if (purchaseLinks && (purchaseLinks.classes || purchaseLinks.ads6h)) {
+    embed.addFields(
+      { name: "✈️ Classes", value: renderLinks(purchaseLinks.classes || DEFAULT_PURCHASE_LINKS.classes) },
+      { name: "⏱️ 10M–6H Ads", value: renderLinks(purchaseLinks.ads6h || DEFAULT_PURCHASE_LINKS.ads6h) },
+      { name: "🕒 6H–24H Ads", value: renderLinks(purchaseLinks.ads24h || DEFAULT_PURCHASE_LINKS.ads24h) },
+      { name: "➕ Extras", value: renderLinks(purchaseLinks.extras || DEFAULT_PURCHASE_LINKS.extras) }
+    );
+  } 
+  // PRESET FALLBACK: If nothing exists in database file yet
+  else {
+    embed.addFields(
+      { name: "✈️ Classes", value: renderLinks(DEFAULT_PURCHASE_LINKS.classes) },
+      { name: "⏱️ 10M–6H Ads", value: renderLinks(DEFAULT_PURCHASE_LINKS.ads6h) },
+      { name: "🕒 6H–24H Ads", value: renderLinks(DEFAULT_PURCHASE_LINKS.ads24h) },
+      { name: "➕ Extras", value: renderLinks(DEFAULT_PURCHASE_LINKS.extras) }
+    );
+  }
 
   await message.channel.send({ embeds: [embed] }).catch(() => null);
   return true;
