@@ -29,7 +29,7 @@ const DEFAULT_DATA = {
     ]
   },
   wallets: {
-    btc: "Not Set Yet"
+    crypto: "Not Set Yet"
   }
 };
 
@@ -64,40 +64,37 @@ async function handlePurchaseCommand(message) {
   const wallets = settings.wallets || DEFAULT_DATA.wallets;
 
   const embed = new EmbedBuilder()
-    .setTitle("🌟 DONQUIXOTE OFFICIAL STORE 🌟")
-    .setDescription(
-      "Welcome to our premium upgrade and advertising portal! Secure your perks instantly via Roblox Gamepasses, or pay easily with Bitcoin below.\n\n" +
-      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    )
+    .setTitle("🌟 DONQUIXOTE STORE 🌟")
+    .setDescription("Secure your perks instantly via Roblox Gamepasses, or pay with Crypto below.")
     .setColor("#5865F2")
     .addFields(
       { 
         name: "✈️ PREMIUM CLASSES", 
-        value: formatLinks(links.classes) + "\n\u200B", 
+        value: formatLinks(links.classes), 
         inline: false 
       },
       { 
-        name: "⏱️ ADVERTISING (10M – 6H)", 
-        value: formatLinks(links.ads6h) + "\n\u200B", 
+        name: "⏱️ ADS (10M – 6H)", 
+        value: formatLinks(links.ads6h), 
         inline: true 
       },
       { 
-        name: "🕒 ADVERTISING (6H – 24H)", 
-        value: formatLinks(links.ads24h) + "\n\u200B", 
+        name: "🕒 ADS (6H – 24H)", 
+        value: formatLinks(links.ads24h), 
         inline: true 
       },
       { 
         name: "➕ VALUE EXTRAS & PINGS", 
-        value: formatLinks(links.extras) + "\n\u200B", 
+        value: formatLinks(links.extras), 
         inline: false 
       },
       {
-        name: "🪙 BITCOIN WALLET (Tap address text box to copy!)",
-        value: `₿ **Bitcoin (BTC) Address:**\n${codeBlock(wallets.btc || "Not Set Yet")}`,
+        name: "🪙 CRYPTO WALLET (Tap text box to copy!)",
+        value: `💳 **Wallet Address:**\n${codeBlock(wallets.crypto || "Not Set Yet")}`,
         inline: false
       }
     )
-    .setFooter({ text: "💎 After paying via BTC, open a support ticket with your transaction ID!" })
+    .setFooter({ text: "💎 Send payment proof right here in this ticket once completed!" })
     .setTimestamp();
 
   await message.channel.send({ embeds: [embed] }).catch(() => null);
@@ -116,9 +113,9 @@ async function handlePurchEditCommand(message, args) {
 
   const usage = "💡 **Usage:** `?purchedit <category> <number> <new_url>`\n\n" +
                 "**Categories:** `classes`, `ads6h`, `ads24h`, `extras`\n" +
-                "**Or BTC wallet:** `?purchedit wallet btc <address>`\n\n" +
+                "**Or Crypto wallet:** `?purchedit wallet crypto <address>`\n\n" +
                 "**Example:** `?purchedit classes 1 https://roblox.com/...` (Changes Economy link)\n" +
-                "**Example:** `?purchedit wallet btc 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa`";
+                "**Example:** `?purchedit wallet crypto 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa`";
 
   if (!args || args.length < 2) {
     return message.reply(usage);
@@ -128,18 +125,18 @@ async function handlePurchEditCommand(message, args) {
   const indexOrWallet = args[1].toLowerCase();
   const value = args.slice(2).join(" ");
 
-  // Handle BTC Wallet Setup
+  // Handle Crypto Wallet Setup
   if (category === "wallet") {
-    if (indexOrWallet !== "btc") {
-      return message.reply("❌ Currently, only `btc` wallet settings are active.");
+    if (indexOrWallet !== "crypto") {
+      return message.reply("❌ Use `?purchedit wallet crypto <address>` to update your address.");
     }
     if (!value) return message.reply("❌ Please provide a wallet address string!");
     
-    if (!settings.wallets) settings.wallets = { btc: "Not Set Yet" };
-    settings.wallets.btc = value;
+    if (!settings.wallets) settings.wallets = { crypto: "Not Set Yet" };
+    settings.wallets.crypto = value;
     
     saveData(fullData);
-    return message.reply(`✅ Successfully updated your **Bitcoin (BTC)** address!`);
+    return message.reply(`✅ Successfully updated your **Crypto** address!`);
   }
 
   // Handle Link Categories Editing
