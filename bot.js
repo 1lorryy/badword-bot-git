@@ -1,6 +1,6 @@
 const { initTimers, handleTimerCommand } = require("./commands/timer.js");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
-const { handleBuyCommand } = require("./commands/buy");
+const { handlePurchaseCommand, handlePurchEditCommand } = require("./commands/buy");
 const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
 const { handleTranslateCommand } = require("./commands/translate");
 const { handleAuctionCommand } = require("./commands/auction");
@@ -409,11 +409,14 @@ if (command === "status") {
   if (command === "timer") {
     return handleTimerCommand(message, args);
   }
-  if (command === "slowmode") {
+if (command === "slowmode") {
     return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
   }
-  if (command === "purchase") {
-    return handleBuyCommand(message, args, prefix, canManageGuild, saveData);
+  if (command === "purchase" || command === "buy") {
+    return handlePurchaseCommand(message);
+  }
+  if (command === "purchedit" || command === "editpurch") {
+    return handlePurchEditCommand(message, args);
   }
   if (command === "afk") {
     return handleAfkCommand(message, args, prefix, getGuildData, saveData);
@@ -1138,10 +1141,11 @@ if (command === "status") {
         {
           name: "⚙️ Server, Auction & Channels",
           value:
-            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\` \`${prefix}purchase\`\n` +
+            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\`\n` +
+            `\`${prefix}purchase\` (or \`${prefix}buy\`) • \`${prefix}purchedit\`\n` +
             `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
         },
-       {
+        {
           name: "🌍 Utility & Translation",
           value:
             `\`${prefix}translate [lang] [text]\` • Auto-detects text to target language.\n` +
