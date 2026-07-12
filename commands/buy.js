@@ -1,35 +1,39 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, codeBlock } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 
 const DATA_FILE = path.join(__dirname, "..", "guild-data.json");
 
-const DEFAULT_PURCHASE_LINKS = {
-  classes: [
-    { name: "Economy", url: "https://www.roblox.com/game-pass/1856306289/ECONOMY" },
-    { name: "Premium Economy", url: "https://www.roblox.com/game-pass/1856298285/PREMIUM-ECONOMY" },
-    { name: "Business Class", url: "https://www.roblox.com/game-pass/1854202242/BUSSINESS-CLASS" },
-    { name: "First Class", url: "https://www.roblox.com/game-pass/1856222269/FIRST-CLASS" }
-  ],
-  ads6h: [
-    { name: "Drops Ping", url: "https://www.roblox.com/game-pass/1809387047/Drops-Ping-6H" },
-    { name: "Sponsor/Here Ping", url: "https://www.roblox.com/game-pass/1809387042/Sponsor-Here-Ping-6H" },
-    { name: "Everyone Ping", url: "https://www.roblox.com/game-pass/1809201052/Everyone-Ping-6H" }
-  ],
-  ads24h: [
-    { name: "Drops Ping", url: "https://www.roblox.com/game-pass/1808277089/Drops-Ping-24H" },
-    { name: "Sponsor/Here Ping", url: "https://www.roblox.com/game-pass/1808415066/Sponsor-Here-Ping-24H" },
-    { name: "Everyone Ping", url: "https://www.roblox.com/game-pass/1809369029/Everyone-Ping-24H" }
-  ],
-  extras: [
-    { name: "Custom Channel", url: "https://www.roblox.com/game-pass/1808246271/Custom-Channel" },
-    { name: "Extra Day", url: "https://www.roblox.com/game-pass/1807563042/Extra-Day" },
-    { name: "Skip Queue", url: "https://www.roblox.com/game-pass/1809549057/Skip-Queue" },
-    { name: "Ping on Join", url: "https://www.roblox.com/game-pass/1807959069/Ping-On-Join" }
-  ]
+const DEFAULT_DATA = {
+  purchaseLinks: {
+    classes: [
+      { name: "Economy Class", url: "https://www.roblox.com/game-pass/1856306289" },
+      { name: "Premium Economy", url: "https://www.roblox.com/game-pass/1856298285" },
+      { name: "Business Class", url: "https://www.roblox.com/game-pass/1854202242" },
+      { name: "First Class", url: "https://www.roblox.com/game-pass/1856222269" }
+    ],
+    ads6h: [
+      { name: "6H Drops Ping", url: "https://www.roblox.com/game-pass/1809387047" },
+      { name: "6H Sponsor / Here", url: "https://www.roblox.com/game-pass/1809387042" },
+      { name: "6H Everyone Ping", url: "https://www.roblox.com/game-pass/1809201052" }
+    ],
+    ads24h: [
+      { name: "24H Drops Ping", url: "https://www.roblox.com/game-pass/1808277089" },
+      { name: "24H Sponsor / Here", url: "https://www.roblox.com/game-pass/1808415066" },
+      { name: "24H Everyone Ping", url: "https://www.roblox.com/game-pass/1809369029" }
+    ],
+    extras: [
+      { name: "Extra Day Link", url: "https://www.roblox.com/game-pass/1807563042" },
+      { name: "Skip Queue Item", url: "https://www.roblox.com/game-pass/1809549057" },
+      { name: "Ping on Join Adv", url: "https://www.roblox.com/game-pass/1807959069" }
+    ]
+  },
+  wallets: {
+    btc: "Not Set Yet"
+  }
 };
 
-function loadFullData() {
+function loadData() {
   try {
     return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
@@ -37,49 +41,125 @@ function loadFullData() {
   }
 }
 
-function renderLinks(items) {
-  if (!Array.isArray(items) || !items.length) return "Nothing added yet.";
-  return items
-    .map(item => `🔹 [${item.name}](${item.url})`)
-    .join("\n");
+function saveData(data) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-async function handleBuyCommand(message, args, prefix, canManageGuild, saveData) {
+function formatLinks(items) {
+  if (!items || !items.length) return "*None configured yet*";
+  return items.map(item => `✨ **[${item.name}](${item.url})**`).join("\n");
+}
+
+// ================= THE MAIN SHOW COMMAND =================
+async function handlePurchaseCommand(message) {
   await message.delete().catch(() => null);
 
-  const fullData = loadFullData();
-  const guildSettings = fullData[message.guild.id] || {};
+  const fullData = loadData();
+  const guildID = message.guild.id;
   
-  // Pulls your dashboard structured categories live
-  const purchaseLinks = guildSettings.purchaseLinks || DEFAULT_PURCHASE_LINKS;
+  if (!fullData[guildID]) fullData[guildID] = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  const settings = fullData[guildID];
+
+  const links = settings.purchaseLinks || DEFAULT_DATA.purchaseLinks;
+  const wallets = settings.wallets || DEFAULT_DATA.wallets;
 
   const embed = new EmbedBuilder()
-    .setTitle("🛒 Purchase Links")
-    .setDescription("Select the upgrade or add-on you want below.")
-    .setColor(0x5865f2)
+    .setTitle("🌟 DONQUIXOTE OFFICIAL STORE 🌟")
+    .setDescription(
+      "Welcome to our premium upgrade and advertising portal! Secure your perks instantly via Roblox Gamepasses, or pay easily with Bitcoin below.\n\n" +
+      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    )
+    .setColor("#5865F2")
     .addFields(
-      {
-        name: "✈️ Classes",
-        value: renderLinks(purchaseLinks.classes || DEFAULT_PURCHASE_LINKS.classes)
+      { 
+        name: "✈️ PREMIUM CLASSES", 
+        value: formatLinks(links.classes) + "\n\u200B", 
+        inline: false 
+      },
+      { 
+        name: "⏱️ ADVERTISING (10M – 6H)", 
+        value: formatLinks(links.ads6h) + "\n\u200B", 
+        inline: true 
+      },
+      { 
+        name: "🕒 ADVERTISING (6H – 24H)", 
+        value: formatLinks(links.ads24h) + "\n\u200B", 
+        inline: true 
+      },
+      { 
+        name: "➕ VALUE EXTRAS & PINGS", 
+        value: formatLinks(links.extras) + "\n\u200B", 
+        inline: false 
       },
       {
-        name: "⏱️ 10M–6H Ads",
-        value: renderLinks(purchaseLinks.ads6h || DEFAULT_PURCHASE_LINKS.ads6h)
-      },
-      {
-        name: "🕒 6H–24H Ads",
-        value: renderLinks(purchaseLinks.ads24h || DEFAULT_PURCHASE_LINKS.ads24h)
-      },
-      {
-        name: "➕ Extras",
-        value: renderLinks(purchaseLinks.extras || DEFAULT_PURCHASE_LINKS.extras)
+        name: "🪙 BITCOIN WALLET (Tap address text box to copy!)",
+        value: `₿ **Bitcoin (BTC) Address:**\n${codeBlock(wallets.btc || "Not Set Yet")}`,
+        inline: false
       }
     )
-    .setFooter({ text: "💳 Purchase your ads & upgrades above" })
+    .setFooter({ text: "💎 After paying via BTC, open a support ticket with your transaction ID!" })
     .setTimestamp();
 
   await message.channel.send({ embeds: [embed] }).catch(() => null);
-  return true;
 }
 
-module.exports = { handleBuyCommand, DEFAULT_PURCHASE_LINKS };
+// ================= THE EDITING COMMAND =================
+async function handlePurchEditCommand(message, args) {
+  if (!message.member.permissions.has("Administrator")) {
+    return message.reply("❌ You do not have permissions to use this command.").then(m => setTimeout(() => m.delete(), 5000));
+  }
+
+  const fullData = loadData();
+  const guildID = message.guild.id;
+  if (!fullData[guildID]) fullData[guildID] = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  const settings = fullData[guildID];
+
+  const usage = "💡 **Usage:** `?purchedit <category> <number> <new_url>`\n\n" +
+                "**Categories:** `classes`, `ads6h`, `ads24h`, `extras`\n" +
+                "**Or BTC wallet:** `?purchedit wallet btc <address>`\n\n" +
+                "**Example:** `?purchedit classes 1 https://roblox.com/...` (Changes Economy link)\n" +
+                "**Example:** `?purchedit wallet btc 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa`";
+
+  if (!args || args.length < 2) {
+    return message.reply(usage);
+  }
+
+  const category = args[0].toLowerCase();
+  const indexOrWallet = args[1].toLowerCase();
+  const value = args.slice(2).join(" ");
+
+  // Handle BTC Wallet Setup
+  if (category === "wallet") {
+    if (indexOrWallet !== "btc") {
+      return message.reply("❌ Currently, only `btc` wallet settings are active.");
+    }
+    if (!value) return message.reply("❌ Please provide a wallet address string!");
+    
+    if (!settings.wallets) settings.wallets = { btc: "Not Set Yet" };
+    settings.wallets.btc = value;
+    
+    saveData(fullData);
+    return message.reply(`✅ Successfully updated your **Bitcoin (BTC)** address!`);
+  }
+
+  // Handle Link Categories Editing
+  if (["classes", "ads6h", "ads24h", "extras"].includes(category)) {
+    if (!value) return message.reply("❌ Please include the new URL link destination!");
+    
+    const itemIndex = parseInt(indexOrWallet) - 1;
+    const items = settings.purchaseLinks[category];
+
+    if (isNaN(itemIndex) || itemIndex < 0 || itemIndex >= items.length) {
+      return message.reply(`❌ Invalid item position. Provide a line number from 1 to ${items.length}.`);
+    }
+
+    items[itemIndex].url = value;
+    saveData(fullData);
+
+    return message.reply(`✅ Updated item **#${itemIndex + 1} (${items[itemIndex].name})** in the **${category}** group!`);
+  }
+
+  return message.reply(usage);
+}
+
+module.exports = { handlePurchaseCommand, handlePurchEditCommand, DEFAULT_PURCHASE_LINKS: DEFAULT_DATA.purchaseLinks };
