@@ -67,6 +67,9 @@ async function handleChannelToolsCommand(
 ) {
 
   if (!canManageGuild(message)) {
+    // Clean up user trigger message if execution fails
+    message.delete().catch(() => null);
+    
     const reply = await message.reply("❌ No permission.");
     await deleteLater(reply);
     return true;
@@ -77,6 +80,9 @@ async function handleChannelToolsCommand(
       PermissionsBitField.Flags.ManageChannels
     )
   ) {
+    // Clean up user trigger message if bot lacks permissions
+    message.delete().catch(() => null);
+
     const reply = await message.reply(
       "❌ I need Manage Channels permission."
     );
@@ -89,6 +95,8 @@ async function handleChannelToolsCommand(
 
   // ================= SLOWMODE =================
   if (command === "slowmode") {
+    // Delete the user's "?slowmode" command message instantly on execution!
+    message.delete().catch(() => null);
 
     let timeArg = args[0];
 
