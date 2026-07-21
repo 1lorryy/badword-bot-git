@@ -29,7 +29,9 @@ const DEFAULT_DATA = {
     ]
   },
   wallets: {
-    crypto: "Not Set Yet"
+    ltc: "Not Set Yet",
+    btc: "Not Set Yet",
+    eth: "Not Set Yet"
   }
 };
 
@@ -61,7 +63,14 @@ async function handlePurchaseCommand(message) {
   const settings = fullData[guildID];
 
   const links = settings.purchaseLinks || DEFAULT_DATA.purchaseLinks;
-  const wallets = settings.wallets || DEFAULT_DATA.wallets;
+  
+  // Backwards compatibility migration check
+  const wallets = settings.wallets || {};
+  if (wallets.crypto && !wallets.ltc) {
+    wallets.ltc = wallets.crypto; // move old single crypto wallet to ltc
+  }
+
+  const ltcWallet = wallets.ltc || "Not Set Yet";
 
   const embed = new EmbedBuilder()
     .setTitle("🌟 DONQUIXOTE STORE 🌟")
@@ -89,8 +98,8 @@ async function handlePurchaseCommand(message) {
         inline: false 
       },
       {
-        name: "🪙 CRYPTO WALLET (Tap text box to copy!)",
-        value: `💳 **Wallet Address:**\n${codeBlock(wallets.crypto || "Not Set Yet")}`,
+        name: "🪙 LITECOIN (LTC) WALLET (Tap box to copy!)",
+        value: `💳 **LTC Address:**\n${codeBlock(ltcWallet)}`,
         inline: false
       }
     )
@@ -113,9 +122,9 @@ async function handlePurchEditCommand(message, args) {
 
   const usage = "💡 **Usage:** `?purchedit <category> <number> <new_url>`\n\n" +
                 "**Categories:** `classes`, `ads6h`, `ads24h`, `extras`\n" +
-                "**Or Crypto wallet:** `?purchedit wallet crypto <address>`\n\n" +
+                "**Crypto Wallets:** `?purchedit wallet <ltc/btc/eth> <address>`\n\n" +
                 "**Example:** `?purchedit classes 1 https://roblox.com/...` (Changes Economy link)\n" +
-                "**Example:** `?purchedit wallet crypto 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa`";
+                "**Example:** `?purchedit wallet ltc Ltc1q...`";
 
   if (!args || args.length < 2) {
     return message.reply(usage);
@@ -125,18 +134,21 @@ async function handlePurchEditCommand(message, args) {
   const indexOrWallet = args[1].toLowerCase();
   const value = args.slice(2).join(" ");
 
-  // Handle Crypto Wallet Setup
+  // Handle Crypto Wallet Setup (ltc, btc, eth, crypto)
   if (category === "wallet") {
-    if (indexOrWallet !== "crypto") {
-      return message.reply("❌ Use `?purchedit wallet crypto <address>` to update your address.");
+    let coinType = indexOrWallet;
+    if (coinType === "crypto") coinType = "ltc"; // Default old crypto command to LTC
+
+    if (!["ltc", "btc", "eth", "sol"].includes(coinType)) {
+      return message.reply("❌ Use `?purchedit wallet ltc <address>` (or btc/eth/sol) to update your address.");
     }
-    if (!value) return message.reply("❌ Please provide a wallet address string!");
+    if (!value) return message.reply(`❌ Please provide a valid ${coinType.toUpperCase()} wallet address!`);
     
-    if (!settings.wallets) settings.wallets = { crypto: "Not Set Yet" };
-    settings.wallets.crypto = value;
+    if (!settings.wallets) settings.wallets = {};
+    settings.wallets[coinType] = value;
     
     saveData(fullData);
-    return message.reply(`✅ Successfully updated your **Crypto** address!`);
+    return message.reply(`✅ Successfully updated your **${coinType.toUpperCase()}** wallet address!`);
   }
 
   // Handle Link Categories Editing
