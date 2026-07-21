@@ -1,9 +1,25 @@
 const { EmbedBuilder } = require("discord.js");
 
+// Configuration IDs
+const BOT_COMMANDS_CHANNEL_ID = "1481370051264254259";
+const MEMBER_ROLE_ID = "1481564058984517762";
+const STAFF_ROLE_ID = "1481370041420087474";
+
 module.exports = {
   name: "status",
-  description: "Displays live engine specs and active AI cycle configurations.",
+  description: "Displays live engine specs, active AI cycle configurations, and member join info.",
   async execute(message, args, client, getGuildData) {
+    // Check if user is staff (has Staff Role, Administrator, or Manage Messages permission)
+    const isStaff = message.member.roles.cache.has(STAFF_ROLE_ID) ||
+                    message.member.permissions.has("Administrator") ||
+                    message.member.permissions.has("ManageMessages");
+    
+    // Restrict regular members to the bot-commands channel
+    if (!isStaff && message.channel.id !== BOT_COMMANDS_CHANNEL_ID) {
+      return message.reply(`❌ Standard members can only use \`?status\` in <#${BOT_COMMANDS_CHANNEL_ID}>!`)
+        .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
+    }
+
     // Calculate precise uptime string
     const totalSeconds = Math.floor(client.uptime / 1000);
     const days = Math.floor(totalSeconds / 86400);
@@ -25,7 +41,7 @@ module.exports = {
     const index = data.currentPersonaIndex || 0;
     const currentPersonaName = personalities[index % personalities.length];
     
-    // FIX: Look directly into the live channel counter map data
+    // Look directly into the live channel counter map data
     if (!data.channelCounters) data.channelCounters = {};
     const channelCounter = data.channelCounters[message.channel.id] || 0;
     const msgsRemaining = Math.max(0, 50 - channelCounter);
@@ -36,6 +52,10 @@ module.exports = {
     const remainingBlocks = progressBarLength - completedBlocks;
     const progressVisual = "🟦".repeat(completedBlocks) + "⬛".repeat(remainingBlocks);
 
+    // Format Member Join Dates (Discord Created & Server Joined)
+    const joinedServerTimestamp = Math.floor(message.member.joinedTimestamp / 1000);
+    const createdAccountTimestamp = Math.floor(message.author.createdTimestamp / 1000);
+
     const statusEmbed = new EmbedBuilder()
       .setColor("#5865F2")
       .setTitle("👑 GRAND REGENT • ENGINE STATUS")
@@ -43,6 +63,11 @@ module.exports = {
         { name: "📡 Network Ping", value: `\`${ping}ms\``, inline: true },
         { name: "🔋 Live Uptime", value: `\`${uptimeString}\``, inline: true },
         { name: "🎛️ RAM Allocation", value: `\`${memoryUsed} MB\``, inline: true },
+        { 
+          name: "👤 Your Join Info", 
+          value: `• **Account Created:** <t:${createdAccountTimestamp}:D> (<t:${createdAccountTimestamp}:R>)\n• **Joined Server:** <t:${joinedServerTimestamp}:D> (<t:${joinedServerTimestamp}:R>)`, 
+          inline: false 
+        },
         { name: "🎭 Active AI Persona Frequency", value: `**${currentPersonaName}**`, inline: false },
         { name: "🔄 Next Persona Rotation Cycle", value: `${progressVisual} \`${msgsRemaining}\` messages left\n*Currently tracked at: ${channelCounter}/50 messages in <#${message.channel.id}>*`, inline: false }
       )
