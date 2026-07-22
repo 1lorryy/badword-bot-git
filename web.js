@@ -15,6 +15,7 @@ const CALLBACK_URL = process.env.CALLBACK_URL || "http://localhost:3000/callback
 const SESSION_SECRET = process.env.SESSION_SECRET || "change-this-secret";
 
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json");
+const STAFF_GUIDE_FILE = path.join(__dirname, "staff-guide-data.json");
 const CSS_PATH = path.join(__dirname, "dashboard", "dashboard.css");
 
 const DEFAULT_PREFIX = "?";
@@ -59,6 +60,37 @@ function loadData() {
 function saveData(data) {
   fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+function loadStaffGuide() {
+  try {
+    if (!fs.existsSync(STAFF_GUIDE_FILE)) {
+      return {
+        title: "🛡️ DONQUIXOTES LOUNGE • STAFF PROTOCOLS & ESCALATION",
+        color: "#5865F2",
+        description: 
+          "### 📜 Standard Warn Escalation Ladder\n" +
+          "• **Verbal:** Verbal Warning\n" +
+          "• **1st Warn:** Safe (Logged Warning)\n" +
+          "• **2nd Warn:** Warning + **5 Minutes Mute**\n" +
+          "• **3rd Warn:** Warning + **30 Minutes Mute**\n" +
+          "• **4th Warn:** Warning + **12 Hours Mute**\n" +
+          "• **5th Warn:** Warning + **KICK** *(Levels/data reset)*\n" +
+          "• **6th Warn:** Warning + **BAN**\n\n" +
+          "### 🚨 Special & Category Rules\n" +
+          "• **Special Rule Breaker** *(NSFW / Gore / Disturbing / Scammer)* ➔ **BAN**\n" +
+          "• **Giveaway Rules** *(Spamming / Msg Farming)* ➔ Warn + Timeout <@&1481370041260966067> **2 days**\n" +
+          "• **Harassing / Insulting / Ragebaiting** ➔ **Verbal**\n" +
+          "• **Not Listening to Staff** ➔ Warn + **Mute 30 mins**\n\n" +
+          "### 📢 Naughty Advertisers *(DM Advertising / Self-Promo)*\n" +
+          "• **First Offense:** **Verbal**\n" +
+          "• **If They Continue:** **KICK**"
+      };
+    }
+    return JSON.parse(fs.readFileSync(STAFF_GUIDE_FILE, "utf8"));
+  } catch {
+    return { title: "🛡️ STAFF GUIDELINES", color: "#5865F2", description: "" };
+  }
 }
 
 function fixGuildData(cfg) {
@@ -263,6 +295,7 @@ function renderPage({ req, guildId, tab, title, content }) {
             <a class="nav ${tab === "links" ? "active" : ""}" href="${sidebarBase}/links">🔗 Blocked Links</a>
             <a class="nav ${tab === "prefix" ? "active" : ""}" href="${sidebarBase}/prefix">⚙️ Prefix</a>
             <a class="nav ${tab === "custom" ? "active" : ""}" href="${sidebarBase}/custom">💬 Custom Commands</a>
+            <a class="nav ${tab === "staffguide" ? "active" : ""}" href="${sidebarBase}/staffguide">🛡️ Staff Guide</a>
             <a class="nav ${tab === "purchase" ? "active" : ""}" href="${sidebarBase}/purchase">🛒 Purchase Links</a>
             <a class="nav ${tab === "info" ? "active" : ""}" href="${sidebarBase}/info">📊 Info</a>
           ` : ""}
@@ -520,7 +553,6 @@ app.get("/dashboard/:guildId/custom", requireLogin, requireGuildAdmin, (req, res
     .map(([cmd, data]) => {
       let displayContent = "";
       
-      // Check if this command saves an embed structure or basic text string
       if (data && typeof data === "object" && data.embeds) {
         const emb = data.embeds[0] || {};
         displayContent = `
@@ -627,7 +659,6 @@ app.get("/dashboard/:guildId/custom", requireLogin, requireGuildAdmin, (req, res
   }));
 });
 
-// Route for normal plain text commands
 app.post("/dashboard/:guildId/custom/add", requireLogin, requireGuildAdmin, (req, res) => {
   const command = String(req.body.command || "")
     .trim()
@@ -648,7 +679,6 @@ app.post("/dashboard/:guildId/custom/add", requireLogin, requireGuildAdmin, (req
   res.redirect(`/dashboard/${req.params.guildId}/custom`);
 });
 
-// New Route for handling and saving Embed Configurations cleanly!
 app.post("/dashboard/:guildId/custom/add-embed", requireLogin, requireGuildAdmin, (req, res) => {
   const command = String(req.body.command || "")
     .trim()
@@ -662,14 +692,13 @@ app.post("/dashboard/:guildId/custom/add-embed", requireLogin, requireGuildAdmin
 
   if (command && (title || description)) {
     updateGuildData(req.params.guildId, cfg => {
-      // Constructs standard Discord rich embed JSON structures natively parsed by message triggers
       cfg.customCommands[command] = {
         embeds: [
           {
             title: title || undefined,
             description: description || undefined,
             url: url || undefined,
-            color: parseInt(color.replace("#", ""), 16) // Converts HEX color into Discord decimal colors
+            color: parseInt(color.replace("#", ""), 16)
           }
         ],
         allowPings: false
@@ -691,6 +720,69 @@ app.post("/dashboard/:guildId/custom/remove", requireLogin, requireGuildAdmin, (
   });
 
   res.redirect(`/dashboard/${req.params.guildId}/custom`);
+});
+
+// ================= STAFF GUIDE PAGE =================
+app.get("/dashboard/:guildId/staffguide", requireLogin, requireGuildAdmin, (req, res) => {
+  const { guildId } = req.params;
+  const guideData = loadStaffGuide();
+
+  res.send(renderPage({
+    req,
+    guildId,
+    tab: "staffguide",
+    title: "Staff Guidelines Embed",
+    content: `
+      <div class="card embed-box">
+        <h2>🛡️ Edit Staff Guidelines Embed</h2>
+        <p>Edit the guidelines saved across your bot and dashboard. Discord markdown (<b>**bold**</b>, <i>*italic*</i>, <code>### headers</code>) is fully supported!</p>
+        
+        <form method="POST" action="/dashboard/${guildId}/staffguide/save" class="embed-form">
+          <div class="form-group">
+            <label>Embed Title</label>
+            <input type="text" name="title" value="${escapeHtml(guideData.title)}" required />
+          </div>
+
+          <div class="form-group">
+            <label>Embed Theme Color</label>
+            <input type="color" name="color" value="${guideData.color || '#5865F2'}" style="height: 40px; width: 80px; border: none; cursor: pointer;" />
+          </div>
+
+          <div class="form-group">
+            <label>Guidelines Description Text</label>
+            <textarea name="description" rows="14" style="background: #0b1020; color: #fff; border: 1px solid #374151; padding: 12px; border-radius: 8px; font-family: inherit; resize: vertical;">${escapeHtml(guideData.description)}</textarea>
+          </div>
+
+          <button type="submit" style="background: #5865f2; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">💾 Save & Sync Guide</button>
+        </form>
+
+        <div class="embed-preview" style="margin-top: 25px; border-left: 4px solid ${guideData.color || '#5865F2'}; background: #2b2d31; border-radius: 0 12px 12px 0; padding: 16px;">
+          <div class="embed-preview-title" style="font-size: 18px; font-weight: 800; color: #ffffff; margin-bottom: 8px;">${escapeHtml(guideData.title)}</div>
+          <div class="embed-preview-description" style="color: #dbdee1; white-space: pre-wrap; font-size: 14px;">${escapeHtml(guideData.description)}</div>
+        </div>
+      </div>
+    `
+  }));
+});
+
+app.post("/dashboard/:guildId/staffguide/save", requireLogin, requireGuildAdmin, (req, res) => {
+  const title = String(req.body.title || "").trim();
+  const description = String(req.body.description || "").trim();
+  const color = String(req.body.color || "#5865F2");
+
+  const updated = { title, description, color };
+  
+  try {
+    fs.writeFileSync(STAFF_GUIDE_FILE, JSON.stringify(updated, null, 2), "utf8");
+  } catch (err) {
+    console.error("Failed to write staff guide file:", err);
+  }
+
+  res.redirect(`/dashboard/${req.params.guildId}/staffguide`);
+});
+
+app.get("/api/staffguide", (req, res) => {
+  res.json(loadStaffGuide());
 });
 
 // ================= PURCHASE LINKS =================
