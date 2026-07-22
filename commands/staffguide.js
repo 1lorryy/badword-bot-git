@@ -56,4 +56,3 @@ module.exports = {
     return message.reply({ embeds: [guideEmbed] });
   }
 };
-};
