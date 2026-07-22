@@ -31,7 +31,7 @@ module.exports = {
             "1️⃣ **1st Warn:** Safe warning\n" +
             "2️⃣ **2nd Warn:** + 5 Minutes Mute\n" +
             "3️⃣ **3rd Warn:** + 30 Minutes Mute\n" +
-            "4th **4th Warn:** + 12 Hours Mute\n" +
+            "4️⃣ **4th Warn:** + 12 Hours Mute\n" +
             "5️⃣ **5th Warn:** Kick *(Wipes levels & progress)*\n" +
             "6️⃣ **6th Warn:** Ban"
         },
