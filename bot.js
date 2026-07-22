@@ -465,6 +465,10 @@ if (command === "slowmode") {
     saveData();
     return message.reply(`✅ Prefix updated to \`${newPrefix}\``);
   }
+  if (command === "staffguide" || command === "staffguidedit") {
+    const staffGuideCmd = require("./commands/staffguide.js");
+    return staffGuideCmd.execute(message, args);
+  }
 
  // ================= WARN =================
   if (command === "warn") {
@@ -1129,7 +1133,7 @@ if (command === "slowmode") {
           value: 
             `\`${prefix}warn\` \`${prefix}warnings\` \`${prefix}unwarn\` \`${prefix}mute\` \`${prefix}unmute\`\n` +
             `\`${prefix}kick\` \`${prefix}ban\` \`${prefix}unban\` \`${prefix}purge\` \`${prefix}modstats\` \`${prefix}modlogs\`\n` +
-            `\`${prefix}bl\` \`${prefix}unbl\` \`${prefix}words\``
+            `\`${prefix}bl\` \`${prefix}unbl\` \`${prefix}words\` \`${prefix}staffguide\` \`${prefix}staffguidedit\``
         },
         {
           name: "🔒 Advanced Verification",
