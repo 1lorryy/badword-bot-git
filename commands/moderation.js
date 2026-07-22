@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { PermissionsBitField } = require("discord.js");
+const { PermissionsBitField, EmbedBuilder } = require("discord.js");
 
 const DATA_FILE = path.join(__dirname, "..", "moderation-data.json");
 const MAX_TIMEOUT_MS = 28 * 24 * 60 * 60 * 1000;
@@ -48,6 +48,7 @@ function parseDuration(input) {
 }
 
 async function findMember(message, input) {
+  if (!input) return null;
   return (
     message.mentions.members.first() ||
     await message.guild.members.fetch(input).catch(() => null)
@@ -56,6 +57,7 @@ async function findMember(message, input) {
 
 async function findUser(client, input) {
   const clean = String(input || "").replace(/[<@!>]/g, "");
+  if (!clean) return null;
   return await client.users.fetch(clean).catch(() => null);
 }
 
@@ -105,75 +107,112 @@ function removeWarnCase(guildId, caseId) {
   return found;
 }
 
+// Role Hierarchy Check Function
+function isManageable(modMember, targetMember) {
+  if (targetMember.id === modMember.guild.ownerId) return false;
+  if (targetMember.id === modMember.id) return false;
+  return modMember.roles.highest.position > targetMember.roles.highest.position;
+}
+
+// Helper to send DMs safely
+async function sendDM(user, guildName, action, reason) {
+  const embed = new EmbedBuilder()
+    .setColor("#ED4245")
+    .setTitle(`⚠️ Action Notice • ${guildName}`)
+    .setDescription(`You have received a **${action}** in **${guildName}**.`)
+    .addFields({ name: "📄 Reason", value: reason })
+    .setTimestamp();
+
+  await user.send({ embeds: [embed] }).catch(() => null);
+}
+
 async function handleModerationCommand(message, args, command, prefix, canManageGuild, sendTempReply, sendReply) {
   const client = message.client;
 
+  // ================= WARN =================
   if (command === "warn") {
     if (!canManageGuild(message)) {
-      await sendTempReply(message, "You do not have permission.");
+      await sendTempReply(message, "❌ You do not have permission to use this command.");
       return true;
     }
 
     const member = await findMember(message, args[0]);
 
     if (!member) {
-      await sendTempReply(message, `Usage: ${prefix}warn @user reason`);
+      await sendTempReply(message, `💡 **Usage:** \`${prefix}warn @user [reason]\``);
+      return true;
+    }
+
+    if (!isManageable(message.member, member)) {
+      await sendTempReply(message, "❌ You cannot warn this user due to role hierarchy.");
       return true;
     }
 
     const reason = args.slice(1).join(" ") || "No reason provided";
     const modCase = addCase(message.guild.id, "warn", member.user, message.author, reason);
 
-    await sendReply(
-      message,
-      `⚠️ Warned **${member.user.tag}**\nCase: \`${modCase.id}\`\nReason: ${reason}`
-    );
+    await sendDM(member.user, message.guild.name, "Warning", reason);
 
+    const warnEmbed = new EmbedBuilder()
+      .setColor("#FEE75C")
+      .setTitle("⚠️ Member Warned")
+      .addFields(
+        { name: "👤 Target", value: `${member.user} (\`${member.id}\`)`, inline: true },
+        { name: "🛡️ Moderator", value: `${message.author}`, inline: true },
+        { name: "📋 Case ID", value: `\`#${modCase.id}\``, inline: true },
+        { name: "📄 Reason", value: reason, inline: false }
+      )
+      .setTimestamp();
+
+    await message.reply({ embeds: [warnEmbed] });
     return true;
   }
 
+  // ================= CASES / WARNINGS =================
   if (command === "warnings" || command === "cases") {
-    const member = await findMember(message, args[0]);
+    const member = await findMember(message, args[0]) || message.member;
 
-    if (!member) {
-      await sendTempReply(message, `Usage: ${prefix}${command} @user`);
-      return true;
-    }
-
-    const cases = getUserCases(message.guild.id, member.id)
-      .filter((c) => c.active);
+    const cases = getUserCases(message.guild.id, member.id).filter((c) => c.active);
 
     if (!cases.length) {
       await sendReply(message, `✅ **${member.user.tag}** has no active cases.`);
       return true;
     }
 
-    const text = cases
-      .slice(-10)
-      .map((c) => `#${c.id} **${c.type}** — ${c.reason}`)
-      .join("\n");
+    const formattedCases = cases
+      .slice(-5)
+      .map((c) => `• **Case #${c.id}** [${c.type.toUpperCase()}]\n└ **Reason:** ${c.reason}\n└ **Mod:** ${c.moderatorTag}`)
+      .join("\n\n");
 
-    await sendReply(message, `📋 Cases for **${member.user.tag}**:\n${text}`);
+    const casesEmbed = new EmbedBuilder()
+      .setColor("#5865F2")
+      .setAuthor({ name: `${member.user.tag}'s Mod Logs`, iconURL: member.user.displayAvatarURL() })
+      .setDescription(formattedCases)
+      .setFooter({ text: `Total Active Cases: ${cases.length}` })
+      .setTimestamp();
+
+    await message.reply({ embeds: [casesEmbed] });
     return true;
   }
 
+  // ================= UNWARN =================
   if (command === "unwarn") {
     if (!canManageGuild(message)) {
-      await sendTempReply(message, "You do not have permission.");
+      await sendTempReply(message, "❌ You do not have permission to use this command.");
       return true;
     }
 
     const caseId = Number.parseInt(args[0], 10);
 
     if (!Number.isInteger(caseId)) {
-      await sendTempReply(message, `Usage: ${prefix}unwarn caseID`);
+      await sendTempReply(message, `💡 **Usage:** \`${prefix}unwarn <caseID>\``);
       return true;
     }
 
     const removed = removeWarnCase(message.guild.id, caseId);
 
     if (!removed) {
-      await sendTempReply(message, "Could not find active warn case.");
+      await sendTempReply(message, "❌ Could not find an active warn case with that ID.");
       return true;
     }
 
@@ -181,21 +220,27 @@ async function handleModerationCommand(message, args, command, prefix, canManage
     return true;
   }
 
+  // ================= MUTE / TIMEOUT =================
   if (command === "mute" || command === "timeout") {
     if (!canManageGuild(message)) {
-      await sendTempReply(message, "You do not have permission.");
+      await sendTempReply(message, "❌ You do not have permission to use this command.");
       return true;
     }
 
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
-      await sendTempReply(message, "I need Moderate Members permission.");
+      await sendTempReply(message, "❌ I need the **Moderate Members** permission.");
       return true;
     }
 
     const member = await findMember(message, args[0]);
 
     if (!member) {
-      await sendTempReply(message, `Usage: ${prefix}mute @user 10m reason`);
+      await sendTempReply(message, `💡 **Usage:** \`${prefix}mute @user <time> [reason]\` (e.g. 10m, 2h)`);
+      return true;
+    }
+
+    if (!isManageable(message.member, member)) {
+      await sendTempReply(message, "❌ You cannot mute this user due to role hierarchy.");
       return true;
     }
 
@@ -203,52 +248,63 @@ async function handleModerationCommand(message, args, command, prefix, canManage
     const durationMs = parseDuration(durationText);
 
     if (!durationMs) {
-      await sendTempReply(message, `Use: ${prefix}mute @user 30s / 10m / 2h / 7d reason`);
+      await sendTempReply(message, `💡 **Valid Units:** \`30s\`, \`10m\`, \`2h\`, \`7d\``);
       return true;
     }
 
     if (durationMs > MAX_TIMEOUT_MS) {
-      await sendTempReply(message, "Max mute is 28 days.");
+      await sendTempReply(message, "❌ Maximum timeout duration is 28 days.");
       return true;
     }
 
     const reason = args.slice(2).join(" ") || "No reason provided";
 
-    await member.timeout(durationMs, reason).catch(async () => {
-      await sendTempReply(message, "Could not mute this user. Check role hierarchy and permissions.");
-    });
+    await sendDM(member.user, message.guild.name, `Mute (${durationText})`, reason);
 
-    addCase(message.guild.id, "mute", member.user, message.author, `${durationText} — ${reason}`);
+    const success = await member.timeout(durationMs, reason).catch(() => null);
 
-    await sendReply(
-      message,
-      `🔇 Muted **${member.user.tag}** for **${durationText}**\nReason: ${reason}`
-    );
-
-    return true;
-  }
-
-  if (command === "unmute") {
-    if (!canManageGuild(message)) {
-      await sendTempReply(message, "You do not have permission.");
+    if (!success) {
+      await sendTempReply(message, "❌ Failed to mute user. Check role hierarchy.");
       return true;
     }
 
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
-      await sendTempReply(message, "I need Moderate Members permission.");
+    addCase(message.guild.id, "mute", member.user, message.author, `${durationText} — ${reason}`);
+
+    const muteEmbed = new EmbedBuilder()
+      .setColor("#57F287")
+      .setTitle("🔇 Member Muted")
+      .addFields(
+        { name: "👤 Target", value: `${member.user} (\`${member.id}\`)`, inline: true },
+        { name: "⏳ Duration", value: `\`${durationText}\``, inline: true },
+        { name: "🛡️ Moderator", value: `${message.author}`, inline: true },
+        { name: "📄 Reason", value: reason, inline: false }
+      )
+      .setTimestamp();
+
+    await message.reply({ embeds: [muteEmbed] });
+    return true;
+  }
+
+  // ================= UNMUTE =================
+  if (command === "unmute") {
+    if (!canManageGuild(message)) {
+      await sendTempReply(message, "❌ You do not have permission.");
       return true;
     }
 
     const member = await findMember(message, args[0]);
 
     if (!member) {
-      await sendTempReply(message, `Usage: ${prefix}unmute @user`);
+      await sendTempReply(message, `💡 **Usage:** \`${prefix}unmute @user\``);
       return true;
     }
 
-    await member.timeout(null).catch(async () => {
-      await sendTempReply(message, "Could not unmute this user.");
-    });
+    const success = await member.timeout(null).catch(() => null);
+
+    if (!success) {
+      await sendTempReply(message, "❌ Could not unmute this user.");
+      return true;
+    }
 
     addCase(message.guild.id, "unmute", member.user, message.author, "Timeout removed");
 
@@ -256,68 +312,84 @@ async function handleModerationCommand(message, args, command, prefix, canManage
     return true;
   }
 
+  // ================= BAN =================
   if (command === "ban") {
     if (!canManageGuild(message)) {
-      await sendTempReply(message, "You do not have permission.");
+      await sendTempReply(message, "❌ You do not have permission.");
       return true;
     }
 
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-      await sendTempReply(message, "I need Ban Members permission.");
+      await sendTempReply(message, "❌ I need the **Ban Members** permission.");
       return true;
     }
 
     const member = await findMember(message, args[0]);
 
     if (!member) {
-      await sendTempReply(message, `Usage: ${prefix}ban @user reason`);
+      await sendTempReply(message, `💡 **Usage:** \`${prefix}ban @user [reason]\``);
+      return true;
+    }
+
+    if (!isManageable(message.member, member)) {
+      await sendTempReply(message, "❌ You cannot ban this user due to role hierarchy.");
       return true;
     }
 
     const reason = args.slice(1).join(" ") || "No reason provided";
 
-    await member.ban({ reason }).catch(async () => {
-      await sendTempReply(message, "Could not ban this user. Check role hierarchy and permissions.");
-    });
+    await sendDM(member.user, message.guild.name, "Ban", reason);
 
-    addCase(message.guild.id, "ban", member.user, message.author, reason);
+    const success = await member.ban({ reason }).catch(() => null);
 
-    await sendReply(message, `🔨 Banned **${member.user.tag}**\nReason: ${reason}`);
-    return true;
-  }
-
-  if (command === "unban") {
-    if (!canManageGuild(message)) {
-      await sendTempReply(message, "You do not have permission.");
+    if (!success) {
+      await sendTempReply(message, "❌ Failed to ban user. Check role hierarchy.");
       return true;
     }
 
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-      await sendTempReply(message, "I need Ban Members permission.");
+    addCase(message.guild.id, "ban", member.user, message.author, reason);
+
+    const banEmbed = new EmbedBuilder()
+      .setColor("#ED4245")
+      .setTitle("🔨 Member Banned")
+      .addFields(
+        { name: "👤 Target", value: `**${member.user.tag}** (\`${member.id}\`)`, inline: true },
+        { name: "🛡️ Moderator", value: `${message.author}`, inline: true },
+        { name: "📄 Reason", value: reason, inline: false }
+      )
+      .setTimestamp();
+
+    await message.reply({ embeds: [banEmbed] });
+    return true;
+  }
+
+  // ================= UNBAN =================
+  if (command === "unban") {
+    if (!canManageGuild(message)) {
+      await sendTempReply(message, "❌ You do not have permission.");
       return true;
     }
 
     const userId = args[0];
 
     if (!userId) {
-      await sendTempReply(message, `Usage: ${prefix}unban userID reason`);
+      await sendTempReply(message, `💡 **Usage:** \`${prefix}unban <userID> [reason]\``);
       return true;
     }
 
     const reason = args.slice(1).join(" ") || "No reason provided";
     const user = await findUser(client, userId);
 
-    await message.guild.members.unban(userId, reason).catch(async () => {
-      await sendTempReply(message, "Could not unban this user. Check the ID.");
-    });
+    const success = await message.guild.members.unban(userId, reason).catch(() => null);
 
-    if (user) {
-      addCase(message.guild.id, "unban", user, message.author, reason);
-      await sendReply(message, `✅ Unbanned **${user.tag}**\nReason: ${reason}`);
-    } else {
-      await sendReply(message, `✅ Unbanned user ID \`${userId}\`\nReason: ${reason}`);
+    if (!success) {
+      await sendTempReply(message, "❌ Could not unban this user ID. Make sure the ID is correct and banned.");
+      return true;
     }
 
+    if (user) addCase(message.guild.id, "unban", user, message.author, reason);
+
+    await sendReply(message, `✅ Unbanned user \`${user ? user.tag : userId}\`.`);
     return true;
   }
 
