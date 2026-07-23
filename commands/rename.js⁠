@@ -19,13 +19,13 @@ module.exports = {
         .setDescription(
           "⚠️ **The syntax of this command is incorrect!**\n\n" +
           "Please use the syntax: `?rename <new-name>`\n" +
-          "**Example:** `?rename don-100`"
+          "**Example:** `?rename ticket-1`"
         );
 
       return message.reply({ embeds: [syntaxEmbed] });
     }
 
-    // 3. Format channel name (Discord replaces spaces with hyphens)
+    // 3. Format channel name (Discord replaces spaces with hyphens automatically)
     const newName = args.join("-").toLowerCase().replace(/[^a-z0-9\-_]/g, "");
 
     if (newName.length < 1 || newName.length > 100) {
