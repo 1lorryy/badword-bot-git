@@ -23,11 +23,11 @@ module.exports = {
       .setColor(0x2B2D31)
       .setDescription(
         "🎁 **CLAIM**\n" +
-        "➔ GWS, Drops, Giveaways & Rewards\n\n\n" +
+        "➔ GWS, Drops, Giveaways & Rewards\n\n" +
         "🎟️ **SUPPORT**\n" +
-        "➔ Questions, Booster Perks (<#1492180619474767892>), Help & Reports\n\n\n" +
+        "➔ Questions, Booster Perks (<#1492180619474767892>), Help & Reports\n\n" +
         "🛒 **PURCHASE**\n" +
-        "➔ Interested in buying from <#1508167190149333155> or <#1481373711675162890>\n\n\n" +
+        "➔ Interested in buying from <#1508167190149333155> or <#1481373711675162890>\n\n" +
         "⚠️ **NO UNNECESSARY TICKETS**\n" +
         "➔ Unnecessary or troll tickets may result in a warning."
       );
