@@ -39,7 +39,7 @@ module.exports = {
         "Aggressive, rude, or non-cooperative behaviour may result in warnings or removal."
       )
       .setImage("https://image2url.com/r2/default/images/1775845711233-eeede801-13ce-4f7c-b0ac-ea6a6d81b638.jpg") // Pocoyo at bottom
-      .setFooter({ text: "server's ticket rules" });
+      .setFooter({ text: "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊’𝖘 𝖙𝖎𝖈𝖐𝖊𝖙 𝖗𝖚𝖑𝖊𝖘" });
 
     return message.reply({ embeds: [rulesEmbed] });
   }
