@@ -15,10 +15,16 @@ module.exports = {
         .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
     }
 
+    // Direct Image Links
+    const BANNER_URL = "https://image2url.com/r2/default/images/1775845711233-eeede801-13ce-4f7c-b0ac-ea6a6d81b638.jpg";
+    const THUMBNAIL_URL = "https://images-ext-1.discordapp.net/external/tcZdCAy72cXlwHhPakw8hVCOruRtK27dMtXDOdTsUQM/https/image2url.com/r2/default/images/1775844039536-8fd2df06-6fab-4b6c-92ed-821f8fe176d9.jpg";
+
     // Build clean Ticket Rules Embed
     const ticketEmbed = new EmbedBuilder()
       .setColor(0x2B2D31)
       .setTitle("🎫 Ticket System Rules & Guidelines")
+      .setThumbnail(THUMBNAIL_URL)
+      .setImage(BANNER_URL)
       .setDescription(
         "📌 **1. Open Correct Topics**\n" +
         "Open tickets only for valid support, purchases, or claiming giveaway wins. Make sure to open the ticket under the correct topic—no casual chat, testing, or troll tickets.\n\n" +
@@ -35,11 +41,6 @@ module.exports = {
         "⚖️ **7. Staff Authority & Disclaimer**\n" +
         "Staff & Management hold full ownership and ultimate discretion over all ticket disputes, rule interpretations, and moderation actions. All staff decisions are final. Arguing with staff or management in public channels is strictly prohibited."
       );
-
-    // Add server icon thumbnail (or direct Pocoyo thumbnail image)
-    if (message.guild.iconURL()) {
-      ticketEmbed.setThumbnail(message.guild.iconURL({ dynamic: true }));
-    }
 
     // ==========================================
     // 1. EDIT EXISTING MESSAGE: ?staffguidedit <Message ID or Link>
