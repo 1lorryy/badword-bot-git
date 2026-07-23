@@ -8,10 +8,10 @@ const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
 const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday");
 const { handleVerifyCommand } = require("./commands/verify");
+const renameCommand = require("./rename.js");
 const snipes = {};
 const fs = require("fs");
 const path = require("path");
-const renameCommand = require("./rename.js");
 
 const {
   Client,
@@ -471,6 +471,7 @@ if (command === "slowmode") {
     return staffGuideCmd.execute(message, args);
   }
   if (command === "rename") {
+    const renameCommand = require("./rename.js");
     await renameCommand.execute(message, args);
   }
 
