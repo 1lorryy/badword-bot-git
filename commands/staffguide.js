@@ -26,6 +26,7 @@ module.exports = {
       .setThumbnail(THUMBNAIL_URL)
       .setImage(BANNER_URL)
       .setDescription(
+        "📩 **Open ticket here:** <#1481370042892550220>\n\n" +
         "📌 **1. Open Correct Topics**\n" +
         "Open tickets only for valid support, purchases, or claiming giveaway wins. Make sure to open the ticket under the correct topic—no casual chat, testing, or troll tickets.\n\n" +
         "📌 **2. No Duplicate or Spam Tickets**\n" +
