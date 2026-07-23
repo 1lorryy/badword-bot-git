@@ -7,15 +7,15 @@ const DATA_FILE = path.join(__dirname, "..", "guild-data.json");
 const DEFAULT_DATA = {
   purchaseLinks: {
     classes: [
-      { name: "Economy Class", url: "[https://www.roblox.com/game-pass/1856306289](https://www.roblox.com/game-pass/1856306289)" },
-      { name: "Premium Economy", url: "[https://www.roblox.com/game-pass/1856298285](https://www.roblox.com/game-pass/1856298285)" },
-      { name: "Business Class", url: "[https://www.roblox.com/game-pass/1854202242](https://www.roblox.com/game-pass/1854202242)" },
-      { name: "First Class", url: "[https://www.roblox.com/game-pass/1856222269](https://www.roblox.com/game-pass/1856222269)" }
+      { name: "Economy Class", url: "https://www.roblox.com/game-pass/1856306289" },
+      { name: "Premium Economy", url: "https://www.roblox.com/game-pass/1856298285" },
+      { name: "Business Class", url: "https://www.roblox.com/game-pass/1854202242" },
+      { name: "First Class", url: "https://www.roblox.com/game-pass/1856222269" }
     ],
     ads6h: [
-      { name: "6H Drops Ping", url: "[https://www.roblox.com/game-pass/1809387047](https://www.roblox.com/game-pass/1809387047)" },
-      { name: "6H Sponsor / Here", url: "[https://www.roblox.com/game-pass/1809387042](https://www.roblox.com/game-pass/1809387042)" },
-      { name: "6H Everyone Ping", url: "[https://www.roblox.com/game-pass/1809201052](https://www.roblox.com/game-pass/1809201052)" }
+      { name: "6H Drops Ping", url: "https://www.roblox.com/game-pass/1809387047" },
+      { name: "6H Sponsor / Here", url: "https://www.roblox.com/game-pass/1809387042" },
+      { name: "6H Everyone Ping", url: "https://www.roblox.com/game-pass/1809201052" }
     ],
     ads24h: [
       { name: "24H Drops Ping", url: "https://www.roblox.com/game-pass/1808277089" },
@@ -103,7 +103,7 @@ async function handlePurchaseCommand(message) {
         inline: false 
       },
       {
-        name: "🪙 LITECOIN (LTC) WALLET (Tap text below to copy!)",
+        name: "🪙 LITECOIN (LTC) WALLET (Tap address to copy!)",
         value: `💳 **LTC Address:**\n\`${ltcWallet}\``,
         inline: false
       }
@@ -128,7 +128,7 @@ async function handlePurchEditCommand(message, args) {
   const usage = "💡 **Usage:** `?purchedit <category> <number> <new_url>`\n\n" +
                 "**Categories:** `classes`, `ads6h`, `ads24h`, `extras`\n" +
                 "**Crypto Wallets:** `?purchedit wallet <ltc/btc/eth> <address>`\n\n" +
-                "**Example:** `?purchedit classes 1 [https://roblox.com/](https://roblox.com/)...` (Changes Economy link)\n" +
+                "**Example:** `?purchedit classes 1 https://roblox.com/...` (Changes Economy link)\n" +
                 "**Example:** `?purchedit wallet ltc Ltc1q...`";
 
   if (!args || args.length < 2) {
