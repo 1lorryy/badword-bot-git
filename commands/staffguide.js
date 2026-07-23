@@ -1,10 +1,10 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
-  name: "vip",
-  description: "Displays or edits the VIP ranks and perks",
+  name: "staffguide",
+  description: "Displays or edits the staff command usage guide",
   async execute(message, args) {
-    const isEdit = message.content.toLowerCase().includes("vipedit");
+    const isEdit = message.content.toLowerCase().includes("staffguidedit");
 
     if (isEdit) {
       if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -13,54 +13,68 @@ module.exports = {
 
       const newGuideText = args.join(" ");
       if (!newGuideText) {
-        return message.reply("⚠️ **Usage:** `?vipedit <new info>`");
+        return message.reply("⚠️ **Usage:** `?staffguidedit <new guide info>`");
       }
 
-      return message.reply("✅ **VIP info updated successfully!**");
+      return message.reply("✅ **Staff guide updated successfully!**");
     }
 
-    const vipEmbed = new EmbedBuilder()
-      .setColor(0x2B2D31) // Sleek dark aesthetic
-      .setAuthor({ name: "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊", iconURL: message.guild.iconURL({ dynamic: true }) })
-      .setTitle("👑 VIP RANKS & EXCLUSIVE PERKS")
-      .setDescription(
-        "```ansi\n\u001b[1;33m✦ EXCLUSIVE SERVER PASSES & BENEFITS ✦\u001b[0m\n```\n" +
-
-        "🌟 **Economy Rank** ┃ ` 250 ` <:robux:1499543065608716328>\n" +
-        "> ╰┈➤ +1 Extra Entry\n" +
-        "> ╰┈➤ Custom Role\n" +
-        "> ╰┈➤ Access to VIP-only Giveaways\n" +
-        "> ╰┈➤ GIF & Image Perms\n\n" +
-
-        "⭐ **Premium Economy Rank** ┃ ` 450 ` <:robux:1499543065608716328>\n" +
-        "> ╰┈➤ +1 Extra Entry\n" +
-        "> ╰┈➤ Custom Role\n" +
-        "> ╰┈➤ Access to VIP & Booster Giveaways\n" +
-        "> ╰┈➤ GIF & Image Perms\n\n" +
-
-        "💎 **Business Class Rank** ┃ ` 900 ` <:robux:1499543065608716328>\n" +
-        "> ╰┈➤ +1 Extra Entry\n" +
-        "> ╰┈➤ Custom Role\n" +
-        "> ╰┈➤ Access to ALL Giveaways\n" +
-        "> ╰┈➤ GIF & Image Perms\n" +
-        "> ╰┈➤ 2x Claim Time in Giveaways\n" +
-        "> ╰┈➤ Bypass Messages Req & Role\n\n" +
-
-        "👑 **First Class** ┃ ` 1600 ` <:robux:1499543065608716328>\n" +
-        "> ╰┈➤ +1 Extra Entry\n" +
-        "> ╰┈➤ Custom Role\n" +
-        "> ╰┈➤ Access to ALL Giveaways\n" +
-        "> ╰┈➤ GIF & Image Perms\n" +
-        "> ╰┈➤ Bypass ALL Requirements\n" +
-        "> ╰┈➤ INF Claim Time in Giveaways *(Quick drops not included)*\n" +
-        "> ╰┈➤ Voice Note Perms\n" +
-        "> ╰┈➤ Commands Perms in <#1481561361044607047>\n" +
-        "> ╰┈➤ Receive <@&1492630307650666546> *(Taken away if misused)*\n\n" +
-
-        "🛒 **Claim a <#1481370042892550220> (purchase) if you wanna purchase it!**"
+    const guideEmbed = new EmbedBuilder()
+      .setColor(0x2B2D31)
+      .setTitle("🛡️ Moderation & Staff Commands Usage Guide")
+      .setDescription("How to use all moderation, management, and AutoMod staff commands.\n━━━")
+      .addFields(
+        {
+          name: "⚠️ Warnings",
+          value:
+            "• `?warn @user [reason]` — Issue an official warning\n" +
+            "• `?warnings @user` — Check a user's warn history & IDs\n" +
+            "• `?unwarn @user [warn_id]` — Remove a specific warning"
+        },
+        {
+          name: "🔇 Mutes & Timeouts",
+          value:
+            "• `?mute @user [time] [reason]` — Timeout user (e.g. `5m`, `30m`, `12h`)\n" +
+            "• `?unmute @user` — Remove an active timeout"
+        },
+        {
+          name: "🔨 Kicks & Bans",
+          value:
+            "• `?kick @user [reason]` — Kick user from server\n" +
+            "• `?ban @user [reason]` — Ban user & purge recent messages\n" +
+            "• `?unban [user_id]` — Unban user using their Discord ID"
+        },
+        {
+          name: "🧹 Chat & Channel Controls",
+          value:
+            "• `?purge [amount]` — Delete multiple messages at once\n" +
+            "• `?rename <new-name>` — Rename the current channel\n" +
+            "• `?slowmode [#channel] [time]` — Set channel slowmode (e.g. `?slowmode 5s` or `?slowmode #chat 10s`)\n" +
+            "• `?slowmode [off / 0]` — Turn off channel slowmode\n" +
+            "• `?modstats [@staff]` — Check moderation action stats\n" +
+            "• `?modlogs [@user]` — View recent moderation log entries"
+        },
+        {
+          name: "👤 Roles & Management",
+          value:
+            "• `?role @user [role]` — Add or remove a role from a user\n" +
+            "• `?temprole @user [time] [role]` — Give a role temporarily (e.g. `7d`)\n" +
+            "• `?setnick @user [new_nickname]` — Change a user's server nickname\n" +
+            "• `?status` — Check bot system status & performance"
+        },
+        {
+          name: "🚫 Blacklist & Staff Guide",
+          value:
+            "• `?bl [word]` — Add a word to auto-blacklist\n" +
+            "• `?unbl [word]` — Remove a word from blacklist\n" +
+            "• `?words` — View all blacklisted words\n" +
+            "• `?staffguide` — Show this command usage guide\n" +
+            "• `?staffguidedit [text]` — Edit staff guide settings"
+        }
       )
-      .setFooter({ text: "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊 • VIP Store" });
+      .setFooter({ text: "Don Don Staff Operations • Command Usage Guide" })
+      .setTimestamp();
 
-    return message.reply({ embeds: [vipEmbed] });
+    return message.reply({ embeds: [guideEmbed] });
   }
 };
