@@ -1,4 +1,3 @@
-const renameCommand = require("./rename.js");
 const { initTimers, handleTimerCommand } = require("./commands/timer.js");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handlePurchaseCommand, handlePurchEditCommand } = require("./commands/buy");
@@ -12,6 +11,7 @@ const { handleVerifyCommand } = require("./commands/verify");
 const snipes = {};
 const fs = require("fs");
 const path = require("path");
+const renameCommand = require("./rename.js");
 
 const {
   Client,
