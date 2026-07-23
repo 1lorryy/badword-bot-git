@@ -19,27 +19,30 @@ module.exports = {
         .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
     }
 
-    // Target member resolver (@mention, ID, search, or author)
+    // Target member resolver (@mention, ID, or author)
     let targetMember = message.mentions.members.first();
+    
     if (!targetMember && args[0]) {
-      targetMember = await message.guild.members.fetch(args[0]).catch(() => null);
-      if (!targetMember) {
-        const matches = await message.guild.members.search({ query: args.join(" "), limit: 1 });
-        targetMember = matches.first();
+      // Try resolving by ID safely from cache or direct fetch (no full search)
+      const cleanId = args[0].replace(/[^0-9]/g, "");
+      if (cleanId) {
+        targetMember = await message.guild.members.fetch(cleanId).catch(() => null);
       }
     }
+    
     if (!targetMember) targetMember = message.member;
 
     const user = targetMember.user;
     const guild = message.guild;
 
-    // Fetch and sort join order
-    const allMembers = await guild.members.fetch();
-    const sortedMembers = [...allMembers.values()].sort((a, b) => a.joinedTimestamp - b.joinedTimestamp);
+    // ✅ FIX: Use cached members instead of requesting thousands of members via gateway
+    const sortedMembers = Array.from(guild.members.cache.values())
+      .filter(m => m.joinedTimestamp)
+      .sort((a, b) => a.joinedTimestamp - b.joinedTimestamp);
     
-    const joinPosition = sortedMembers.findIndex(m => m.id === targetMember.id) + 1;
+    const joinPosition = sortedMembers.findIndex(m => m.id === targetMember.id) + 1 || guild.memberCount;
     const totalCount = guild.memberCount;
-    const percentile = ((joinPosition / totalCount) * 100).toFixed(0);
+    const percentile = Math.max(1, Math.round((joinPosition / totalCount) * 100));
 
     // Dynamic Milestone Badge
     let badge = "🆕 New";
@@ -57,7 +60,7 @@ module.exports = {
     const createdTs = Math.floor(user.createdTimestamp / 1000);
     const isNew = (Date.now() - user.createdTimestamp) < (7 * 24 * 60 * 60 * 1000) ? " ⚠️" : "";
 
-    // Ultra-Compact Embed (Small thumbnail, compact fields)
+    // Ultra-Compact Embed
     const embed = new EmbedBuilder()
       .setColor(targetMember.displayHexColor || "#5865F2")
       .setAuthor({ 
