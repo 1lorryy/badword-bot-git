@@ -8,8 +8,7 @@ const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
 const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday");
 const { handleVerifyCommand } = require("./commands/verify");
-
-const renameCommand = require("./rename.js");
+const renameCommand = require("./commands/rename.js"); // <-- Updated here!
 
 const snipes = {};
 const fs = require("fs");
