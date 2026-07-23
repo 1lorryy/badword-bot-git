@@ -21,24 +21,16 @@ module.exports = {
 
     const rulesEmbed = new EmbedBuilder()
       .setColor(0x2B2D31)
-      .setTitle("SERVER'S TICKET SYSTEM RULES")
-      .setThumbnail("https://image2url.com/r2/default/images/1775844039536-8fd2df06-6fab-4b6c-92ed-821f8fe176d9.jpg") // Pocoyo in corner
+      .setTitle("🎫 Ticket Rules & Etiquette")
+      .setThumbnail("https://image2url.com/r2/default/images/1775844039536-8fd2df06-6fab-4b6c-92ed-821f8fe176d9.jpg")
       .setDescription(
-        "**RULES**\n\n" +
-        "**#1. Use Tickets for Their Intended Purpose**\n" +
-        "Only open a ticket for valid support, questions, or concerns—not casual chat or for any jokes.\n\n" +
-        "**#2. Do Not Spam Tickets**\n" +
-        "One ticket at a time per issue. Spamming or abusing the system may lead to a warning or ban.\n\n" +
-        "**#3. Be Clear and Provide Details**\n" +
-        "Give as much context as possible when opening a ticket to help staff assist you efficiently.\n\n" +
-        "**#4. Do Not Ping Staff Unnecessarily**\n" +
-        "Staff will respond as soon as they can. Pinging won't make things faster.\n\n" +
-        "**#5 Close Tickets When Resolved**\n" +
-        "If your issue is solved, please close the ticket or ask a staff member to do so.\n\n" +
-        "**#6. Respect Staff in Tickets**\n" +
-        "Aggressive, rude, or non-cooperative behaviour may result in warnings or removal."
+        "⚡ **1. Valid Reason Only** — Open tickets for support/questions, not casual chat or jokes.\n\n" +
+        "⚡ **2. One Ticket at a Time** — Do not spam or create duplicate tickets.\n\n" +
+        "⚡ **3. Be Clear** — State your issue right away so staff can help you fast.\n\n" +
+        "⚡ **4. Don't Ping Staff** — We see your ticket and will reply as soon as possible.\n\n" +
+        "⚡ **5. Be Respectful** — Keep it friendly; toxic behavior won't be tolerated."
       )
-      .setImage("https://image2url.com/r2/default/images/1775845711233-eeede801-13ce-4f7c-b0ac-ea6a6d81b638.jpg") // Pocoyo at bottom
+      .setImage("https://image2url.com/r2/default/images/1775845711233-eeede801-13ce-4f7c-b0ac-ea6a6d81b638.jpg")
       .setFooter({ text: "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊’𝖘 𝖙𝖎𝖈𝖐𝖊𝖙 𝖗𝖚𝖑𝖊𝖘" });
 
     return message.reply({ embeds: [rulesEmbed] });
