@@ -21,6 +21,7 @@ module.exports = {
 
     const guideEmbed = new EmbedBuilder()
       .setColor(0x2B2D31)
+      .setThumbnail("https://image2url.com/r2/default/images/1775844039536-8fd2df06-6fab-4b6c-92ed-821f8fe176d9.jpg") // Top-right corner (Thinking Pocoyo)
       .setDescription(
         "🎁 **CLAIM**\n" +
         "➔ GWS, Drops, Giveaways & Rewards\n\n" +
@@ -31,7 +32,8 @@ module.exports = {
         "⚠️ **NO UNNECESSARY TICKETS**\n" +
         "➔ Unnecessary or troll tickets may result in a warning.\n" +
         "➔ Read rules in <#1481370042892550221>."
-      );
+      )
+      .setImage("https://image2url.com/r2/default/images/1775845711233-eeede801-13ce-4f7c-b0ac-ea6a6d81b638.jpg"); // Main image at bottom (Finger Pocoyo)
 
     return message.reply({ embeds: [guideEmbed] });
   }
