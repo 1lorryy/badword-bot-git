@@ -1,3 +1,4 @@
+const renameCommand = require("./commands/rename.js");
 const { initTimers, handleTimerCommand } = require("./commands/timer.js");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handlePurchaseCommand, handlePurchEditCommand } = require("./commands/buy");
@@ -468,6 +469,9 @@ if (command === "slowmode") {
   if (command === "staffguide" || command === "staffguidedit") {
     const staffGuideCmd = require("./commands/staffguide.js");
     return staffGuideCmd.execute(message, args);
+  }
+  if (command === "rename") {
+    await renameCommand.execute(message, args);
   }
 
  // ================= WARN =================
@@ -1121,7 +1125,7 @@ if (command === "slowmode") {
     return message.reply({ embeds: [embed] });
   }
   
-// ================= HELP =================
+// // ================= HELP =================
   if (command === "help") {
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
@@ -1145,7 +1149,7 @@ if (command === "slowmode") {
         {
           name: "⚙️ Server, Auction & Channels",
           value:
-            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\`\n` +
+            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\` \`${prefix}rename\`\n` +
             `\`${prefix}purchase\` (or \`${prefix}buy\`) • \`${prefix}purchedit\`\n` +
             `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
         },
