@@ -1,10 +1,10 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
-  name: "ticketrules",
-  description: "Displays or edits the ticket rules",
+  name: "rules",
+  description: "Displays or edits the main server rules",
   async execute(message, args) {
-    const isEdit = message.content.toLowerCase().includes("ticketrulesedit");
+    const isEdit = message.content.toLowerCase().includes("rulesedit");
 
     if (isEdit) {
       if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -13,34 +13,44 @@ module.exports = {
 
       const newRulesText = args.join(" ");
       if (!newRulesText) {
-        return message.reply("⚠️ **Usage:** `?ticketrulesedit <new rules info>`");
+        return message.reply("⚠️ **Usage:** `?rulesedit <new rules info>`");
       }
 
-      return message.reply("✅ **Ticket rules updated successfully!**");
+      return message.reply("✅ **Server rules updated successfully!**");
     }
 
+    // Embed 1: Main Server Rules
     const rulesEmbed = new EmbedBuilder()
-      .setColor(0x2B2D31)
-      .setTitle("🎫 Ticket System Rules & Guidelines")
-      .setThumbnail("https://image2url.com/r2/default/images/1775844039536-8fd2df06-6fab-4b6c-92ed-821f8fe176d9.jpg")
+      .setColor(0xE74C3C)
+      .setTitle("📜 SERVER RULES")
       .setDescription(
-        "📍 **Open Tickets Here:** <#1481370042892550220>\n\n" +
-        "📌 **1. Use the Right Category**\n" +
-        "Only open tickets for valid support, questions, concerns, or claiming giveaway wins. Make sure to open the ticket under the correct topic—no casual chat, testing, or troll tickets.\n\n" +
-        "📌 **2. No Duplicate or Spam Tickets**\n" +
-        "Keep it to one ticket at a time per issue. Spamming or opening multiple tickets for the same reason will result in a ticket ban.\n\n" +
-        "📌 **3. Provide Immediate Context**\n" +
-        "State your question or details right away in your first message so staff can assist you as efficiently as possible.\n\n" +
-        "📌 **4. Do Not Ping Staff**\n" +
-        "Our team is notified automatically when a ticket is created. Pinging individual staff members will not get you a faster response.\n\n" +
-        "📌 **5. Close When Resolved**\n" +
-        "Once your question is answered or issue is fixed, please close your ticket or request staff to close it.\n\n" +
-        "📌 **6. Respect & Co-operation**\n" +
-        "Treat staff with respect. Rude, aggressive, or non-cooperative behavior will lead to warnings or server removal."
-      )
-      .setImage("https://image2url.com/r2/default/images/1775845711233-eeede801-13ce-4f7c-b0ac-ea6a6d81b638.jpg")
-      .setFooter({ text: "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊’𝖘 𝖙𝖎𝖈𝖐𝖊𝖙 𝖗𝖚𝖑𝖊𝖘" });
+        "**1.** Respect everyone. No hate speech, bullying, or discrimination of any kind. Keep it chill.\n\n" +
+        "**2.** No spamming or flooding chat with messages, images, or emojis. Give people space to breathe.\n\n" +
+        "**3.** No NSFW content or discussions. Keep it safe for all ages.\n\n" +
+        "**4.** Follow Discord’s Terms of Service everywhere here. No illegal actions or sharing pirated stuff.\n\n" +
+        "**5.** No advertising or self-promotion without permission from staff.\n\n" +
+        "**6.** Use appropriate channels for topics — no off-topic spam.\n\n" +
+        "**7.** Do not ping staff unnecessarily or abuse the ticket system.\n\n" +
+        "**8.** English only in main chats to keep things clear.\n\n" +
+        "**9.** No sharing others’ personal info or doxxing. Privacy matters.\n\n" +
+        "**10.** Listen to mods and respect their decisions. Arguing isn’t allowed in public chat.\n\n" +
+        "🔗 https://discord.com/terms"
+      );
 
-    return message.reply({ embeds: [rulesEmbed] });
+    // Embed 2: Punishment System
+    const punishmentsEmbed = new EmbedBuilder()
+      .setColor(0xE74C3C)
+      .setDescription(
+        "**verbal warn**\n" +
+        "**1st warn** safe\n" +
+        "**2nd warn** + 5 minutes mute\n" +
+        "**3rd warn** + 30 minutes mute\n" +
+        "**4th warn** + 12 hours mute\n" +
+        "**5th warn** + kick\n" +
+        "**6th warn** + Ban"
+      )
+      .setFooter({ text: "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊’𝖘 𝖘𝖊𝖗𝖛𝖊𝖗 𝖗𝖚𝖑𝖊𝖘" });
+
+    return message.reply({ embeds: [rulesEmbed, punishmentsEmbed] });
   }
 };
