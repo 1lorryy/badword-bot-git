@@ -29,7 +29,8 @@ module.exports = {
         "🛒 **PURCHASE**\n" +
         "➔ Interested in buying from <#1508167190149333155> or <#1481373711675162890>\n\n" +
         "⚠️ **NO UNNECESSARY TICKETS**\n" +
-        "➔ Unnecessary or troll tickets may result in a warning."
+        "➔ Unnecessary or troll tickets may result in a warning.\n" +
+        "➔ Read rules in <#1481370042892550221>."
       );
 
     return message.reply({ embeds: [guideEmbed] });
