@@ -1,40 +1,46 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
-  name: "staffguide",
-  description: "Displays or edits the staff guide",
+  name: "ticketrules",
+  description: "Displays or edits the ticket rules",
   async execute(message, args) {
-    const isEdit = message.content.toLowerCase().includes("staffguidedit");
+    const isEdit = message.content.toLowerCase().includes("ticketrulesedit");
 
     if (isEdit) {
       if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
         return message.reply("❌ **Access Denied:** Administrator permission required.");
       }
 
-      const newGuideText = args.join(" ");
-      if (!newGuideText) {
-        return message.reply("⚠️ **Usage:** `?staffguidedit <new guide info>`");
+      const newRulesText = args.join(" ");
+      if (!newRulesText) {
+        return message.reply("⚠️ **Usage:** `?ticketrulesedit <new rules info>`");
       }
 
-      return message.reply("✅ **Staff guide updated successfully!**");
+      return message.reply("✅ **Ticket rules updated successfully!**");
     }
 
-    const guideEmbed = new EmbedBuilder()
+    const rulesEmbed = new EmbedBuilder()
       .setColor(0x2B2D31)
-      .setThumbnail("https://image2url.com/r2/default/images/1775844039536-8fd2df06-6fab-4b6c-92ed-821f8fe176d9.jpg") // Top-right corner (Thinking Pocoyo)
+      .setTitle("SERVER'S TICKET SYSTEM RULES")
+      .setThumbnail("https://image2url.com/r2/default/images/1775844039536-8fd2df06-6fab-4b6c-92ed-821f8fe176d9.jpg") // Pocoyo in corner
       .setDescription(
-        "🎁 **CLAIM**\n" +
-        "➔ GWS, Drops, Giveaways & Rewards\n\n" +
-        "🎟️ **SUPPORT**\n" +
-        "➔ Questions, Booster Perks (<#1492180619474767892>), Help & Reports\n\n" +
-        "🛒 **PURCHASE**\n" +
-        "➔ Interested in buying from <#1508167190149333155> or <#1481373711675162890>\n\n" +
-        "⚠️ **NO UNNECESSARY TICKETS**\n" +
-        "➔ Unnecessary or troll tickets may result in a warning.\n" +
-        "➔ Read rules in <#1481370042892550221>."
+        "**RULES**\n\n" +
+        "**#1. Use Tickets for Their Intended Purpose**\n" +
+        "Only open a ticket for valid support, questions, or concerns—not casual chat or for any jokes.\n\n" +
+        "**#2. Do Not Spam Tickets**\n" +
+        "One ticket at a time per issue. Spamming or abusing the system may lead to a warning or ban.\n\n" +
+        "**#3. Be Clear and Provide Details**\n" +
+        "Give as much context as possible when opening a ticket to help staff assist you efficiently.\n\n" +
+        "**#4. Do Not Ping Staff Unnecessarily**\n" +
+        "Staff will respond as soon as they can. Pinging won't make things faster.\n\n" +
+        "**#5 Close Tickets When Resolved**\n" +
+        "If your issue is solved, please close the ticket or ask a staff member to do so.\n\n" +
+        "**#6. Respect Staff in Tickets**\n" +
+        "Aggressive, rude, or non-cooperative behaviour may result in warnings or removal."
       )
-      .setImage("https://image2url.com/r2/default/images/1775845711233-eeede801-13ce-4f7c-b0ac-ea6a6d81b638.jpg"); // Main image at bottom (Finger Pocoyo)
+      .setImage("https://image2url.com/r2/default/images/1775845711233-eeede801-13ce-4f7c-b0ac-ea6a6d81b638.jpg") // Pocoyo at bottom
+      .setFooter({ text: "server's ticket rules" });
 
-    return message.reply({ embeds: [guideEmbed] });
+    return message.reply({ embeds: [rulesEmbed] });
   }
 };
