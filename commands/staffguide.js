@@ -1,35 +1,57 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
-// Store the last sent guide message ID and channel ID in memory
-let lastGuideMessageId = null;
-let lastGuideChannelId = null;
-
 module.exports = {
   name: "staffguide",
-  description: "Displays or edits the staff command usage guide",
+  description: "Edits or sends the Ticket Rules embed",
   async execute(message, args) {
     const isEdit = message.content.toLowerCase().startsWith("?staffguidedit");
 
-    // Clean up staff trigger message to keep channel clean
+    // Clean up trigger message
     message.delete().catch(() => null);
 
+    // Permission check
+    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return message.channel.send("❌ **Access Denied:** Administrator permission required.")
+        .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
+    }
+
+    // Build clean Ticket Rules Embed
+    const ticketEmbed = new EmbedBuilder()
+      .setColor(0x2B2D31)
+      .setTitle("🎫 Ticket System Rules & Guidelines")
+      .setDescription(
+        "📌 **1. Open Correct Topics**\n" +
+        "Open tickets only for valid support, purchases, or claiming giveaway wins. Make sure to open the ticket under the correct topic—no casual chat, testing, or troll tickets.\n\n" +
+        "📌 **2. No Duplicate or Spam Tickets**\n" +
+        "Keep it to one ticket at a time per issue. Spamming or opening multiple tickets for the same reason will result in a ticket ban.\n\n" +
+        "📌 **3. Provide Immediate Context**\n" +
+        "State your question or details right away in your first message so staff can assist you as efficiently as possible.\n\n" +
+        "📌 **4. Do Not Ping Staff**\n" +
+        "Our team is notified automatically when a ticket is created. Pinging individual staff members will not get you a faster response.\n\n" +
+        "📌 **5. Close When Resolved**\n" +
+        "Once your question is answered or issue is fixed, please close your ticket or request staff to close it.\n\n" +
+        "📌 **6. Respect & Co-operation**\n" +
+        "Treat staff with respect. Rude, aggressive, or non-cooperative behavior will lead to warnings or server removal.\n\n" +
+        "⚖️ **7. Staff Authority & Disclaimer**\n" +
+        "Staff & Management hold full ownership and ultimate discretion over all ticket disputes, rule interpretations, and moderation actions. All staff decisions are final. Arguing with staff or management in public channels is strictly prohibited."
+      );
+
+    // Add server icon thumbnail (or direct Pocoyo thumbnail image)
+    if (message.guild.iconURL()) {
+      ticketEmbed.setThumbnail(message.guild.iconURL({ dynamic: true }));
+    }
+
     // ==========================================
-    // 1. EDIT MODE: ?staffguidedit <Message ID or Link> <New Text>
+    // 1. EDIT EXISTING MESSAGE: ?staffguidedit <Message ID or Link>
     // ==========================================
     if (isEdit) {
-      if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-        return message.channel.send("❌ **Access Denied:** Administrator permission required.")
-          .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
-      }
-
-      if (!args || args.length < 2) {
-        return message.channel.send("⚠️ **Usage:** `?staffguidedit <Message ID or Link> <New Description/Content>`")
+      if (!args || args.length < 1) {
+        return message.channel.send("⚠️ **Usage:** `?staffguidedit <Message ID or Link>`")
           .then(m => setTimeout(() => m.delete().catch(() => null), 6000));
       }
 
-      // Extract Target Message ID from raw ID or Discord Message Link
+      // Extract target ID
       const targetInput = args[0];
-      const newText = args.slice(1).join(" ");
       const messageIdMatch = targetInput.match(/\d+$/);
       const targetMessageId = messageIdMatch ? messageIdMatch[0] : null;
 
@@ -39,7 +61,6 @@ module.exports = {
       }
 
       try {
-        // Fetch message from current channel
         const targetMsg = await message.channel.messages.fetch(targetMessageId);
 
         if (targetMsg.author.id !== message.client.user.id) {
@@ -47,17 +68,9 @@ module.exports = {
             .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
         }
 
-        // If target message has an Embed, update its description
-        if (targetMsg.embeds.length > 0) {
-          const oldEmbed = targetMsg.embeds[0];
-          const updatedEmbed = EmbedBuilder.from(oldEmbed).setDescription(newText);
-          await targetMsg.edit({ embeds: [updatedEmbed] });
-        } else {
-          // Plain message update
-          await targetMsg.edit({ content: newText });
-        }
+        await targetMsg.edit({ embeds: [ticketEmbed] });
 
-        return message.channel.send("✅ **Message updated successfully!**")
+        return message.channel.send("✅ **Ticket Rules updated successfully!**")
           .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
 
       } catch (err) {
@@ -68,86 +81,8 @@ module.exports = {
     }
 
     // ==========================================
-    // 2. DISPLAY GUIDE MODE: ?staffguide
+    // 2. SEND FRESH TICKET RULES: ?staffguide
     // ==========================================
-    const guideEmbed = new EmbedBuilder()
-      .setColor(0x2B2D31)
-      .setTitle("🛡️ Moderation & Staff Commands Usage Guide")
-      .setDescription("How to use all moderation, management, and AutoMod staff commands.\n━━━")
-      .addFields(
-        {
-          name: "⚠️ Warnings",
-          value:
-            "• `?warn @user [reason]` — Issue an official warning\n" +
-            "• `?warnings @user` — Check a user's warn history & IDs\n" +
-            "• `?unwarn @user [warn_id]` — Remove a specific warning"
-        },
-        {
-          name: "🔇 Mutes & Timeouts",
-          value:
-            "• `?mute @user [time] [reason]` — Timeout user (e.g. `5m`, `30m`, `12h`)\n" +
-            "• `?unmute @user` — Remove an active timeout"
-        },
-        {
-          name: "🔨 Kicks & Bans",
-          value:
-            "• `?kick @user [reason]` — Kick user from server\n" +
-            "• `?ban @user [reason]` — Ban user & purge recent messages\n" +
-            "• `?unban [user_id]` — Unban user using their Discord ID"
-        },
-        {
-          name: "🧹 Chat & Channel Controls",
-          value:
-            "• `?purge [amount]` — Delete multiple messages at once\n" +
-            "• `?rename <new-name>` — Rename current channel (Tickets only)\n" +
-            "• `?slowmode [#channel] [time]` — Set channel slowmode (e.g. `?slowmode 5s` or `?slowmode #chat 10s`)\n" +
-            "• `?slowmode [off / 0]` — Turn off channel slowmode\n" +
-            "• `?modstats [@staff]` — Check moderation action stats\n" +
-            "• `?modlogs [@user]` — View recent moderation log entries"
-        },
-        {
-          name: "👤 Roles & Management",
-          value:
-            "• `?role @user [role]` — Add or remove a role from a user\n" +
-            "• `?temprole @user [time] [role]` — Give a role temporarily (e.g. `7d`)\n" +
-            "• `?setnick @user [new_nickname]` — Change a user's server nickname\n" +
-            "• `?status` — Check bot system status & performance"
-        },
-        {
-          name: "🚫 Blacklist & Staff Guide",
-          value:
-            "• `?bl [word]` — Add a word to auto-blacklist\n" +
-            "• `?unbl [word]` — Remove a word from blacklist\n" +
-            "• `?words` — View all blacklisted words\n" +
-            "• `?staffguide` — Show this command usage guide\n" +
-            "• `?staffguidedit <msg_id/link> <text>` — Edit any bot rules/guide embed"
-        },
-        {
-          name: "⚖️ Staff Authority & Disclaimer",
-          value:
-            "• **Final Decision:** Staff & Management hold ultimate discretion on all rule interpretations, warnings, mutes, kicks, bans, and ticket disputes.\n" +
-            "• **Enforcement:** Actions taken in accordance with server rules and ticket rules are final. Arguing with staff decisions in public chat is strictly prohibited."
-        }
-      )
-      .setFooter({ text: "donQuixotes lounge Staff Operations • Command Usage Guide" })
-      .setTimestamp();
-
-    // Try editing existing guide in channel if present
-    if (lastGuideMessageId && lastGuideChannelId === message.channel.id) {
-      try {
-        const existingMsg = await message.channel.messages.fetch(lastGuideMessageId);
-        if (existingMsg) {
-          await existingMsg.edit({ embeds: [guideEmbed] });
-          return;
-        }
-      } catch (err) {
-        // Fallback to sending new
-      }
-    }
-
-    // Send new guide message
-    const newMsg = await message.channel.send({ embeds: [guideEmbed] });
-    lastGuideMessageId = newMsg.id;
-    lastGuideChannelId = message.channel.id;
+    return message.channel.send({ embeds: [ticketEmbed] });
   }
 };
