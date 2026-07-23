@@ -1,10 +1,10 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
-  name: "rules",
-  description: "Displays or edits the main server rules",
+  name: "vip",
+  description: "Displays or edits the VIP ranks and perks",
   async execute(message, args) {
-    const isEdit = message.content.toLowerCase().includes("rulesedit");
+    const isEdit = message.content.toLowerCase().includes("vipedit");
 
     if (isEdit) {
       if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -13,45 +13,54 @@ module.exports = {
 
       const newGuideText = args.join(" ");
       if (!newGuideText) {
-        return message.reply("⚠️ **Usage:** `?rulesedit <new rules info>`");
+        return message.reply("⚠️ **Usage:** `?vipedit <new info>`");
       }
 
-      return message.reply("✅ **Server rules updated successfully!**");
+      return message.reply("✅ **VIP info updated successfully!**");
     }
 
-    // Embed 1: Main Server Rules
-    const rulesEmbed = new EmbedBuilder()
-      .setColor(0xE74C3C)
-      .setTitle("📜 SERVER RULES")
+    const vipEmbed = new EmbedBuilder()
+      .setColor(0x2B2D31) // Sleek dark aesthetic
+      .setAuthor({ name: "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊", iconURL: message.guild.iconURL({ dynamic: true }) })
+      .setTitle("👑 VIP RANKS & EXCLUSIVE PERKS")
       .setDescription(
-        "**1.** Respect everyone. No hate speech, bullying, or discrimination of any kind. Keep it chill.\n\n" +
-        "**2.** No spamming or flooding chat with messages, images, or emojis. Give people space to breathe.\n\n" +
-        "**3.** No NSFW content or discussions. Keep it safe for all ages.\n\n" +
-        "**4.** Follow Discord’s Terms of Service everywhere here. No illegal actions or sharing pirated stuff.\n\n" +
-        "**5.** No advertising or self-promotion without permission from staff.\n\n" +
-        "**6.** Use appropriate channels for topics — no off-topic spam.\n\n" +
-        "**7.** Do not ping staff unnecessarily or abuse the ticket system.\n\n" +
-        "**8.** English only in main chats to keep things clear.\n\n" +
-        "**9.** No sharing others’ personal info or doxxing. Privacy matters.\n\n" +
-        "**10.** Listen to mods and respect their decisions. Arguing isn’t allowed in public chat.\n\n" +
-        "⚠️ **Don't beg or u will be warned!**\n\n" +
-        "🔗 https://discord.com/terms"
-      );
+        "```ansi\n\u001b[1;33m✦ EXCLUSIVE SERVER PASSES & BENEFITS ✦\u001b[0m\n```\n" +
 
-    // Embed 2: Punishment System
-    const punishmentsEmbed = new EmbedBuilder()
-      .setColor(0xE74C3C)
-      .setDescription(
-        "**verbal warn**\n" +
-        "**1st warn** safe\n" +
-        "**2nd warn** + 5 minutes mute\n" +
-        "**3rd warn** + 30 minutes mute\n" +
-        "**4th warn** + 12 hours mute\n" +
-        "**5th warn** + kick\n" +
-        "**6th warn** + Ban"
+        "🌟 **Economy Rank** ┃ ` 250 ` <:robux:1499543065608716328>\n" +
+        "> ╰┈➤ +1 Extra Entry\n" +
+        "> ╰┈➤ Custom Role\n" +
+        "> ╰┈➤ Access to VIP-only Giveaways\n" +
+        "> ╰┈➤ GIF & Image Perms\n\n" +
+
+        "⭐ **Premium Economy Rank** ┃ ` 450 ` <:robux:1499543065608716328>\n" +
+        "> ╰┈➤ +1 Extra Entry\n" +
+        "> ╰┈➤ Custom Role\n" +
+        "> ╰┈➤ Access to VIP & Booster Giveaways\n" +
+        "> ╰┈➤ GIF & Image Perms\n\n" +
+
+        "💎 **Business Class Rank** ┃ ` 900 ` <:robux:1499543065608716328>\n" +
+        "> ╰┈➤ +1 Extra Entry\n" +
+        "> ╰┈➤ Custom Role\n" +
+        "> ╰┈➤ Access to ALL Giveaways\n" +
+        "> ╰┈➤ GIF & Image Perms\n" +
+        "> ╰┈➤ 2x Claim Time in Giveaways\n" +
+        "> ╰┈➤ Bypass Messages Req & Role\n\n" +
+
+        "👑 **First Class** ┃ ` 1600 ` <:robux:1499543065608716328>\n" +
+        "> ╰┈➤ +1 Extra Entry\n" +
+        "> ╰┈➤ Custom Role\n" +
+        "> ╰┈➤ Access to ALL Giveaways\n" +
+        "> ╰┈➤ GIF & Image Perms\n" +
+        "> ╰┈➤ Bypass ALL Requirements\n" +
+        "> ╰┈➤ INF Claim Time in Giveaways *(Quick drops not included)*\n" +
+        "> ╰┈➤ Voice Note Perms\n" +
+        "> ╰┈➤ Commands Perms in <#1481561361044607047>\n" +
+        "> ╰┈➤ Receive <@&1492630307650666546> *(Taken away if misused)*\n\n" +
+
+        "🛒 **Claim a <#1481370042892550220> (purchase) if you wanna purchase it!**"
       )
-      .setFooter({ text: "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊’𝖘 𝖘𝖊𝖗𝖛𝖊𝖗 𝖗𝖚𝖑𝖊𝖘" });
+      .setFooter({ text: "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊 • VIP Store" });
 
-    return message.reply({ embeds: [rulesEmbed, punishmentsEmbed] });
+    return message.reply({ embeds: [vipEmbed] });
   }
 };
