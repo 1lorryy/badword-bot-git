@@ -24,6 +24,7 @@ module.exports = {
       .setTitle("🎫 Ticket System Rules & Guidelines")
       .setThumbnail("https://image2url.com/r2/default/images/1775844039536-8fd2df06-6fab-4b6c-92ed-821f8fe176d9.jpg")
       .setDescription(
+        "📍 **Open Tickets Here:** <#1481370042892550220>\n\n" +
         "📌 **1. Use the Right Category**\n" +
         "Only open tickets for valid support, questions, concerns, or claiming giveaway wins. Make sure to open the ticket under the correct topic—no casual chat, testing, or troll tickets.\n\n" +
         "📌 **2. No Duplicate or Spam Tickets**\n" +
