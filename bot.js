@@ -8,7 +8,9 @@ const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
 const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday");
 const { handleVerifyCommand } = require("./commands/verify");
+
 const renameCommand = require("./rename.js");
+
 const snipes = {};
 const fs = require("fs");
 const path = require("path");
@@ -466,13 +468,13 @@ if (command === "slowmode") {
     saveData();
     return message.reply(`✅ Prefix updated to \`${newPrefix}\``);
   }
-  if (command === "staffguide" || command === "staffguidedit") {
+    if (command === "staffguide" || command === "staffguidedit") {
     const staffGuideCmd = require("./commands/staffguide.js");
     return staffGuideCmd.execute(message, args);
   }
+
   if (command === "rename") {
-    const renameCommand = require("./rename.js");
-    await renameCommand.execute(message, args);
+    return await renameCommand.execute(message, args);
   }
 
  // ================= WARN =================
