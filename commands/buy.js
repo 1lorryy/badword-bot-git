@@ -1,4 +1,4 @@
-const { EmbedBuilder, codeBlock } = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 
@@ -7,15 +7,15 @@ const DATA_FILE = path.join(__dirname, "..", "guild-data.json");
 const DEFAULT_DATA = {
   purchaseLinks: {
     classes: [
-      { name: "Economy Class", url: "https://www.roblox.com/game-pass/1856306289" },
-      { name: "Premium Economy", url: "https://www.roblox.com/game-pass/1856298285" },
-      { name: "Business Class", url: "https://www.roblox.com/game-pass/1854202242" },
-      { name: "First Class", url: "https://www.roblox.com/game-pass/1856222269" }
+      { name: "Economy Class", url: "[https://www.roblox.com/game-pass/1856306289](https://www.roblox.com/game-pass/1856306289)" },
+      { name: "Premium Economy", url: "[https://www.roblox.com/game-pass/1856298285](https://www.roblox.com/game-pass/1856298285)" },
+      { name: "Business Class", url: "[https://www.roblox.com/game-pass/1854202242](https://www.roblox.com/game-pass/1854202242)" },
+      { name: "First Class", url: "[https://www.roblox.com/game-pass/1856222269](https://www.roblox.com/game-pass/1856222269)" }
     ],
     ads6h: [
-      { name: "6H Drops Ping", url: "https://www.roblox.com/game-pass/1809387047" },
-      { name: "6H Sponsor / Here", url: "https://www.roblox.com/game-pass/1809387042" },
-      { name: "6H Everyone Ping", url: "https://www.roblox.com/game-pass/1809201052" }
+      { name: "6H Drops Ping", url: "[https://www.roblox.com/game-pass/1809387047](https://www.roblox.com/game-pass/1809387047)" },
+      { name: "6H Sponsor / Here", url: "[https://www.roblox.com/game-pass/1809387042](https://www.roblox.com/game-pass/1809387042)" },
+      { name: "6H Everyone Ping", url: "[https://www.roblox.com/game-pass/1809201052](https://www.roblox.com/game-pass/1809201052)" }
     ],
     ads24h: [
       { name: "24H Drops Ping", url: "https://www.roblox.com/game-pass/1808277089" },
@@ -64,14 +64,12 @@ async function handlePurchaseCommand(message) {
 
   const links = settings.purchaseLinks || DEFAULT_DATA.purchaseLinks;
   
-  // Ensure wallets structure exists and migration occurs
   if (!settings.wallets) settings.wallets = {};
   
   if (settings.wallets.crypto && !settings.wallets.ltc) {
     settings.wallets.ltc = settings.wallets.crypto;
   }
 
-  // Fallback to default address if LTC is still unset or "Not Set Yet"
   if (!settings.wallets.ltc || settings.wallets.ltc === "Not Set Yet") {
     settings.wallets.ltc = DEFAULT_DATA.wallets.ltc;
     saveData(fullData);
@@ -105,8 +103,8 @@ async function handlePurchaseCommand(message) {
         inline: false 
       },
       {
-        name: "🪙 LITECOIN (LTC) WALLET (Tap box to copy!)",
-        value: `💳 **LTC Address:**\n${codeBlock(ltcWallet)}`,
+        name: "🪙 LITECOIN (LTC) WALLET (Tap text below to copy!)",
+        value: `💳 **LTC Address:**\n\`${ltcWallet}\``,
         inline: false
       }
     )
@@ -130,7 +128,7 @@ async function handlePurchEditCommand(message, args) {
   const usage = "💡 **Usage:** `?purchedit <category> <number> <new_url>`\n\n" +
                 "**Categories:** `classes`, `ads6h`, `ads24h`, `extras`\n" +
                 "**Crypto Wallets:** `?purchedit wallet <ltc/btc/eth> <address>`\n\n" +
-                "**Example:** `?purchedit classes 1 https://roblox.com/...` (Changes Economy link)\n" +
+                "**Example:** `?purchedit classes 1 [https://roblox.com/](https://roblox.com/)...` (Changes Economy link)\n" +
                 "**Example:** `?purchedit wallet ltc Ltc1q...`";
 
   if (!args || args.length < 2) {
@@ -141,10 +139,9 @@ async function handlePurchEditCommand(message, args) {
   const indexOrWallet = args[1].toLowerCase();
   const value = args.slice(2).join(" ");
 
-  // Handle Crypto Wallet Setup (ltc, btc, eth, crypto)
   if (category === "wallet") {
     let coinType = indexOrWallet;
-    if (coinType === "crypto") coinType = "ltc"; // Default old crypto command to LTC
+    if (coinType === "crypto") coinType = "ltc";
 
     if (!["ltc", "btc", "eth", "sol"].includes(coinType)) {
       return message.reply("❌ Use `?purchedit wallet ltc <address>` (or btc/eth/sol) to update your address.");
@@ -158,7 +155,6 @@ async function handlePurchEditCommand(message, args) {
     return message.reply(`✅ Successfully updated your **${coinType.toUpperCase()}** wallet address!`);
   }
 
-  // Handle Link Categories Editing
   if (["classes", "ads6h", "ads24h", "extras"].includes(category)) {
     if (!value) return message.reply("❌ Please include the new URL link destination!");
     
