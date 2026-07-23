@@ -11,8 +11,8 @@ module.exports = {
         return message.reply("❌ **Access Denied:** Administrator permission required.");
       }
 
-      const newRulesText = args.join(" ");
-      if (!newRulesText) {
+      const newGuideText = args.join(" ");
+      if (!newGuideText) {
         return message.reply("⚠️ **Usage:** `?rulesedit <new rules info>`");
       }
 
@@ -34,6 +34,7 @@ module.exports = {
         "**8.** English only in main chats to keep things clear.\n\n" +
         "**9.** No sharing others’ personal info or doxxing. Privacy matters.\n\n" +
         "**10.** Listen to mods and respect their decisions. Arguing isn’t allowed in public chat.\n\n" +
+        "⚠️ **Don't beg or u will be warned!**\n\n" +
         "🔗 https://discord.com/terms"
       );
 
