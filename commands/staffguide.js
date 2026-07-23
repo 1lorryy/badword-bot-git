@@ -1,5 +1,9 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
+// Store the last sent guide message ID and channel ID in memory
+let lastGuideMessageId = null;
+let lastGuideChannelId = null;
+
 module.exports = {
   name: "staffguide",
   description: "Displays or edits the staff command usage guide",
@@ -75,6 +79,25 @@ module.exports = {
       .setFooter({ text: "Don Don Staff Operations • Command Usage Guide" })
       .setTimestamp();
 
-    return message.reply({ embeds: [guideEmbed] });
+    // Delete the command trigger message to keep chat clean (optional)
+    message.delete().catch(() => null);
+
+    // Try editing the existing guide message if it exists in the same channel
+    if (lastGuideMessageId && lastGuideChannelId === message.channel.id) {
+      try {
+        const existingMsg = await message.channel.messages.fetch(lastGuideMessageId);
+        if (existingMsg) {
+          await existingMsg.edit({ embeds: [guideEmbed] });
+          return;
+        }
+      } catch (err) {
+        // Message was probably deleted or couldn't be fetched, fallback to sending a new one
+      }
+    }
+
+    // Send a new guide message and store its IDs
+    const newMsg = await message.channel.send({ embeds: [guideEmbed] });
+    lastGuideMessageId = newMsg.id;
+    lastGuideChannelId = message.channel.id;
   }
 };
