@@ -11,7 +11,7 @@ module.exports = {
   name: "rename",
   description: "Renames the current ticket channel",
   async execute(message, args) {
-    // Auto-delete the staff member's trigger command to keep tickets clean
+    // Delete the staff member's trigger command immediately
     message.delete().catch(() => null);
 
     // 1. Check permissions (Staff / Admins)
@@ -44,14 +44,16 @@ module.exports = {
           "**Example:** `?rename ticket-1`"
         );
 
-      return message.channel.send({ embeds: [syntaxEmbed] });
+      return message.channel.send({ embeds: [syntaxEmbed] })
+        .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
     }
 
     // 4. Format channel name
     const newName = args.join("-").toLowerCase().replace(/[^a-z0-9\-_]/g, "");
 
     if (newName.length < 1 || newName.length > 100) {
-      return message.channel.send("❌ Channel names must be between 1 and 100 characters.");
+      return message.channel.send("❌ Channel names must be between 1 and 100 characters.")
+        .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
     }
 
     // 5. Execute Rename
@@ -63,10 +65,14 @@ module.exports = {
         .setColor(0x57F287)
         .setDescription(`✅ Channel renamed from **#${oldName}** to **#${newName}**!`);
 
-      return message.channel.send({ embeds: [successEmbed] });
+      // ✅ Send success embed, then delete it after 5 seconds
+      return message.channel.send({ embeds: [successEmbed] })
+        .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
+
     } catch (error) {
       console.error(error);
-      return message.channel.send("❌ Failed to rename the channel. (Note: Discord limits channel renames to 2 times per 10 minutes per channel!).");
+      return message.channel.send("❌ Failed to rename the channel. (Note: Discord limits channel renames to 2 times per 10 minutes per channel!).")
+        .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
     }
   }
 };
