@@ -1,19 +1,37 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
+// Allowed Ticket Category IDs
+const TICKET_CATEGORIES = [
+  "1481938314062725281", // Purchases
+  "1481937769612968038", // Claims
+  "1481939936964775946"  // Support
+];
+
 module.exports = {
   name: "rename",
-  description: "Renames the current text channel (Staff Only)",
+  description: "Renames the current ticket channel",
   async execute(message, args) {
-    // 1. Permission check: Ensure only Staff / Admins can use it
+    // 1. Check permissions (Staff / Admins)
     const isStaff = message.member.permissions.has(PermissionFlagsBits.ManageChannels) ||
                     message.member.permissions.has(PermissionFlagsBits.ManageMessages);
 
+    const isAdmin = message.member.permissions.has(PermissionFlagsBits.Administrator) || 
+                    message.guild.ownerId === message.author.id;
+
     if (!isStaff) {
-      return message.reply("❌ **Access Denied:** Only staff members can rename channels.")
+      return message.reply("❌ **Access Denied:** Only staff members can use this command.")
         .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
     }
 
-    // 2. Check if a new name was provided
+    // 2. Check if channel is inside a Ticket Category (Admins bypass this restriction)
+    const isInTicketCategory = TICKET_CATEGORIES.includes(message.channel.parentId);
+
+    if (!isInTicketCategory && !isAdmin) {
+      return message.reply("❌ **Restricted:** The `?rename` command can only be used inside ticket channels!")
+        .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
+    }
+
+    // 3. Syntax check
     if (!args || args.length === 0) {
       const syntaxEmbed = new EmbedBuilder()
         .setColor(0xED4245)
@@ -26,14 +44,14 @@ module.exports = {
       return message.reply({ embeds: [syntaxEmbed] });
     }
 
-    // 3. Format channel name (Discord replaces spaces with hyphens automatically)
+    // 4. Format channel name
     const newName = args.join("-").toLowerCase().replace(/[^a-z0-9\-_]/g, "");
 
     if (newName.length < 1 || newName.length > 100) {
       return message.reply("❌ Channel names must be between 1 and 100 characters.");
     }
 
-    // 4. Try renaming the channel
+    // 5. Execute Rename
     try {
       const oldName = message.channel.name;
       await message.channel.setName(newName);
