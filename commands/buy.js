@@ -29,7 +29,7 @@ const DEFAULT_DATA = {
     ]
   },
   wallets: {
-    ltc: "Not Set Yet",
+    ltc: "Lby2EQyH8yYqd6bWPTGHbUrupephWsqEdM",
     btc: "Not Set Yet",
     eth: "Not Set Yet"
   }
@@ -64,13 +64,20 @@ async function handlePurchaseCommand(message) {
 
   const links = settings.purchaseLinks || DEFAULT_DATA.purchaseLinks;
   
-  // Backwards compatibility migration check
-  const wallets = settings.wallets || {};
-  if (wallets.crypto && !wallets.ltc) {
-    wallets.ltc = wallets.crypto; // move old single crypto wallet to ltc
+  // Ensure wallets structure exists and migration occurs
+  if (!settings.wallets) settings.wallets = {};
+  
+  if (settings.wallets.crypto && !settings.wallets.ltc) {
+    settings.wallets.ltc = settings.wallets.crypto;
   }
 
-  const ltcWallet = wallets.ltc || "Not Set Yet";
+  // Fallback to default address if LTC is still unset or "Not Set Yet"
+  if (!settings.wallets.ltc || settings.wallets.ltc === "Not Set Yet") {
+    settings.wallets.ltc = DEFAULT_DATA.wallets.ltc;
+    saveData(fullData);
+  }
+
+  const ltcWallet = settings.wallets.ltc;
 
   const embed = new EmbedBuilder()
     .setTitle("🌟 DONQUIXOTE STORE 🌟")
