@@ -890,7 +890,7 @@ if (command === "roleicon") {
     }
   }
   
-  // ================= PURGE =================
+// ================= PURGE =================
   if (command === "purge") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
@@ -899,12 +899,23 @@ if (command === "roleicon") {
 
     const amount = parseInt(args[0], 10);
     if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
-      return message.reply(`Usage: \`${prefix}purge 1\``);
+      return message.reply(`Usage: \`${prefix}purge [1-100]\``);
     }
 
+    // 1. Delete the user's ?purge command message immediately so it doesn't count in the purge total
+    await message.delete().catch(() => null);
+
+    // 2. Fetch and bulk delete the target amount of older messages
     const deleted = await message.channel.bulkDelete(amount, true).catch(() => null);
-    if (!deleted) return message.reply("Could not purge messages.");
-    return message.channel.send(`✅ Purged ${deleted.size} messages.`);
+    if (!deleted) {
+      const errReply = await message.channel.send("❌ Could not purge messages (they may be older than 14 days).");
+      return deleteAfter(errReply, 5000);
+    }
+
+    // 3. Send success message and auto-delete it after 5 seconds
+    const successReply = await message.channel.send(`✅ Purged **${deleted.size}** messages.`);
+    deleteAfter(successReply, 5000);
+    return true;
   }
 
   // ================= ROLE COMMAND =================
