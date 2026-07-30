@@ -410,16 +410,10 @@ async function handleCommands(message, getGuildData) {
     });
   }
 
-  // 🔒 RESTRICTED: ROLEICON (Support Ticket Category ONLY)
-  if (command === "roleicon") {
-    if (message.channel.parentId !== SUPPORT_TICKET_CATEGORY_ID) {
-      const reply = await message.reply("❌ This command can only be used inside the Support Ticket category.");
-      deleteAfter(reply, 5000);
-      deleteAfter(message, 5000);
-      return true;
-    }
-    return roleIconCommand.execute(message, args);
-  }
+// 🌐 UNRESTRICTED: ROLEICON (Usable everywhere)
+if (command === "roleicon") {
+  return roleIconCommand.execute(message, args);
+}
 
   // 🔒 RESTRICTED: RENAME (Support Ticket, Purchases, Claim Categories) + AUTO-DELETE (5s)
   if (command === "rename") {
@@ -1147,17 +1141,13 @@ async function handleCommands(message, getGuildData) {
     return message.reply({ embeds: [embed] });
   }
   
-  // ================= HELP =================
+// ================= HELP =================
   if (command === "help") {
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
       .setTitle("🔥 Don Don Commands")
       .setDescription(`Prefix: \`${prefix}\``)
       .addFields(
-        {
-          name: "💎 VIP & Ticket Commands",
-          value: `\`${prefix}roleicon <@role> <Image URL/Attachment>\` • Set role icons (Support category only).\n\`${prefix}rename <new-name>\` • Rename ticket (Allowed categories only, auto-deletes in 5s).`
-        },
         {
           name: "🛡️ Moderation & AutoMod",
           value: 
@@ -1175,16 +1165,16 @@ async function handleCommands(message, getGuildData) {
         {
           name: "⚙️ Server, Auction & Channels",
           value:
-            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\`\n` +
+            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\` \`${prefix}rename\`\n` +
             `\`${prefix}purchase\` (or \`${prefix}buy\`) • \`${prefix}purchedit\`\n` +
             `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
         },
         {
-          name: "🌍 Utility & Translation",
+          name: "🌍 Utility & Tools",
           value:
-            `\`${prefix}translate [lang] [text]\` • Auto-detects text to target language.\n` +
-            `▫️ Languages: \`en\`, \`lt\`, \`es\`, \`fr\`, \`de\`, \`pl\`, \`ru\`, \`tr\`, \`ja\`\n` +
-            `▫️ Utilities: \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\` (\`#commands\` only) \`${prefix}status\` \`${prefix}joininfo\``
+            `\`${prefix}roleicon\` • \`${prefix}translate\` • \`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • \`${prefix}status\` • \`${prefix}joininfo\`\n` +
+            `\`${prefix}birthday\` / \`${prefix}bday\` (\`#commands\` only)\n` +
+            `▫️ Translation targets: \`en\`, \`lt\`, \`es\`, \`fr\`, \`de\`, \`pl\`, \`ru\`, \`tr\`, \`ja\``
         }
       )
       .setTimestamp();
