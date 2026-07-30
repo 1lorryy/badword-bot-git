@@ -7,23 +7,30 @@ const ALLOWED_ROLE_IDS = [
   "1481370041441189959"  // Main Admin Role ID
 ];
 
-// Allowed Channels for testing / staff commands
+// Specific Allowed Channels
 const ALLOWED_CHANNEL_IDS = [
-  "1499888577738309633", // Test Channel
+  "1499888577738309633", // Tuff Channel
   "1481370050597228656"  // Staff Cmd Channel
 ];
+
+// ID of your Staff Ticket Category (Replace with your actual Ticket Category ID if different)
+const TICKET_CATEGORY_ID = "1481370050597228656"; 
 
 module.exports = {
   name: "roleicon",
   description: "Create or update your personal role icon using an emoji or image link.",
   async execute(message, args) {
-    // 🧹 Delete original command message
-    message.delete().catch(() => null);
+    // 🧹 Delete original command message immediately
+    if (message.deletable) {
+      message.delete().catch(() => null);
+    }
 
-    // Channel restriction check
-    if (!ALLOWED_CHANNEL_IDS.includes(message.channel.id)) {
-      const allowedMentions = ALLOWED_CHANNEL_IDS.map(id => `<#${id}>`).join(" or ");
-      const msg = await message.reply(`❌ You can only use this command in ${allowedMentions}.`);
+    // Check if channel is allowed (Either in list OR inside ticket category)
+    const isInAllowedChannel = ALLOWED_CHANNEL_IDS.includes(message.channel.id);
+    const isInTicketCategory = message.channel.parentId === TICKET_CATEGORY_ID;
+
+    if (!isInAllowedChannel && !isInTicketCategory) {
+      const msg = await message.reply("❌ You can only use this command inside staff tickets, staff-cmd, or tuff-channel.");
       setTimeout(() => msg.delete().catch(() => null), 5000);
       return;
     }
@@ -70,7 +77,6 @@ module.exports = {
 
     try {
       if (!userRole) {
-        // Create new personal role if the user doesn't have one yet
         userRole = await message.guild.roles.create({
           name: personalRoleName,
           reason: `Personal VIP/Staff role for ${message.author.tag}`
@@ -82,16 +88,13 @@ module.exports = {
       const customEmojiMatch = iconInput.match(/<a?:(\w+):(\d+)>/);
       
       if (customEmojiMatch) {
-        // Custom Discord Emoji URL
         const emojiId = customEmojiMatch[2];
         const isAnimated = iconInput.startsWith("<a:");
         const emojiUrl = `https://cdn.discordapp.com/emojis/${emojiId}.${isAnimated ? "gif" : "png"}`;
         await userRole.setIcon(emojiUrl);
       } else if (/^https?:\/\/.+/i.test(iconInput)) {
-        // Direct Image Link or Attachment URL
         await userRole.setIcon(iconInput);
       } else {
-        // Standard Unicode Emoji (e.g. ⭐, 🔥)
         await userRole.setUnicodeEmoji(iconInput);
       }
 
@@ -107,7 +110,7 @@ module.exports = {
 
     } catch (err) {
       console.error("RoleIcon Error:", err);
-      const msg = await message.reply("❌ Failed to update role icon. Make sure my bot's role is placed **above** user roles in Server Settings!");
+      const msg = await message.reply("❌ Failed to update role icon. Ensure my bot's top role has **Manage Messages** & is placed above user roles!");
       setTimeout(() => msg.delete().catch(() => null), 5000);
     }
   }
