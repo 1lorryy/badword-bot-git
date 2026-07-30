@@ -1,88 +1,114 @@
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 
-// 1. VIP & Booster Role IDs
+// Allowed Role IDs (VIPs, Boosters, Staff) who can create/manage their own role icons
 const ALLOWED_ROLE_IDS = [
-  "1495091140272324768", // ECONOMY
-  "1495091152506847311", // PREMIUM ECONOMY
-  "1495091157443805234", // BUSINESS
-  "1495091161457627206", // FIRST CLASS
-  "1481370041382604874", // 2x BOOSTER
-  "1482787743527604305"  // BOOSTER
+  "1481370041420087474", // Staff Role ID
+  "1481370041432932379", // Mod Role ID
+  "1481370041441189959"  // Main Admin Role ID
 ];
 
-// 2. Ticket Category ID
-const TICKET_CATEGORY_ID = "1481939936964775946";
+// Allowed Channels for testing / staff commands
+const ALLOWED_CHANNEL_IDS = [
+  "1499888577738309633", // Test Channel
+  "1481370050597228656"  // Staff Cmd Channel
+];
 
 module.exports = {
   name: "roleicon",
-  description: "Allows VIPs, Boosters, and Staff to set role icons inside ticket category channels",
+  description: "Create or update your personal role icon using an emoji or image link.",
   async execute(message, args) {
-    // Clean up command message to keep chat tidy
+    // 🧹 Delete original command message
     message.delete().catch(() => null);
 
-    // --- CHECK 1: Must be inside the designated Ticket Category or ticket channel ---
-    const isTicketChannel = 
-      message.channel.parentId === TICKET_CATEGORY_ID ||
-      message.channel.name.startsWith("ticket-") || 
-      message.channel.name.includes("ticket");
-
-    if (!isTicketChannel) {
-      return message.channel.send("⚠️ **Access Restricted:** This command can only be used inside ticket channels.")
-        .then(m => setTimeout(() => m.delete().catch(() => null), 6000));
+    // Channel restriction check
+    if (!ALLOWED_CHANNEL_IDS.includes(message.channel.id)) {
+      const allowedMentions = ALLOWED_CHANNEL_IDS.map(id => `<#${id}>`).join(" or ");
+      const msg = await message.reply(`❌ You can only use this command in ${allowedMentions}.`);
+      setTimeout(() => msg.delete().catch(() => null), 5000);
+      return;
     }
 
-    // --- CHECK 2: Staff, VIP, or Booster Role Verification ---
-    const isStaff = 
-      message.member.permissions.has(PermissionFlagsBits.ManageRoles) ||
-      message.member.permissions.has(PermissionFlagsBits.Administrator) ||
-      message.member.roles.cache.some(r => r.name.toLowerCase().includes("staff") || r.name.toLowerCase().includes("mod"));
+    // Check if the user has an allowed role or admin perms
+    const hasAccess = message.member.roles.cache.some(role => ALLOWED_ROLE_IDS.includes(role.id)) ||
+                      message.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
-    const hasVIPOrBoosterRole = message.member.roles.cache.some(role => 
-      ALLOWED_ROLE_IDS.includes(role.id)
-    );
-
-    if (!isStaff && !hasVIPOrBoosterRole) {
-      return message.channel.send("❌ **Access Denied:** Only **Boosters**, **VIP Members** (Economy, Premium Economy, Business, First Class), and **Staff** can use this command.")
-        .then(m => setTimeout(() => m.delete().catch(() => null), 7000));
+    if (!hasAccess) {
+      const msg = await message.reply("❌ You do not have permission to use personal role icons.");
+      setTimeout(() => msg.delete().catch(() => null), 5000);
+      return;
     }
 
-    // --- CHECK 3: Input Validation ---
-    // Syntax: ?roleicon @role <Image URL or Attachment>
-    const targetRole = message.mentions.roles.first() || message.guild.roles.cache.get(args[0]);
-    const attachment = message.attachments.first();
-    const iconUrl = attachment ? attachment.url : args[1];
-
-    if (!targetRole) {
-      return message.channel.send("⚠️ **Usage:** `?roleicon @role <Image URL or Attach Image>`")
-        .then(m => setTimeout(() => m.delete().catch(() => null), 6000));
+    // Check bot hierarchy permissions
+    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+      const msg = await message.reply("❌ I need **Manage Roles** permissions to execute this.");
+      setTimeout(() => msg.delete().catch(() => null), 5000);
+      return;
     }
 
-    if (!iconUrl || (!iconUrl.startsWith("http://") && !iconUrl.startsWith("https://"))) {
-      return message.channel.send("⚠️ Please attach an image file or provide a valid image link.")
-        .then(m => setTimeout(() => m.delete().catch(() => null), 6000));
+    // Check level 2 boost requirement for role icons
+    if (message.guild.premiumTier < 2) {
+      const msg = await message.reply("❌ This server needs **Server Boost Level 2** to set role icons/emojis.");
+      setTimeout(() => msg.delete().catch(() => null), 5000);
+      return;
     }
 
-    // --- EXECUTE: Set the Role Icon ---
+    // Parse input (Emoji, URL, or Attachment)
+    let iconInput = args[0];
+    if (message.attachments.size > 0) {
+      iconInput = message.attachments.first().url;
+    }
+
+    if (!iconInput) {
+      const msg = await message.reply("❌ Please provide a standard emoji, custom emoji, image URL, or image attachment!");
+      setTimeout(() => msg.delete().catch(() => null), 5000);
+      return;
+    }
+
+    // Find existing personal role or create a new one
+    const personalRoleName = `🎨 ${message.author.username}`;
+    let userRole = message.member.roles.cache.find(r => r.name === personalRoleName);
+
     try {
-      await targetRole.setIcon(iconUrl);
-
-      const successEmbed = new EmbedBuilder()
-        .setColor(0x57F287)
-        .setDescription(`✅ <@${message.author.id}>: Successfully updated the icon for <@&${targetRole.id}>!`)
-        .setThumbnail(iconUrl);
-
-      return message.channel.send({ embeds: [successEmbed] });
-
-    } catch (err) {
-      console.error(err);
-
-      if (err.code === 50013) {
-        return message.channel.send("❌ **Permission Error:** Make sure the bot's highest role is positioned **above** the target role in Server Settings!")
-          .then(m => setTimeout(() => m.delete().catch(() => null), 7000));
+      if (!userRole) {
+        // Create new personal role if the user doesn't have one yet
+        userRole = await message.guild.roles.create({
+          name: personalRoleName,
+          reason: `Personal VIP/Staff role for ${message.author.tag}`
+        });
+        await message.member.roles.add(userRole);
       }
 
-      return message.channel.send("❌ Could not set role icon. Note: Server must be **Level 2 Boosted** for role icons, and the file must be under 256KB.")
-        .then(m => setTimeout(() => m.delete().catch(() => null), 8000));
+      // Extract custom emoji ID or Unicode emoji
+      const customEmojiMatch = iconInput.match(/<a?:(\w+):(\d+)>/);
+      
+      if (customEmojiMatch) {
+        // Custom Discord Emoji URL
+        const emojiId = customEmojiMatch[2];
+        const isAnimated = iconInput.startsWith("<a:");
+        const emojiUrl = `https://cdn.discordapp.com/emojis/${emojiId}.${isAnimated ? "gif" : "png"}`;
+        await userRole.setIcon(emojiUrl);
+      } else if (/^https?:\/\/.+/i.test(iconInput)) {
+        // Direct Image Link or Attachment URL
+        await userRole.setIcon(iconInput);
+      } else {
+        // Standard Unicode Emoji (e.g. ⭐, 🔥)
+        await userRole.setUnicodeEmoji(iconInput);
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle("✅ Personal Role Icon Updated")
+        .setColor(userRole.color || 0x22c55e)
+        .setDescription(`Updated personal role **${userRole.name}** icon to: ${iconInput}`)
+        .setFooter({ text: `Requested by ${message.author.tag}` })
+        .setTimestamp();
+
+      const successMsg = await message.channel.send({ embeds: [embed] });
+      setTimeout(() => successMsg.delete().catch(() => null), 8000);
+
+    } catch (err) {
+      console.error("RoleIcon Error:", err);
+      const msg = await message.reply("❌ Failed to update role icon. Make sure my bot's role is placed **above** user roles in Server Settings!");
+      setTimeout(() => msg.delete().catch(() => null), 5000);
     }
   }
 };
