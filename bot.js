@@ -8,7 +8,8 @@ const { handleModLogsCommand } = require("./commands/modlogs");
 const { generateAiReply } = require("./commands/aiReply");
 const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday");
 const { handleVerifyCommand } = require("./commands/verify");
-const renameCommand = require("./commands/rename.js"); // <-- Updated here!
+const renameCommand = require("./commands/rename.js");
+const roleIconCommand = require("./commands/roleicon.js"); // <-- Role Icon Command Integrated
 
 const snipes = {};
 const fs = require("fs");
@@ -398,7 +399,11 @@ async function handleCommands(message, getGuildData) {
     });
   }
 
-if (command === "status") {
+  if (command === "roleicon") {
+    return roleIconCommand.execute(message, args);
+  }
+
+  if (command === "status") {
     const statusCmd = require("./commands/status.js");
     return statusCmd.execute(message, args, client, getGuildData);
   }
@@ -411,7 +416,7 @@ if (command === "status") {
   if (command === "timer") {
     return handleTimerCommand(message, args);
   }
-if (command === "slowmode") {
+  if (command === "slowmode") {
     return handleChannelToolsCommand(message, args, prefix, command, canManageGuild);
   }
   if (command === "purchase" || command === "buy") {
@@ -467,7 +472,8 @@ if (command === "slowmode") {
     saveData();
     return message.reply(`✅ Prefix updated to \`${newPrefix}\``);
   }
-    if (command === "staffguide" || command === "staffguidedit") {
+
+  if (command === "staffguide" || command === "staffguidedit") {
     const staffGuideCmd = require("./commands/staffguide.js");
     return staffGuideCmd.execute(message, args);
   }
@@ -476,7 +482,7 @@ if (command === "slowmode") {
     return await renameCommand.execute(message, args);
   }
 
- // ================= WARN =================
+  // ================= WARN =================
   if (command === "warn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const member = await findTargetMember(message, args);
@@ -749,7 +755,6 @@ if (command === "slowmode") {
 
   // ================= BAN =================
   if (command === "ban") {
-    // Stage 1: Fall back on your custom helper check, but enforce a hard Administrator permission fallback
     const { PermissionFlagsBits } = require("discord.js");
     
     const isCustomMod = typeof canBanUsers === "function" && canBanUsers(message);
@@ -815,7 +820,7 @@ if (command === "slowmode") {
       if (!data.modStats[message.author.id]) {
         data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
       }
-      data.modStats[message.author.id].kicks++; // Counts dynamically as message scrubbing/kick profile
+      data.modStats[message.author.id].kicks++; 
       saveData();
 
       const embed = new EmbedBuilder()
@@ -873,7 +878,7 @@ if (command === "slowmode") {
     return true;
   }
 
-// ================= ROLE COMMAND (NO PING) =================
+  // ================= ROLE COMMAND =================
   if (command === "role") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
@@ -886,7 +891,6 @@ if (command === "slowmode") {
     const roleQuery = args.slice(1).join(" ").trim();
     if (!roleQuery) return message.reply("❌ Please provide a role name or ID.");
 
-    // Find role by text matching or ID directly without looking at mentions to avoid pings
     const role = message.guild.roles.cache.find(r => r.id === roleQuery || r.name.toLowerCase() === roleQuery.toLowerCase());
     if (!role) return message.reply(`❌ Could not find a role matching \`${roleQuery}\`.`);
     if (role.managed) return message.reply("❌ I cannot manage an integration role.");
@@ -911,14 +915,13 @@ if (command === "slowmode") {
     }
   }
 
-  // ================= TEMPORARY ROLE COMMAND (NO PING) =================
+  // ================= TEMPORARY ROLE COMMAND =================
   if (command === "temprole") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
       return message.reply("❌ I need Manage Roles permission.");
     }
 
-    // Expecting: ?temprole @user 7d VIP
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}temprole @user [duration] [role name]\` (e.g., \`${prefix}temprole @user 7d Premium\`)`);
 
@@ -940,12 +943,10 @@ if (command === "slowmode") {
     }
 
     try {
-      // Grant role instantly
       await member.roles.add(role, `Temp role assigned by ${message.author.tag} for ${durationText}`);
 
       const expiryTimestamp = Date.now() + durationMs;
       
-      // Filter out any existing tracking entries for this specific user and role combo to prevent duplication issues
       data.tempRoles = data.tempRoles.filter(r => !(r.userId === member.id && r.roleId === role.id));
       
       data.tempRoles.push({
@@ -1127,13 +1128,17 @@ if (command === "slowmode") {
     return message.reply({ embeds: [embed] });
   }
   
-// // ================= HELP =================
+  // ================= HELP =================
   if (command === "help") {
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
       .setTitle("🔥 Don Don Commands")
       .setDescription(`Prefix: \`${prefix}\``)
       .addFields(
+        {
+          name: "💎 VIP & Booster Commands",
+          value: `\`${prefix}roleicon <@role> <Image URL/Attachment>\` • Set role icons inside tickets (VIPs, Boosters & Staff).`
+        },
         {
           name: "🛡️ Moderation & AutoMod",
           value: 
@@ -1189,13 +1194,11 @@ function startBot() {
     ]
   });
 
-// FIXED: Changed event handler name back to "ready" to repair boot sequence crash
   client.once("ready", () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
-    // Look for and strip expired temporary roles every 60 seconds
+
     setInterval(async () => {
       const now = Date.now();
-      // Loop through all guilds stored in database
       for (const guildId in store) {
         const guildData = store[guildId];
         if (!guildData.tempRoles || !guildData.tempRoles.length) continue;
@@ -1234,7 +1237,6 @@ function startBot() {
     
     try {
       const { loadAfks } = require("./commands/afk.js");
-      // FIXED: Pass the raw complete database 'store' instead of an empty getGuildData call
       loadAfks(store || {}); 
     } catch(err) {
       console.error("Failed to load AFK memory layers on setup:", err);
@@ -1303,13 +1305,13 @@ function startBot() {
         }
       }
 
-      // 4. INCREMENT CHAT ENTRIES (Tracks message counts silently)
+      // 4. INCREMENT CHAT ENTRIES
       if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
         data.channelCounters[message.channel.id]++;
         
         if (data.channelCounters[message.channel.id] >= 50) {
-          data.channelCounters[message.channel.id] = 0; // Reset counter for the channel
-          data.currentPersonaIndex += 1; // Swap to the next persona configuration array index
+          data.channelCounters[message.channel.id] = 0; 
+          data.currentPersonaIndex += 1; 
         }
         
         store[message.guild.id] = data;
@@ -1321,7 +1323,6 @@ function startBot() {
       if (wasCommand) return;
 
       // 6. ================= AI TRIGGER ENGINE RESPONSES =================
-      // Now it ONLY triggers if they explicitly typed an AI command or replied directly to the bot
       if (!isAiCommand && !isReplyToBot) return;
 
       let triggerText = message.content;
@@ -1343,7 +1344,6 @@ function startBot() {
     }
   });
 
-  // BACKGROUND TASK: Save snipes when messages are deleted
   client.on("messageDelete", async (message) => {
     try {
       if (!message.guild || message.author?.bot) return;
@@ -1356,13 +1356,11 @@ function startBot() {
     }
   });
   
-// SECURITY HANDLER & WELCOME LOGGER: Anti-Raid Gatekeeper & Member Milestones
   client.on("guildMemberAdd", async (member) => {
     try {
       const data = getGuildData(member.guild.id);
       if (!data || !data.verification) return;
 
-      // Calculate total server member milestones live
       const memberCount = member.guild.memberCount;
 
       const isKickEnabled = data.verification.autokick;
@@ -1375,7 +1373,6 @@ function startBot() {
         diagnostics = verifyEngine.runScanDiagnostics(member, data.verification);
       }
 
-      // 1. If the account fails security age checks, run secure log action and exit early
       if ((isKickEnabled || isBanEnabled) && diagnostics.riskScore >= 50) {
         const actionType = isBanEnabled ? "BANNED" : "KICKED";
         const actionEmoji = isBanEnabled ? "🔨" : "🛡️";
@@ -1407,7 +1404,6 @@ function startBot() {
         return; 
       }
 
-      // 2. STANDARD SLEEK LOG CARD: Keeps account creation date and join milestone in your logs forever!
       const joinEmbed = new EmbedBuilder()
         .setAuthor({ name: `${member.user.tag} joined the server`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
         .setColor("#22C55E")
@@ -1421,7 +1417,6 @@ function startBot() {
         )
         .setTimestamp();
 
-      // This pushes it straight to your designated logging channel text stream
       await sendModLog(joinEmbed);
 
     } catch (err) {
