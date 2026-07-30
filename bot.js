@@ -30,12 +30,16 @@ const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json
 const DEFAULT_PREFIX = process.env.DEFAULT_PREFIX || "?";
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || "1492845794192134245";
 
-// Configure your 3 Ticket Category IDs here
-const ALLOWED_TICKET_CATEGORIES = [
-  "1481370041420087474", // Replace with Category ID 1
-  "1481370041432932379", // Replace with Category ID 2
-  "1481370041441189959"  // Replace with Category ID 3
+// Dedicated Category & Channel Configuration
+const SUPPORT_TICKET_CATEGORY_ID = "1481939936964775946";
+
+const ALLOWED_RENAME_CATEGORIES = [
+  "1481939936964775946", // Support Ticket Category
+  "1481938314062725281", // Purchases Category
+  "1481937769612968038"  // Claim Category
 ];
+
+const BDAY_COMMAND_CHANNEL_ID = "1481370051264254259"; // #commands channel
 
 const BYPASS_ROLE_IDS = (
   process.env.BYPASS_ROLE_IDS || ""
@@ -406,21 +410,44 @@ async function handleCommands(message, getGuildData) {
     });
   }
 
-  // 🔒 RESTRICTED: ROLEICON (Tickets only)
+  // 🔒 RESTRICTED: ROLEICON (Support Ticket Category ONLY)
   if (command === "roleicon") {
-    const isTicketChannel = ALLOWED_TICKET_CATEGORIES.includes(message.channel.parentId) || message.channel.name.includes("ticket");
-    if (!isTicketChannel) {
-      return message.reply("❌ This command can only be used inside a ticket channel.");
+    if (message.channel.parentId !== SUPPORT_TICKET_CATEGORY_ID) {
+      const reply = await message.reply("❌ This command can only be used inside the Support Ticket category.");
+      deleteAfter(reply, 5000);
+      deleteAfter(message, 5000);
+      return true;
     }
     return roleIconCommand.execute(message, args);
   }
 
-  // 🔒 RESTRICTED: RENAME (Only in the 3 specified ticket categories)
+  // 🔒 RESTRICTED: RENAME (Support Ticket, Purchases, Claim Categories) + AUTO-DELETE (5s)
   if (command === "rename") {
-    if (!ALLOWED_TICKET_CATEGORIES.includes(message.channel.parentId)) {
-      return message.reply("❌ The rename command can only be used inside designated ticket categories.");
+    if (!ALLOWED_RENAME_CATEGORIES.includes(message.channel.parentId)) {
+      const reply = await message.reply("❌ The rename command can only be used inside Support, Purchases, or Claim ticket categories.");
+      deleteAfter(reply, 5000);
+      deleteAfter(message, 5000);
+      return true;
     }
-    return await renameCommand.execute(message, args);
+
+    // Execute command and auto-delete user + bot message after 5 seconds
+    const botReply = await renameCommand.execute(message, args);
+    deleteAfter(message, 5000);
+    if (botReply && typeof botReply.delete === "function") {
+      deleteAfter(botReply, 5000);
+    }
+    return true;
+  }
+
+  // 🔒 RESTRICTED: BDAY / BIRTHDAY (#commands channel for non-staff)
+  if (command === "bday" || command === "birthday") {
+    if (message.channel.id !== BDAY_COMMAND_CHANNEL_ID && !canManageGuild(message)) {
+      const reply = await message.reply(`❌ You can only use birthday commands inside <#${BDAY_COMMAND_CHANNEL_ID}>!`);
+      deleteAfter(reply, 5000);
+      deleteAfter(message, 5000);
+      return true;
+    }
+    return handleBirthdayCommand(message, args, prefix, getGuildData, saveData);
   }
 
   if (command === "status") {
@@ -453,10 +480,6 @@ async function handleCommands(message, getGuildData) {
   
   if (command === "modlogs") {
     return handleModLogsCommand(message, args, prefix, getGuildData);
-  }
-
-  if (command === "bday" || command === "birthday") {
-    return handleBirthdayCommand(message, args, prefix, getGuildData, saveData);
   }
 
   if (command === "verify") {
@@ -1133,7 +1156,7 @@ async function handleCommands(message, getGuildData) {
       .addFields(
         {
           name: "💎 VIP & Ticket Commands",
-          value: `\`${prefix}roleicon <@role> <Image URL/Attachment>\` • Set role icons (Tickets only).\n\`${prefix}rename <new-name>\` • Rename ticket (Allowed categories only).`
+          value: `\`${prefix}roleicon <@role> <Image URL/Attachment>\` • Set role icons (Support category only).\n\`${prefix}rename <new-name>\` • Rename ticket (Allowed categories only, auto-deletes in 5s).`
         },
         {
           name: "🛡️ Moderation & AutoMod",
@@ -1161,7 +1184,7 @@ async function handleCommands(message, getGuildData) {
           value:
             `\`${prefix}translate [lang] [text]\` • Auto-detects text to target language.\n` +
             `▫️ Languages: \`en\`, \`lt\`, \`es\`, \`fr\`, \`de\`, \`pl\`, \`ru\`, \`tr\`, \`ja\`\n` +
-            `▫️ Utilities: \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\` \`${prefix}status\` \`${prefix}joininfo\``
+            `▫️ Utilities: \`${prefix}afk\` \`${prefix}timer\` \`${prefix}ping\` \`${prefix}birthday\` \`${prefix}bday\` (\`#commands\` only) \`${prefix}status\` \`${prefix}joininfo\``
         }
       )
       .setTimestamp();
