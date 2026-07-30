@@ -1255,7 +1255,7 @@ function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+  // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
     try {
       if (message.author.bot) return;
