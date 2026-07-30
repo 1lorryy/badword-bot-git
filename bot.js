@@ -362,6 +362,9 @@ async function handleCommands(message, getGuildData) {
   const command = (args.shift() || "").toLowerCase();
   if (!command) return true;
 
+  // 🧹 Auto-delete the user's command message automatically
+  message.delete().catch(() => null);
+
   // ================= CUSTOM COMMANDS =================
   if (data.customCommands?.[command]) {
     const custom = data.customCommands[command];
