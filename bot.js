@@ -9,7 +9,7 @@ const { generateAiReply } = require("./commands/aiReply");
 const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday");
 const { handleVerifyCommand } = require("./commands/verify");
 const renameCommand = require("./commands/rename.js");
-const roleIconCommand = require("./commands/roleicon.js"); // <-- Role Icon Command Integrated
+const roleIconCommand = require("./commands/roleicon.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -29,6 +29,13 @@ const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json
 
 const DEFAULT_PREFIX = process.env.DEFAULT_PREFIX || "?";
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || "1492845794192134245";
+
+// Configure your 3 Ticket Category IDs here
+const ALLOWED_TICKET_CATEGORIES = [
+  "1481370041420087474", // Replace with Category ID 1
+  "1481370041432932379", // Replace with Category ID 2
+  "1481370041441189959"  // Replace with Category ID 3
+];
 
 const BYPASS_ROLE_IDS = (
   process.env.BYPASS_ROLE_IDS || ""
@@ -362,9 +369,6 @@ async function handleCommands(message, getGuildData) {
   const command = (args.shift() || "").toLowerCase();
   if (!command) return true;
 
-  // 🧹 Auto-delete the user's command message automatically
-  message.delete().catch(() => null);
-
   // ================= CUSTOM COMMANDS =================
   if (data.customCommands?.[command]) {
     const custom = data.customCommands[command];
@@ -402,8 +406,21 @@ async function handleCommands(message, getGuildData) {
     });
   }
 
+  // 🔒 RESTRICTED: ROLEICON (Tickets only)
   if (command === "roleicon") {
+    const isTicketChannel = ALLOWED_TICKET_CATEGORIES.includes(message.channel.parentId) || message.channel.name.includes("ticket");
+    if (!isTicketChannel) {
+      return message.reply("❌ This command can only be used inside a ticket channel.");
+    }
     return roleIconCommand.execute(message, args);
+  }
+
+  // 🔒 RESTRICTED: RENAME (Only in the 3 specified ticket categories)
+  if (command === "rename") {
+    if (!ALLOWED_TICKET_CATEGORIES.includes(message.channel.parentId)) {
+      return message.reply("❌ The rename command can only be used inside designated ticket categories.");
+    }
+    return await renameCommand.execute(message, args);
   }
 
   if (command === "status") {
@@ -479,10 +496,6 @@ async function handleCommands(message, getGuildData) {
   if (command === "staffguide" || command === "staffguidedit") {
     const staffGuideCmd = require("./commands/staffguide.js");
     return staffGuideCmd.execute(message, args);
-  }
-
-  if (command === "rename") {
-    return await renameCommand.execute(message, args);
   }
 
   // ================= WARN =================
@@ -586,7 +599,6 @@ async function handleCommands(message, getGuildData) {
         if (targetPage >= 1 && targetPage <= totalPages) {
           currentPage = targetPage - 1;
           await embedMessage.edit({ embeds: [generateWarningEmbed(currentPage)], components: [generateWarningButtons(currentPage)] }).catch(() => null);
-          msg.delete().catch(() => null);
         }
       });
 
@@ -875,10 +887,7 @@ async function handleCommands(message, getGuildData) {
 
     const deleted = await message.channel.bulkDelete(amount, true).catch(() => null);
     if (!deleted) return message.reply("Could not purge messages.");
-    const msg = await message.channel.send(`✅ Purged ${deleted.size} messages.`);
-    await deleteAfter(msg);
-    await deleteAfter(message);
-    return true;
+    return message.channel.send(`✅ Purged ${deleted.size} messages.`);
   }
 
   // ================= ROLE COMMAND =================
@@ -972,15 +981,12 @@ async function handleCommands(message, getGuildData) {
     const word = args.join(" ").trim().toLowerCase();
     if (!word) return message.reply(`Usage: \`${prefix}bl word\``);
     if (CORE_BLACKLIST.includes(word) || data.words.includes(word)) {
-      const reply = await message.reply(`⚠️ \`${word}\` is already blacklisted.`);
-      await deleteAfter(reply);
-      await deleteAfter(message);
-      return true;
+      return message.reply(`⚠️ \`${word}\` is already blacklisted.`);
     }
 
     data.words.push(word);
     saveData();
-    const reply = await message.reply({
+    return message.reply({
       embeds: [
         new EmbedBuilder()
           .setTitle("🚫 Word Blacklisted")
@@ -989,10 +995,7 @@ async function handleCommands(message, getGuildData) {
           .setFooter({ text: "AutoMod updated" })
           .setTimestamp()
       ]
-    }).catch(() => null);
-    await deleteAfter(reply);
-    await deleteAfter(message);
-    return true;
+    });
   }
 
   // ================= BLACKLIST REMOVE =================
@@ -1001,10 +1004,7 @@ async function handleCommands(message, getGuildData) {
     const word = args.join(" ").trim().toLowerCase();
     if (!word) return message.reply(`Usage: \`${prefix}unbl word\``);
     if (CORE_BLACKLIST.includes(word)) {
-      const reply = await message.reply(`❌ \`${word}\` is protected and cannot be removed.`);
-      await deleteAfter(reply);
-      await deleteAfter(message);
-      return true;
+      return message.reply(`❌ \`${word}\` is protected and cannot be removed.`);
     }
 
     const before = data.words.length;
@@ -1012,13 +1012,10 @@ async function handleCommands(message, getGuildData) {
     saveData();
 
     if (before === data.words.length) {
-      const reply = await message.reply(`⚠️ \`${word}\` was not found in blacklist.`);
-      await deleteAfter(reply);
-      await deleteAfter(message);
-      return true;
+      return message.reply(`⚠️ \`${word}\` was not found in blacklist.`);
     }
 
-    const reply = await message.reply({
+    return message.reply({
       embeds: [
         new EmbedBuilder()
           .setTitle("✅ Word Removed")
@@ -1027,11 +1024,7 @@ async function handleCommands(message, getGuildData) {
           .setFooter({ text: "AutoMod updated" })
           .setTimestamp()
       ]
-    }).catch(() => null);
-
-    await deleteAfter(reply);
-    await deleteAfter(message);
-    return true;
+    });
   }
 
   // ================= BLACKLIST WORDS =================
@@ -1139,8 +1132,8 @@ async function handleCommands(message, getGuildData) {
       .setDescription(`Prefix: \`${prefix}\``)
       .addFields(
         {
-          name: "💎 VIP & Booster Commands",
-          value: `\`${prefix}roleicon <@role> <Image URL/Attachment>\` • Set role icons inside tickets (VIPs, Boosters & Staff).`
+          name: "💎 VIP & Ticket Commands",
+          value: `\`${prefix}roleicon <@role> <Image URL/Attachment>\` • Set role icons (Tickets only).\n\`${prefix}rename <new-name>\` • Rename ticket (Allowed categories only).`
         },
         {
           name: "🛡️ Moderation & AutoMod",
@@ -1159,7 +1152,7 @@ async function handleCommands(message, getGuildData) {
         {
           name: "⚙️ Server, Auction & Channels",
           value:
-            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\` \`${prefix}rename\`\n` +
+            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\`\n` +
             `\`${prefix}purchase\` (or \`${prefix}buy\`) • \`${prefix}purchedit\`\n` +
             `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
         },
