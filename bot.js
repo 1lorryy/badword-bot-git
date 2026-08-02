@@ -1176,7 +1176,7 @@ if (command === "roleicon") {
         {
           name: "⚙️ Server, Auction & Channels",
           value:
-            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\` \`${prefix}rename\`\n` +
+            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\` \`${prefix}rolecreate\` \`${prefix}rename\`\n` +
             `\`${prefix}purchase\` (or \`${prefix}buy\`) • \`${prefix}purchedit\`\n` +
             `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
         },
@@ -1202,7 +1202,6 @@ if (command === "roleicon") {
 
   return false;
 }
-
 // ================= BOT START =================
 function startBot() {
   client = new Client({
