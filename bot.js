@@ -10,6 +10,7 @@ const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday")
 const { handleVerifyCommand } = require("./commands/verify");
 const renameCommand = require("./commands/rename.js");
 const roleIconCommand = require("./commands/roleicon.js");
+const roleCreateCommand = require("./commands/rolecreate.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -410,10 +411,14 @@ async function handleCommands(message, getGuildData) {
     });
   }
 
-// 🌐 UNRESTRICTED: ROLEICON (Usable everywhere)
-if (command === "roleicon") {
-  return roleIconCommand.execute(message, args);
-}
+// 🌐 UNRESTRICTED: ROLEICON & ROLECREATE
+  if (command === "roleicon") {
+    return roleIconCommand.execute(message, args);
+  }
+
+  if (command === "rolecreate") {
+    return roleCreateCommand.execute(message, args);
+  }
 
   // 🔒 RESTRICTED: RENAME (Support Ticket, Purchases, Claim Categories) + AUTO-DELETE (5s)
   if (command === "rename") {
