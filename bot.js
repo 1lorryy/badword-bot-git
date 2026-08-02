@@ -11,6 +11,7 @@ const { handleVerifyCommand } = require("./commands/verify");
 const renameCommand = require("./commands/rename.js");
 const roleIconCommand = require("./commands/roleicon.js");
 const roleCreateCommand = require("./commands/rolecreate.js");
+const customColorCommand = require("./commands/customcolor.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -515,9 +516,14 @@ async function handleCommands(message, getGuildData) {
     return message.reply(`✅ Prefix updated to \`${newPrefix}\``);
   }
 
-  if (command === "staffguide" || command === "staffguidedit") {
+if (command === "staffguide" || command === "staffguidedit") {
     const staffGuideCmd = require("./commands/staffguide.js");
     return staffGuideCmd.execute(message, args);
+  }
+  
+  // 🎨 CUSTOM COLOR STUDIO
+  if (command === "customcolor" || command === "color") {
+    return customColorCommand.execute(message);
   }
 
   // ================= WARN =================
