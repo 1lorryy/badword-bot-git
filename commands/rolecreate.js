@@ -1,62 +1,60 @@
-const { EmbedBuilder, PermissionsBitField } = require("discord.js");
+const { PermissionsBitField, EmbedBuilder } = require("discord.js");
 
 module.exports = {
   name: "rolecreate",
-  description: "Create a new role in the server",
   async execute(message, args) {
-    // 1. Permission Check
-    if (
-      !message.member.permissions.has(PermissionsBitField.Flags.ManageRoles) &&
-      !message.member.permissions.has(PermissionsBitField.Flags.Administrator)
-    ) {
-      return message.reply("❌ You need **Manage Roles** permission to use `?rolecreate`!");
+    // Permission check
+    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+      return message.reply("❌ You need **Manage Roles** permission to use this command.");
     }
 
-    // 2. Bot Permission Check
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
       return message.reply("❌ I need **Manage Roles** permission to create roles.");
     }
 
-    if (!args[0]) {
-      return message.reply("Usage: `?rolecreate [role_name] [optional_hex_color]`\nExample: `?rolecreate VIP #ff007f`");
+    // Parse command arguments: ?rolecreate <name> [hexColor]
+    if (!args.length) {
+      return message.reply("Usage: `?rolecreate <Role Name> [Hex Color]`\n*Example:* `?rolecreate VIP #ff0000` or `?rolecreate Moderator`");
     }
 
-    // 3. Extract Role Name and Color
-    let color = "#99AAB5"; // Default Discord role color
-    let roleName = args.join(" ");
+    let name = args.join(" ");
+    let color = "#99AAB5"; // Default Discord role gray color
 
-    // Check if the last argument is a valid hex color (e.g. #ff0000 or ff0000)
-    const lastArg = args[args.length - 1];
-    const hexColorRegex = /^#?([0-9A-F]{6})$/i;
+    // Check if the last argument is a valid hex color (e.g., #ff0000 or ff0000)
+    const possibleHex = args[args.length - 1];
+    const hexRegex = /^#?([0-9A-F]{6})$/i;
 
-    if (args.length > 1 && hexColorRegex.test(lastArg)) {
-      color = lastArg.startsWith("#") ? lastArg : `#${lastArg}`;
-      roleName = args.slice(0, -1).join(" "); // Remove color hex from role name
+    if (hexRegex.test(possibleHex)) {
+      color = possibleHex.startsWith("#") ? possibleHex : `#${possibleHex}`;
+      name = args.slice(0, -1).join(" "); // Remove hex code from name
     }
 
-    // 4. Create Role
+    if (!name) {
+      return message.reply("❌ Please provide a valid role name.");
+    }
+
     try {
-      const createdRole = await message.guild.roles.create({
-        name: roleName,
+      // Create the role
+      const newRole = await message.guild.roles.create({
+        name: name,
         color: color,
-        reason: `Created via ?rolecreate command by ${message.author.tag}`
+        reason: `Role created by ${message.author.tag} via command`
       });
 
       const embed = new EmbedBuilder()
         .setTitle("✅ Role Created")
-        .setColor(createdRole.color || 0x5865f2)
-        .setDescription(`Successfully created role **${createdRole.name}**!`)
+        .setColor(newRole.color || 0x22c55e)
         .addFields(
-          { name: "Role Mention", value: `<@&${createdRole.id}>`, inline: true },
-          { name: "Role ID", value: `\`${createdRole.id}\``, inline: true },
-          { name: "Color", value: `\`${color}\``, inline: true }
+          { name: "Role Name", value: `<@&${newRole.id}> (\`${newRole.name}\`)`, inline: true },
+          { name: "Role ID", value: `\`${newRole.id}\``, inline: true },
+          { name: "Color", value: `\`${color.toUpperCase()}\``, inline: true }
         )
         .setTimestamp();
 
       return message.reply({ embeds: [embed] });
     } catch (err) {
-      console.error("Rolecreate Error:", err);
-      return message.reply("❌ Failed to create role. Please check my permissions and role hierarchy.");
+      console.error("Role Create Error:", err);
+      return message.reply("❌ Failed to create role. Please check my role hierarchy and permissions.");
     }
   }
 };
