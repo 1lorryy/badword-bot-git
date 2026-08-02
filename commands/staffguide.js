@@ -45,6 +45,7 @@ module.exports = {
         "• `?temprole @user [time] [role]` — Give a role temporarily (e.g. `7d`)\n" +
         "• `?rolecreate [role_name] [color_hex]` — Create a new server role\n" +
         "• `?roleicon @role <image/URL/emoji>` — Set or update a role's icon\n" +
+        "• `?customcolor @role #HEX` — Change the color of a specific role\n" +
         "• `?setnick @user [new_nickname]` — Change a user's server nickname\n" +
         "• `?status` — Check bot system status & performance\n\n" +
         "🚫 **Blacklist & Staff Guide**\n" +
