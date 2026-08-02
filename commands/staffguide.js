@@ -15,7 +15,7 @@ module.exports = {
         .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
     }
 
-    // Embed matching your Moderation & Staff Commands Usage Guide image
+    // Embed matching your Moderation & Staff Commands Usage Guide setup
     const guideEmbed = new EmbedBuilder()
       .setColor(0x2B2D31)
       .setTitle("🛡️ Moderation & Staff Commands Usage Guide")
