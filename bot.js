@@ -412,7 +412,7 @@ async function handleCommands(message, getGuildData) {
     });
   }
 
-// 🌐 UNRESTRICTED: ROLEICON & ROLECREATE
+  // 🌐 UNRESTRICTED: ROLEICON & ROLECREATE
   if (command === "roleicon") {
     return roleIconCommand.execute(message, args);
   }
@@ -430,7 +430,6 @@ async function handleCommands(message, getGuildData) {
       return true;
     }
 
-    // Execute command and auto-delete user + bot message after 5 seconds
     const botReply = await renameCommand.execute(message, args);
     deleteAfter(message, 5000);
     if (botReply && typeof botReply.delete === "function") {
@@ -516,7 +515,7 @@ async function handleCommands(message, getGuildData) {
     return message.reply(`✅ Prefix updated to \`${newPrefix}\``);
   }
 
-if (command === "staffguide" || command === "staffguidedit") {
+  if (command === "staffguide" || command === "staffguidedit") {
     const staffGuideCmd = require("./commands/staffguide.js");
     return staffGuideCmd.execute(message, args);
   }
@@ -900,8 +899,8 @@ if (command === "staffguide" || command === "staffguidedit") {
       return message.reply(`❌ Failed to unban user ID.\n\`${err.message}\``);
     }
   }
-  
-// ================= PURGE =================
+
+  // ================= PURGE =================
   if (command === "purge") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
@@ -913,17 +912,14 @@ if (command === "staffguide" || command === "staffguidedit") {
       return message.reply(`Usage: \`${prefix}purge [1-100]\``);
     }
 
-    // 1. Delete the user's ?purge command message immediately so it doesn't count in the purge total
     await message.delete().catch(() => null);
 
-    // 2. Fetch and bulk delete the target amount of older messages
     const deleted = await message.channel.bulkDelete(amount, true).catch(() => null);
     if (!deleted) {
       const errReply = await message.channel.send("❌ Could not purge messages (they may be older than 14 days).");
       return deleteAfter(errReply, 5000);
     }
 
-    // 3. Send success message and auto-delete it after 5 seconds
     const successReply = await message.channel.send(`✅ Purged **${deleted.size}** messages.`);
     deleteAfter(successReply, 5000);
     return true;
@@ -1141,7 +1137,7 @@ if (command === "staffguide" || command === "staffguidedit") {
 
     return message.reply({ embeds: [embed] });
   }
-  
+
   // ================= SNIPES =================
   if (command === "snipes") {
     const snipes = data.snipes?.[message.channel.id];
@@ -1162,8 +1158,8 @@ if (command === "staffguide" || command === "staffguidedit") {
 
     return message.reply({ embeds: [embed] });
   }
-  
-// ================= HELP =================
+
+  // ================= HELP =================
   if (command === "help") {
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
@@ -1194,7 +1190,7 @@ if (command === "staffguide" || command === "staffguidedit") {
         {
           name: "🌍 Utility & Tools",
           value:
-            `\`${prefix}roleicon\` • \`${prefix}translate\` • \`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • \`${prefix}status\` • \`${prefix}joininfo\`\n` +
+            `\`${prefix}customcolor\` / \`${prefix}color\` • \`${prefix}roleicon\` • \`${prefix}translate\` • \`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • \`${prefix}status\` • \`${prefix}joininfo\`\n` +
             `\`${prefix}birthday\` / \`${prefix}bday\` (\`#commands\` only)\n` +
             `▫️ Translation targets: \`en\`, \`lt\`, \`es\`, \`fr\`, \`de\`, \`pl\`, \`ru\`, \`tr\`, \`ja\``
         }
@@ -1213,6 +1209,7 @@ if (command === "staffguide" || command === "staffguidedit") {
 
   return false;
 }
+
 // ================= BOT START =================
 function startBot() {
   client = new Client({
@@ -1280,6 +1277,19 @@ function startBot() {
     }, 60 * 60 * 1000);
 
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
+  });
+
+  // ================= INTERACTION LISTENER =================
+  client.on("interactionCreate", async (interaction) => {
+    if (interaction.isButton() || interaction.isModalSubmit()) {
+      if (
+        interaction.customId === "open_hex_modal" ||
+        interaction.customId === "hex_color_modal" ||
+        interaction.customId === "clear_hex_color"
+      ) {
+        return customColorCommand.handleInteraction(interaction);
+      }
+    }
   });
 
   // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
