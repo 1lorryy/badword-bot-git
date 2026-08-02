@@ -2,7 +2,7 @@ const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
   name: "staffguide",
-  description: "Displays or edits the main server rules and punishment system",
+  description: "Displays or edits the moderation & staff commands usage guide",
   async execute(message, args) {
     const isEdit = message.content.toLowerCase().startsWith("?staffguidedit");
 
@@ -15,43 +15,50 @@ module.exports = {
         .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
     }
 
-    // Embed 1: Main Server Rules + Staff Disclaimer
-    const rulesEmbed = new EmbedBuilder()
-      .setColor(0xE74C3C)
-      .setTitle("📜 SERVER RULES")
+    // Embed matching your Moderation & Staff Commands Usage Guide image
+    const guideEmbed = new EmbedBuilder()
+      .setColor(0x2B2D31)
+      .setTitle("🛡️ Moderation & Staff Commands Usage Guide")
       .setDescription(
-        "**1.** Respect everyone. No hate speech, bullying, or discrimination of any kind. Keep it chill.\n\n" +
-        "**2.** No spamming or flooding chat with messages, images, or emojis. Give people space to breathe.\n\n" +
-        "**3.** No NSFW content or discussions. Keep it safe for all ages.\n\n" +
-        "**4.** Follow Discord’s Terms of Service everywhere here. No illegal actions or sharing pirated stuff.\n\n" +
-        "**5.** No advertising or self-promotion without permission from staff.\n\n" +
-        "**6.** Use appropriate channels for topics — no off-topic spam.\n\n" +
-        "**7.** Do not ping staff unnecessarily or abuse the ticket system.\n\n" +
-        "**8.** English only in main chats to keep things clear.\n\n" +
-        "**9.** No sharing others’ personal info or doxxing. Privacy matters.\n\n" +
-        "**10.** Listen to mods and respect their decisions. Arguing isn’t allowed in public chat.\n\n" +
-        "⚠️ **Don't beg or u will be warned!**\n\n" +
-        "🔗 https://discord.com/terms\n\n" +
-        "⚖️ **Staff Authority & Disclaimer**\n" +
-        "Staff & Management hold full ownership and ultimate discretion over all rule interpretations, warnings, mutes, kicks, bans, and server disputes. All staff decisions are final."
-      );
-
-    // Embed 2: Punishment System
-    const punishmentsEmbed = new EmbedBuilder()
-      .setColor(0xE74C3C)
-      .setDescription(
-        "**verbal warn**\n" +
-        "**1st warn** safe\n" +
-        "**2nd warn** + 5 minutes mute\n" +
-        "**3rd warn** + 30 minutes mute\n" +
-        "**4th warn** + 12 hours mute\n" +
-        "**5th warn** + kick\n" +
-        "**6th warn** + Ban"
+        "How to use all moderation, management, and AutoMod staff commands.\n" +
+        "───\n\n" +
+        "⚠️ **Warnings**\n" +
+        "• `?warn @user [reason]` — Issue an official warning\n" +
+        "• `?warnings @user` — Check a user's warn history & IDs\n" +
+        "• `?unwarn @user [warn_id]` — Remove a specific warning\n\n" +
+        "🔇 **Mutes & Timeouts**\n" +
+        "• `?mute @user [time] [reason]` — Timeout user (e.g. `5m`, `30m`, `12h`)\n" +
+        "• `?unmute @user` — Remove an active timeout\n\n" +
+        "🔨 **Kicks & Bans**\n" +
+        "• `?kick @user [reason]` — Kick user from server\n" +
+        "• `?ban @user [reason]` — Ban user & purge recent messages\n" +
+        "• `?unban [user_id]` — Unban user using their Discord ID\n\n" +
+        "✏️ **Chat & Channel Controls**\n" +
+        "• `?purge [amount]` — Delete multiple messages at once\n" +
+        "• `?rename <new-name>` — Rename the current channel\n" +
+        "• `?slowmode [#channel] [time]` — Set channel slowmode (e.g. `?slowmode 5s` or `?slowmode #chat 10s`)\n" +
+        "• `?slowmode [off / 0]` — Turn off channel slowmode\n" +
+        "• `?modstats [@staff]` — Check moderation action stats\n" +
+        "• `?modlogs [@user]` — View recent moderation log entries\n\n" +
+        "👤 **Roles & Management**\n" +
+        "• `?role @user [role]` — Add or remove a role from a user\n" +
+        "• `?temprole @user [time] [role]` — Give a role temporarily (e.g. `7d`)\n" +
+        "• `?rolecreate [role_name] [color_hex]` — Create a new server role\n" +
+        "• `?roleicon @role <image/URL/emoji>` — Set or update a role's icon\n" +
+        "• `?setnick @user [new_nickname]` — Change a user's server nickname\n" +
+        "• `?status` — Check bot system status & performance\n\n" +
+        "🚫 **Blacklist & Staff Guide**\n" +
+        "• `?bl [word]` — Add a word to auto-blacklist\n" +
+        "• `?unbl [word]` — Remove a word from blacklist\n" +
+        "• `?words` — View all blacklisted words\n" +
+        "• `?staffguide` — Show this command usage guide\n" +
+        "• `?staffguidedit [message_id]` — Edit staff guide settings"
       )
-      .setFooter({ text: "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊’𝖘 𝖘𝖊𝖗𝖛𝖊𝖗 𝖗𝖚𝖑𝖊𝖘" });
+      .setFooter({ text: "Don Don Staff Operations • Command Usage Guide" })
+      .setTimestamp();
 
     // ==========================================
-    // 1. EDIT MODE: ?staffguidedit <Message ID or Link>
+    // EDIT MODE: ?staffguidedit <Message ID or Link>
     // ==========================================
     if (isEdit) {
       if (!args || args.length < 1) {
@@ -59,7 +66,6 @@ module.exports = {
           .then(m => setTimeout(() => m.delete().catch(() => null), 6000));
       }
 
-      // Extract Target Message ID
       const targetInput = args[0];
       const messageIdMatch = targetInput.match(/\d+$/);
       const targetMessageId = messageIdMatch ? messageIdMatch[0] : null;
@@ -77,9 +83,9 @@ module.exports = {
             .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
         }
 
-        await targetMsg.edit({ embeds: [rulesEmbed, punishmentsEmbed] });
+        await targetMsg.edit({ embeds: [guideEmbed] });
 
-        return message.channel.send("✅ **Server rules updated successfully!**")
+        return message.channel.send("✅ **Staff guide updated successfully!**")
           .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
 
       } catch (err) {
@@ -90,8 +96,8 @@ module.exports = {
     }
 
     // ==========================================
-    // 2. SEND FRESH RULES: ?staffguide
+    // SEND FRESH STAFF GUIDE: ?staffguide
     // ==========================================
-    return message.channel.send({ embeds: [rulesEmbed, punishmentsEmbed] });
+    return message.channel.send({ embeds: [guideEmbed] });
   }
 };
