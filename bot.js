@@ -627,9 +627,18 @@ async function handleCommands(message, getGuildData) {
 
       textCollector.on("collect", async (msg) => {
         const targetPage = parseInt(msg.content.trim(), 10);
+
+        // Delete the user's typed page number message to keep chat clean
+        msg.delete().catch(() => null);
+
         if (targetPage >= 1 && targetPage <= totalPages) {
           currentPage = targetPage - 1;
-          await embedMessage.edit({ embeds: [generateWarningEmbed(currentPage)], components: [generateWarningButtons(currentPage)] }).catch(() => null);
+          await embedMessage
+            .edit({
+              embeds: [generateWarningEmbed(currentPage)],
+              components: [generateWarningButtons(currentPage)]
+            })
+            .catch(() => null);
         }
       });
 
