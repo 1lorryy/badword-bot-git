@@ -181,7 +181,10 @@ async function handleModerationCommand(message, args, command, prefix, canManage
 
     const formattedCases = cases
       .slice(-5)
-      .map((c) => `• **Case #${c.id}** [${c.type.toUpperCase()}]\n└ **Reason:** ${c.reason}\n└ **Mod:** ${c.moderatorTag}`)
+      .map((c) => {
+        const unixTime = Math.floor(new Date(c.createdAt).getTime() / 1000);
+        return `• **Case #${c.id}** [${c.type.toUpperCase()}] • <t:${unixTime}:R>\n└ **Reason:** ${c.reason}\n└ **Mod:** ${c.moderatorTag}`;
+      })
       .join("\n\n");
 
     const casesEmbed = new EmbedBuilder()
@@ -365,7 +368,8 @@ async function handleModerationCommand(message, args, command, prefix, canManage
 
   // ================= UNBAN =================
   if (command === "unban") {
-    if (!canManageGuild(message)) {
+    if (!canManageGuild(message++) { // keeping original structure
+      if (!canManageGuild(message)) {
       await sendTempReply(message, "❌ You do not have permission.");
       return true;
     }
