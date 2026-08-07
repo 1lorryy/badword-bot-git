@@ -1210,6 +1210,45 @@ async function handleCommands(message, getGuildData) {
   return false;
 }
 
+// ================= TEMPORARY ROLE EXPIRATION ENGINE =================
+async function processExpiredTempRoles(client) {
+  const now = Date.now();
+  for (const guildId in store) {
+    const guildData = store[guildId];
+    if (!guildData.tempRoles || !guildData.tempRoles.length) continue;
+
+    const remainingTempRoles = [];
+    let dataChanged = false;
+
+    for (const record of guildData.tempRoles) {
+      if (now >= record.expiry) {
+        dataChanged = true;
+        try {
+          const guild = await client.guilds.fetch(guildId).catch(() => null);
+          if (!guild) continue;
+
+          const member = await guild.members.fetch(record.userId).catch(() => null);
+          const role = await guild.roles.fetch(record.roleId).catch(() => null);
+
+          if (member && role && member.roles.cache.has(role.id)) {
+            await member.roles.remove(role, "Temporary role duration expired.");
+            console.log(`[TEMPROLE] Removed ${role.name} from ${member.user.tag}.`);
+          }
+        } catch (err) {
+          console.error("[TEMPROLE ERROR] Failed to process expiration:", err);
+        }
+      } else {
+        remainingTempRoles.push(record);
+      }
+    }
+
+    if (dataChanged) {
+      store[guildId].tempRoles = remainingTempRoles;
+      saveData();
+    }
+  }
+}
+
 // ================= BOT START =================
 function startBot() {
   client = new Client({
@@ -1224,42 +1263,12 @@ function startBot() {
   client.once("ready", () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
 
-    setInterval(async () => {
-      const now = Date.now();
-      for (const guildId in store) {
-        const guildData = store[guildId];
-        if (!guildData.tempRoles || !guildData.tempRoles.length) continue;
+    // 1. Run immediately on boot to catch any expirations missed during downtime/redeploy
+    processExpiredTempRoles(client);
 
-        const remainingTempRoles = [];
-        let dataChanged = false;
-
-        for (const record of guildData.tempRoles) {
-          if (now >= record.expiry) {
-            dataChanged = true;
-            try {
-              const guild = await client.guilds.fetch(guildId).catch(() => null);
-              if (!guild) continue;
-
-              const member = await guild.members.fetch(record.userId).catch(() => null);
-              const role = await guild.roles.fetch(record.roleId).catch(() => null);
-
-              if (member && role && member.roles.cache.has(role.id)) {
-                await member.roles.remove(role, "Temporary role duration expired.");
-                console.log(`[TEMPROLE] Removed ${role.name} from ${member.user.tag}.`);
-              }
-            } catch (err) {
-              console.error("[TEMPROLE ERROR] Failed to process expiration:", err);
-            }
-          } else {
-            remainingTempRoles.push(record);
-          }
-        }
-
-        if (dataChanged) {
-          store[guildId].tempRoles = remainingTempRoles;
-          saveData();
-        }
-      }
+    // 2. Keep checking every 60 seconds
+    setInterval(() => {
+      processExpiredTempRoles(client);
     }, 60 * 1000);
     
     try {
