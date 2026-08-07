@@ -27,7 +27,8 @@ async function handleAfkCommand(message, args, prefix, getGuildData, saveData) {
     reason,
     since: Date.now(),
     pings: [],
-    oldNickname
+    oldNickname,
+    originGuildId: message.guild.id // Persist origin server so pings stay synced on redeploys
   };
 
   const data = getGuildData(message.guild.id);
@@ -80,10 +81,18 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
     globalAfkUsers.delete(message.author.id);
     serverAfkUsers.delete(serverKey);
 
-    const data = getGuildData(message.guild.id);
-    if (data.afk) {
-      if (data.afk.global) delete data.afk.global[message.author.id];
-      if (data.afk.servers) delete data.afk.servers[serverKey];
+    // Clean up from original guild storage where AFK was initiated
+    if (authorAfk.originGuildId) {
+      const originData = getGuildData(authorAfk.originGuildId);
+      if (originData?.afk?.global) {
+        delete originData.afk.global[message.author.id];
+      }
+    }
+
+    const currentData = getGuildData(message.guild.id);
+    if (currentData.afk) {
+      if (currentData.afk.global) delete currentData.afk.global[message.author.id];
+      if (currentData.afk.servers) delete currentData.afk.servers[serverKey];
     }
     saveData();
 
@@ -136,6 +145,15 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
     });
 
     if (afkInfo.pings.length > 20) afkInfo.pings.shift();
+
+    // Write pings directly into the origin server's stored JSON entry
+    if (afkInfo.originGuildId) {
+      const originData = getGuildData(afkInfo.originGuildId);
+      if (!originData.afk) originData.afk = { global: {}, servers: {} };
+      if (globalAfkUsers.has(user.id)) {
+        originData.afk.global[user.id] = afkInfo;
+      }
+    }
 
     const data = getGuildData(message.guild.id);
     if (!data.afk) data.afk = { global: {}, servers: {} };
