@@ -573,7 +573,7 @@ async function handleCommands(message, getGuildData) {
     return message.reply(`✅ Warned ${member.user.tag}\nWarn ID: \`${warnId}\``);
   }
 
-  // ================= WARNINGS =================
+ // ================= WARNINGS =================
   if (command === "warnings") {
     const member = await findTargetMember(message, args) || message.member;
     const warnings = data.warnings[member.id] || [];
@@ -589,7 +589,11 @@ async function handleCommands(message, getGuildData) {
       const current = warnings.slice(start, start + perPage);
 
       const description = current
-        .map((w, i) => `**#${start + i + 1}** ID: \`${w.id}\` • By: <@${w.mod}>\n└ **Reason:** ${w.reason}`)
+        .map((w, i) => {
+          const unixTime = w.date ? Math.floor(new Date(w.date).getTime() / 1000) : null;
+          const timeString = unixTime ? ` • <t:${unixTime}:R>` : "";
+          return `**#${start + i + 1}** ID: \`${w.id}\`${timeString} • By: <@${w.mod}>\n└ **Reason:** ${w.reason}`;
+        })
         .join("\n\n");
 
       return new EmbedBuilder()
@@ -640,7 +644,7 @@ async function handleCommands(message, getGuildData) {
     }
     return true;
   }
-
+  
   // ================= UNWARN =================
   if (command === "unwarn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
