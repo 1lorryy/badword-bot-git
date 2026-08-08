@@ -913,31 +913,87 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= PURGE =================
+// ================= PURGE =================
   if (command === "purge") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-      return message.reply("I need Manage Messages permission.");
+      return message.reply("❌ I need Manage Messages permission.");
     }
 
-    const amount = parseInt(args[0], 10);
+    if (!args[0]) {
+      return message.reply(
+        `💡 **Usage:**\n` +
+        `• \`${prefix}purge [1-100]\` — Delete recent messages\n` +
+        `• \`${prefix}purge @user [1-100]\` — Delete messages from a specific user\n` +
+        `• \`${prefix}purge bots [1-100]\` — Delete messages sent by bots\n` +
+        `• \`${prefix}purge links [1-100]\` — Delete messages containing links`
+      );
+    }
+
+    let targetMember = await findTargetMember(message, args).catch(() => null);
+    let targetType = "all";
+    let amountInput = args[0];
+
+    // Determine purge filter target
+    if (targetMember) {
+      targetType = "user";
+      amountInput = args[1];
+    } else if (["bot", "bots"].includes(args[0].toLowerCase())) {
+      targetType = "bots";
+      amountInput = args[1];
+    } else if (["link", "links", "url"].includes(args[0].toLowerCase())) {
+      targetType = "links";
+      amountInput = args[1];
+    }
+
+    const amount = parseInt(amountInput, 10);
     if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
-      return message.reply(`Usage: \`${prefix}purge [1-100]\``);
+      return message.reply(`❌ Please specify a valid number between 1 and 100.`);
     }
 
+    // Delete trigger command message first
     await message.delete().catch(() => null);
 
-    const deleted = await message.channel.bulkDelete(amount, true).catch(() => null);
-    if (!deleted) {
-      const errReply = await message.channel.send("❌ Could not purge messages (they may be older than 14 days).");
+    try {
+      // Fetch messages (up to 100 to filter through)
+      const fetched = await message.channel.messages.fetch({ limit: Math.min(amount * 2, 100) });
+
+      let toDelete = fetched;
+
+      if (targetType === "user" && targetMember) {
+        toDelete = fetched.filter(m => m.author.id === targetMember.id).first(amount);
+      } else if (targetType === "bots") {
+        toDelete = fetched.filter(m => m.author.bot).first(amount);
+      } else if (targetType === "links") {
+        const linkRegex = /(https?:\/\/[^\s]+)/gi;
+        toDelete = fetched.filter(m => linkRegex.test(m.content)).first(amount);
+      } else {
+        toDelete = fetched.first(amount);
+      }
+
+      const deleted = await message.channel.bulkDelete(toDelete, true).catch(() => null);
+
+      if (!deleted || deleted.size === 0) {
+        const errReply = await message.channel.send("❌ No matching messages found or they are older than 14 days.");
+        return deleteAfter(errReply, 5000);
+      }
+
+      let label = "**all** messages";
+      if (targetType === "user") label = `messages from ${targetMember.user.tag}`;
+      if (targetType === "bots") label = "bot messages";
+      if (targetType === "links") label = "messages containing links";
+
+      const successReply = await message.channel.send(`✅ Successfully purged **${deleted.size}** ${label}.`);
+      deleteAfter(successReply, 5000);
+      return true;
+
+    } catch (err) {
+      console.error("Purge Error:", err);
+      const errReply = await message.channel.send("❌ An error occurred while purging messages.");
       return deleteAfter(errReply, 5000);
     }
-
-    const successReply = await message.channel.send(`✅ Purged **${deleted.size}** messages.`);
-    deleteAfter(successReply, 5000);
-    return true;
   }
-
+  
   // ================= ROLE COMMAND =================
   if (command === "role") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
@@ -1172,57 +1228,167 @@ async function handleCommands(message, getGuildData) {
     return message.reply({ embeds: [embed] });
   }
 
-  // ================= HELP =================
+  // ================= HELP (INTERACTIVE BUTTON MENU) =================
   if (command === "help") {
-    const embed = new EmbedBuilder()
+    const totalCustomCmds = data.customCommands ? Object.keys(data.customCommands).length : 0;
+
+    // --- Page 1: Overview ---
+    const pageOverview = new EmbedBuilder()
       .setColor(0x5865f2)
-      .setTitle("🔥 Don Don Commands")
-      .setDescription(`Prefix: \`${prefix}\``)
+      .setTitle("🔥 Don Don Command Center")
+      .setDescription(
+        `Welcome to the **Don Don** server management bot!\n` +
+        `Current Prefix: \`${prefix}\`\n\n` +
+        `Use the buttons below to browse commands by category:`
+      )
+      .addFields(
+        { name: "🛡️ Moderation & AutoMod", value: "Warnings, mutes, kicks, bans, blacklists, and staff guides.", inline: true },
+        { name: "🔒 Advanced Security", value: "Verification settings, member scans, and trust filters.", inline: true },
+        { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, custom colors, AFK, and timers.", inline: true }
+      )
+      .setFooter({ text: "Page 1/4 • Don Don Operations" })
+      .setTimestamp();
+
+    // --- Page 2: Moderation & AutoMod ---
+    const pageMod = new EmbedBuilder()
+      .setColor(0xef4444)
+      .setTitle("🛡️ Moderation & AutoMod Commands")
+      .setDescription(`Commands reserved for staff and moderators. Prefix: \`${prefix}\``)
       .addFields(
         {
-          name: "🛡️ Moderation & AutoMod",
-          value: 
-            `\`${prefix}warn\` \`${prefix}warnings\` \`${prefix}unwarn\` \`${prefix}mute\` \`${prefix}unmute\`\n` +
-            `\`${prefix}kick\` \`${prefix}ban\` \`${prefix}unban\` \`${prefix}purge\` \`${prefix}modstats\` \`${prefix}modlogs\`\n` +
-            `\`${prefix}bl\` \`${prefix}unbl\` \`${prefix}words\` \`${prefix}staffguide\` \`${prefix}staffguidedit\``
+          name: "🔨 Punishments & Logs",
+          value:
+            `• \`${prefix}warn @user [reason]\` — Issue a warning\n` +
+            `• \`${prefix}warnings [@user]\` — View warn history\n` +
+            `• \`${prefix}unwarn @user [id]\` — Clear warning\n` +
+            `• \`${prefix}mute @user [time] [reason]\` — Timeout user\n` +
+            `• \`${prefix}unmute @user\` — Remove timeout\n` +
+            `• \`${prefix}kick @user [reason]\` — Kick member\n` +
+            `• \`${prefix}ban @user [reason]\` — Ban member & purge msgs\n` +
+            `• \`${prefix}softban @user [reason]\` — Kick & wipe 7d msgs\n` +
+            `• \`${prefix}unban [user_id]\` — Unban user ID`
         },
         {
-          name: "🔒 Advanced Verification",
+          name: "🚫 Chat & Blacklist",
           value:
-            `\`${prefix}verify settings\` • \`${prefix}verify scan @user\` • \`${prefix}verify massscan\`\n` +
-            `\`${prefix}verify verifiedrole\` • \`${prefix}verify unverifiedrole\`\n` +
-            `\`${prefix}verify trusteddays\` • \`${prefix}verify autoban\` • \`${prefix}verify autokick\``
-        },
-        {
-          name: "⚙️ Server, Auction & Channels",
-          value:
-            `\`${prefix}setprefix\` \`${prefix}setnick\` \`${prefix}role\` \`${prefix}temprole\` \`${prefix}rolecreate\` \`${prefix}rename\`\n` +
-            `\`${prefix}purchase\` (or \`${prefix}buy\`) • \`${prefix}purchedit\`\n` +
-            `\`${prefix}snipe/s\` \`${prefix}snipe (on/off)\` \`${prefix}slowmode\` • \`${prefix}auction\` \`${prefix}bid\``
-        },
-        {
-          name: "🌍 Utility & Tools",
-          value:
-            `\`${prefix}customcolor\` / \`${prefix}color\` • \`${prefix}roleicon\` • \`${prefix}translate\` • \`${prefix}afk\` • \`${prefix}timer\` • \`${prefix}ping\` • \`${prefix}status\` • \`${prefix}joininfo\`\n` +
-            `\`${prefix}birthday\` / \`${prefix}bday\` (\`#commands\` only)\n` +
-            `▫️ Translation targets: \`en\`, \`lt\`, \`es\`, \`fr\`, \`de\`, \`pl\`, \`ru\`, \`tr\`, \`ja\``
+            `• \`${prefix}purge [1-100]\` — Bulk delete (supports \`@user\`, \`bots\`, \`links\`)\n` +
+            `• \`${prefix}bl [word]\` / \`${prefix}unbl [word]\` — Manage blacklist\n` +
+            `• \`${prefix}words\` — List blacklisted words\n` +
+            `• \`${prefix}modstats [@staff]\` — View moderator activity\n` +
+            `• \`${prefix}modlogs [@user]\` — Check recent moderation entries\n` +
+            `• \`${prefix}staffguide\` / \`${prefix}staffguidedit\` — Usage guide setup`
         }
       )
+      .setFooter({ text: "Page 2/4 • Moderation" })
       .setTimestamp();
-      
-    if (data.customCommands && Object.keys(data.customCommands).length) {
-      embed.addFields({
-        name: "💬 Custom",
-        value: Object.keys(data.customCommands).map(cmd => `\`${prefix}${cmd}\``).join(" ").slice(0, 1024)
+
+    // --- Page 3: Security & Verification ---
+    const pageSecurity = new EmbedBuilder()
+      .setColor(0x3b82f6)
+      .setTitle("🔒 Advanced Verification & Security")
+      .setDescription(`Configure server verification and anti-raid parameters. Prefix: \`${prefix}\``)
+      .addFields({
+        name: "🛡️ Verification Controls",
+        value:
+          `• \`${prefix}verify settings\` — Check current security setup\n` +
+          `• \`${prefix}verify scan @user\` — Scan account risk score\n` +
+          `• \`${prefix}verify massscan\` — Scan all unverified members\n` +
+          `• \`${prefix}verify verifiedrole [role]\` — Set verified role\n` +
+          `• \`${prefix}verify unverifiedrole [role]\` — Set unverified role\n` +
+          `• \`${prefix}verify trusteddays [days]\` — Set minimum account age threshold\n` +
+          `• \`${prefix}verify autoban [on/off]\` — Toggle auto-ban on join\n` +
+          `• \`${prefix}verify autokick [on/off]\` — Toggle auto-kick on join`
+      })
+      .setFooter({ text: "Page 3/4 • Security" })
+      .setTimestamp();
+
+    // --- Page 4: Utility, Roles & Fun ---
+    const pageUtility = new EmbedBuilder()
+      .setColor(0x10b981)
+      .setTitle("⚙️ Utility, Roles & Tools")
+      .setDescription(`General tools, customization, and member commands. Prefix: \`${prefix}\``)
+      .addFields(
+        {
+          name: "👤 Role & Channel Management",
+          value:
+            `• \`${prefix}customcolor\` / \`${prefix}color\` — Change role hex color\n` +
+            `• \`${prefix}role @user [role]\` — Toggle user role\n` +
+            `• \`${prefix}temprole @user [time] [role]\` — Give temporary role\n` +
+            `• \`${prefix}rolecreate [name] [hex]\` — Create a new role\n` +
+            `• \`${prefix}roleicon @role [icon]\` — Set custom role icon\n` +
+            `• \`${prefix}rename [new-name]\` — Rename ticket channels\n` +
+            `• \`${prefix}setnick @user [nick]\` — Change server nickname`
+        },
+        {
+          name: "🌐 Tools & Community",
+          value:
+            `• \`${prefix}afk [reason]\` / \`${prefix}afk global\` — Set AFK status\n` +
+            `• \`${prefix}translate [lang] [text]\` — Translate message\n` +
+            `• \`${prefix}timer [time] [label]\` — Set countdown timer\n` +
+            `• \`${prefix}birthday\` / \`${prefix}bday\` — Set birthday (\`#commands\` only)\n` +
+            `• \`${prefix}snipe\` / \`${prefix}snipes\` — View deleted messages\n` +
+            `• \`${prefix}slowmode [time]\` — Channel slowmode control\n` +
+            `• \`${prefix}auction\` / \`${prefix}bid\` — Server auction system\n` +
+            `• \`${prefix}status\` / \`${prefix}ping\` — System health & latency`
+        }
+      )
+      .setFooter({ text: "Page 4/4 • Utility & Tools" })
+      .setTimestamp();
+
+    if (totalCustomCmds > 0) {
+      pageUtility.addFields({
+        name: "💬 Custom Commands",
+        value: Object.keys(data.customCommands).map(c => `\`${prefix}${c}\``).join(" ").slice(0, 1024)
       });
     }
 
-    return message.reply({ embeds: [embed] });
+    const pages = [pageOverview, pageMod, pageSecurity, pageUtility];
+    let currentPage = 0;
+
+    const generateButtons = (page) => {
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(page === 1),
+        new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(page === 2),
+        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(page === 3)
+      );
+    };
+
+    const helpMsg = await message.reply({
+      embeds: [pages[currentPage]],
+      components: [generateButtons(currentPage)]
+    });
+
+    const collector = helpMsg.createMessageComponentCollector({
+      filter: (i) => i.user.id === message.author.id,
+      time: 90000
+    });
+
+    collector.on("collect", async (interaction) => {
+      if (interaction.customId === "help_home") currentPage = 0;
+      else if (interaction.customId === "help_mod") currentPage = 1;
+      else if (interaction.customId === "help_security") currentPage = 2;
+      else if (interaction.customId === "help_utility") currentPage = 3;
+
+      await interaction.update({
+        embeds: [pages[currentPage]],
+        components: [generateButtons(currentPage)]
+      });
+    });
+
+    collector.on("end", () => {
+      const disabledRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(true),
+        new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(true),
+        new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(true),
+        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(true)
+      );
+      helpMsg.edit({ components: [disabledRow] }).catch(() => null);
+    });
+
+    return true;
   }
-
-  return false;
-}
-
+  
 // ================= TEMPORARY ROLE EXPIRATION ENGINE =================
 async function processExpiredTempRoles(client) {
   const now = Date.now();
