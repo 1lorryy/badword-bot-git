@@ -3,7 +3,6 @@ const express = require("express");
 const session = require("express-session");
 const fs = require("fs");
 const path = require("path");
-const { getClient } = require("./bot");
 
 const app = express();
 app.use(express.static(path.join(__dirname, "dashboard")));
@@ -12,20 +11,23 @@ const PORT = Number(process.env.WEB_PORT || process.env.PORT || 3000);
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const CALLBACK_URL = process.env.CALLBACK_URL || "http://localhost:3000/callback";
-const SESSION_SECRET = process.env.SESSION_SECRET || "change-this-secret";
+const SESSION_SECRET = process.env.SESSION_SECRET || "donquixote-secure-session-key-2026";
 
+// Absolute path fallback for Railway Volume persistence if configured
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json");
-const STAFF_GUIDE_FILE = path.join(__dirname, "staff-guide-data.json");
+const STAFF_GUIDE_FILE = process.env.STAFF_GUIDE_FILE || path.join(__dirname, "staff-guide-data.json");
 const CSS_PATH = path.join(__dirname, "dashboard", "dashboard.css");
 
 const DEFAULT_PREFIX = "?";
 const ADMIN_PERMISSION = BigInt(0x8);
+
 const CORE_BLACKLIST = [
   "ass", "nigga", "nigger", "nga", "idiot", "retard", "faggot", "fagot",
   "porn", "sex", "pussy", "boobs", "penis", "dick", "fuck", "idgaf",
   "motherfuck", "motherfucker", "mf", "asshole", "cunt", "possay",
   "sexcam", "bubs", "bitchass", "dumbass"
 ];
+
 const BLOCKED_LINKS = [
   "discord.gg/",
   "discord.com/invite/",
@@ -36,30 +38,42 @@ const BLOCKED_LINKS = [
   "xhamster.com",
   "redtube.com"
 ];
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
-  saveUninitialized: false
+  saveUninitialized: false,
+  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 } // 7-day session memory
 }));
 
 function cloneDefaultPurchaseLinks() {
-  return JSON.parse(JSON.stringify(DEFAULT_PURCHASE_LINKS));
+  try {
+    return JSON.parse(JSON.stringify(DEFAULT_PURCHASE_LINKS));
+  } catch {
+    return { classes: [], ads6h: [], ads24h: [], extras: [] };
+  }
 }
 
 function loadData() {
   try {
+    if (!fs.existsSync(DATA_FILE)) return {};
     return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-  } catch {
+  } catch (err) {
+    console.error("Error reading DATA_FILE:", err);
     return {};
   }
 }
 
 function saveData(data) {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  try {
+    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
+  } catch (err) {
+    console.error("Error saving DATA_FILE:", err);
+  }
 }
 
 function loadStaffGuide() {
@@ -94,6 +108,7 @@ function loadStaffGuide() {
 }
 
 function fixGuildData(cfg) {
+  if (!cfg) return;
   if (!cfg.prefix) cfg.prefix = DEFAULT_PREFIX;
   if (!Array.isArray(cfg.words)) cfg.words = [];
   if (!Array.isArray(cfg.blockedLinks)) cfg.blockedLinks = [];
@@ -128,12 +143,10 @@ function getGuildData(guildId) {
       purchaseLinks: cloneDefaultPurchaseLinks(),
       warnings: {}
     };
-    saveData(data);
   }
 
   fixGuildData(data[guildId]);
   saveData(data);
-
   return data[guildId];
 }
 
@@ -173,6 +186,7 @@ function isAdminGuild(guild) {
 }
 
 function getAllowedGuilds(req) {
+  const { getClient } = require("./bot");
   const client = getClient();
   const userGuilds = req.session.guilds || [];
 
@@ -199,7 +213,7 @@ function requireGuildAdmin(req, res, next) {
       title: "No Access",
       content: `
         <div class="card">
-          <h2>❌ No access</h2>
+          <h2>❌ No Access</h2>
           <p>You need Administrator permission in this server to manage the dashboard.</p>
           <a class="guild-link" href="/">Back to servers</a>
         </div>
@@ -279,6 +293,7 @@ function renderPage({ req, guildId, tab, title, content }) {
   const user = req?.session?.user;
 
   return `
+  <!DOCTYPE html>
   <html>
     <head>
       <title>${escapeHtml(title)}</title>
@@ -294,10 +309,10 @@ function renderPage({ req, guildId, tab, title, content }) {
             <a class="nav ${tab === "words" ? "active" : ""}" href="${sidebarBase}/words">🚫 AutoMod Words</a>
             <a class="nav ${tab === "links" ? "active" : ""}" href="${sidebarBase}/links">🔗 Blocked Links</a>
             <a class="nav ${tab === "prefix" ? "active" : ""}" href="${sidebarBase}/prefix">⚙️ Prefix</a>
-            <a class="nav ${tab === "custom" ? "active" : ""}" href="${sidebarBase}/custom">💬 Custom Commands</a>
+            <a class="nav ${tab === "custom" ? "active" : ""}" href="${sidebarBase}/custom">💬 Custom Triggers</a>
             <a class="nav ${tab === "staffguide" ? "active" : ""}" href="${sidebarBase}/staffguide">🛡️ Staff Guide</a>
             <a class="nav ${tab === "purchase" ? "active" : ""}" href="${sidebarBase}/purchase">🛒 Purchase Links</a>
-            <a class="nav ${tab === "info" ? "active" : ""}" href="${sidebarBase}/info">📊 Info</a>
+            <a class="nav ${tab === "info" ? "active" : ""}" href="${sidebarBase}/info">📊 Server Info</a>
           ` : ""}
           <a class="nav" href="/">Servers</a>
           <a class="nav" href="/logout">Logout</a>
@@ -306,7 +321,7 @@ function renderPage({ req, guildId, tab, title, content }) {
         <main class="content">
           <div class="topbar">
             <div class="title">${escapeHtml(title)}</div>
-            <div>${user ? `Logged in as ${escapeHtml(user.username)}` : ""}</div>
+            <div>${user ? `Logged in as <b>${escapeHtml(user.username)}</b>` : ""}</div>
           </div>
           ${content}
         </main>
@@ -352,7 +367,7 @@ function renderGuildSelect(req) {
   return `
     <div class="card">
       <h2>Select a Server</h2>
-      <p>Choose a server below to customize configurations like AutoMod words, prefixes, and custom commands.</p>
+      <p>Choose a server below to customize configurations like AutoMod words, prefixes, custom triggers, and purchase links.</p>
     </div>
     <div class="guild-list-container">
       ${guildCards}
@@ -549,32 +564,34 @@ app.get("/dashboard/:guildId/custom", requireLogin, requireGuildAdmin, (req, res
   const { guildId } = req.params;
   const cfg = getGuildData(guildId);
 
-  const commands = Object.entries(cfg.customCommands)
+  const commands = Object.entries(cfg.customCommands || {})
     .map(([cmd, data]) => {
       let displayContent = "";
       
-      if (data && typeof data === "object" && data.embeds) {
+      if (data && typeof data === "object" && data.embeds && data.embeds.length > 0) {
         const emb = data.embeds[0] || {};
+        const hexColor = emb.color ? `#${emb.color.toString(16).padStart(6, '0')}` : '#5865F2';
+
         displayContent = `
-          <div style="border-left: 4px solid ${emb.color || '#5865F2'}; padding-left: 10px; margin-top: 5px; background: #2f3136; border-radius: 4px; padding: 10px;">
-            <b style="color: #fff;">[Embed Template]</b><br/>
+          <div style="border-left: 4px solid ${hexColor}; padding-left: 10px; margin-top: 5px; background: #2f3136; border-radius: 4px; padding: 10px;">
+            <b style="color: #fff;">[Embed Trigger]</b><br/>
             ${emb.title ? `<b>Title:</b> ${escapeHtml(emb.title)}<br/>` : ""}
             ${emb.description ? `<b>Description:</b> ${escapeHtml(emb.description)}<br/>` : ""}
-            ${emb.url ? `<b>Link URL:</b> <a href="${escapeHtml(emb.url)}" target="_blank">${escapeHtml(emb.url)}</a><br/>` : ""}
+            ${emb.url ? `<b>Link URL:</b> <a href="${escapeHtml(emb.url)}" target="_blank" style="color:#38bdf8;">${escapeHtml(emb.url)}</a><br/>` : ""}
           </div>
         `;
       } else {
-        const response = typeof data === "string" ? data : data.response;
+        const response = typeof data === "string" ? data : (data?.response || "No text set");
         displayContent = `<b>Response:</b> ${escapeHtml(response)}<br/>`;
       }
 
       const allowPings = typeof data === "object" && data.allowPings;
 
       return `
-        <div class="warn-box">
-          <b>Command:</b> ?${escapeHtml(cmd)}<br/>
+        <div class="warn-box" style="margin-bottom: 15px;">
+          <b>Trigger:</b> ?${escapeHtml(cmd)}<br/>
           ${displayContent}
-          <b>Pings:</b> ${allowPings ? "Allowed" : "Disabled"}
+          <span style="font-size:0.85rem; color:#94a3b8;"><b>Pings:</b> ${allowPings ? "Allowed" : "Disabled"}</span>
         </div>
       `;
     })
@@ -593,7 +610,7 @@ app.get("/dashboard/:guildId/custom", requireLogin, requireGuildAdmin, (req, res
 
       <div class="card">
         <h2>✨ Build an Embed Trigger</h2>
-        <p>Create a customized title card/link layout trigger (e.g., <code>?how to rate the game</code>).</p>
+        <p>Create a customized title card/link layout trigger (e.g., <code>how to rate the game</code>).</p>
         <form method="POST" action="/dashboard/${guildId}/custom/add-embed">
           <div class="row">
             <label style="width: 100%;">Trigger Phrase (Do not include '?')
@@ -625,12 +642,12 @@ app.get("/dashboard/:guildId/custom", requireLogin, requireGuildAdmin, (req, res
             </label>
           </div>
           <br/>
-          <button type="submit" style="background: #2ecc71; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Save Embed Trigger</button>
+          <button type="submit" style="background: #2ecc71; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight:bold;">Save Embed Trigger</button>
         </form>
       </div>
 
       <div class="card">
-        <h3>Plain Text Trigger (Standard Custom Command)</h3>
+        <h3>Plain Text Trigger</h3>
         <form method="POST" action="/dashboard/${guildId}/custom/add">
           <div class="row">
             <input type="text" name="command" placeholder="hi" required />
@@ -638,7 +655,7 @@ app.get("/dashboard/:guildId/custom", requireLogin, requireGuildAdmin, (req, res
           <br/>
           <div class="row">
             <input type="text" name="response" placeholder="Hello there!" required />
-            <button type="submit">Add</button>
+            <button type="submit">Add Trigger</button>
           </div>
           <br/>
           <label class="check">
@@ -649,7 +666,7 @@ app.get("/dashboard/:guildId/custom", requireLogin, requireGuildAdmin, (req, res
       </div>
 
       <div class="card">
-        <h3>Remove Command/Embed Trigger</h3>
+        <h3>Remove Trigger</h3>
         <form method="POST" action="/dashboard/${guildId}/custom/remove" class="row">
           <input type="text" name="command" placeholder="how to rate the game" required />
           <button type="submit">Remove</button>
@@ -688,7 +705,7 @@ app.post("/dashboard/:guildId/custom/add-embed", requireLogin, requireGuildAdmin
   const title = String(req.body.title || "").trim();
   const description = String(req.body.description || "").trim();
   const url = String(req.body.url || "").trim();
-  const color = String(req.body.color || "#5865F2");
+  const colorHex = String(req.body.color || "#5865F2").replace("#", "");
 
   if (command && (title || description)) {
     updateGuildData(req.params.guildId, cfg => {
@@ -698,7 +715,7 @@ app.post("/dashboard/:guildId/custom/add-embed", requireLogin, requireGuildAdmin
             title: title || undefined,
             description: description || undefined,
             url: url || undefined,
-            color: parseInt(color.replace("#", ""), 16)
+            color: parseInt(colorHex, 16) || 0x5865F2
           }
         ],
         allowPings: false
@@ -735,22 +752,22 @@ app.get("/dashboard/:guildId/staffguide", requireLogin, requireGuildAdmin, (req,
     content: `
       <div class="card embed-box">
         <h2>🛡️ Edit Staff Guidelines Embed</h2>
-        <p>Edit the guidelines saved across your bot and dashboard. Discord markdown (<b>**bold**</b>, <i>*italic*</i>, <code>### headers</code>) is fully supported!</p>
+        <p>Edit guidelines saved across your bot and dashboard. Discord markdown is fully supported!</p>
         
         <form method="POST" action="/dashboard/${guildId}/staffguide/save" class="embed-form">
-          <div class="form-group">
-            <label>Embed Title</label>
-            <input type="text" name="title" value="${escapeHtml(guideData.title)}" required />
+          <div class="form-group" style="margin-bottom:15px;">
+            <label style="display:block; margin-bottom:5px;">Embed Title</label>
+            <input type="text" name="title" value="${escapeHtml(guideData.title)}" required style="width:100%;" />
           </div>
 
-          <div class="form-group">
-            <label>Embed Theme Color</label>
+          <div class="form-group" style="margin-bottom:15px;">
+            <label style="display:block; margin-bottom:5px;">Embed Theme Color</label>
             <input type="color" name="color" value="${guideData.color || '#5865F2'}" style="height: 40px; width: 80px; border: none; cursor: pointer;" />
           </div>
 
-          <div class="form-group">
-            <label>Guidelines Description Text</label>
-            <textarea name="description" rows="14" style="background: #0b1020; color: #fff; border: 1px solid #374151; padding: 12px; border-radius: 8px; font-family: inherit; resize: vertical;">${escapeHtml(guideData.description)}</textarea>
+          <div class="form-group" style="margin-bottom:15px;">
+            <label style="display:block; margin-bottom:5px;">Guidelines Description Text</label>
+            <textarea name="description" rows="14" style="width:100%; background: #0b1020; color: #fff; border: 1px solid #374151; padding: 12px; border-radius: 8px; font-family: inherit; resize: vertical;">${escapeHtml(guideData.description)}</textarea>
           </div>
 
           <button type="submit" style="background: #5865f2; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">💾 Save & Sync Guide</button>
@@ -773,6 +790,7 @@ app.post("/dashboard/:guildId/staffguide/save", requireLogin, requireGuildAdmin,
   const updated = { title, description, color };
   
   try {
+    fs.mkdirSync(path.dirname(STAFF_GUIDE_FILE), { recursive: true });
     fs.writeFileSync(STAFF_GUIDE_FILE, JSON.stringify(updated, null, 2), "utf8");
   } catch (err) {
     console.error("Failed to write staff guide file:", err);
@@ -800,17 +818,17 @@ app.get("/dashboard/:guildId/purchase", requireLogin, requireGuildAdmin, (req, r
         ${
           items.length
             ? items.map((item, index) => `
-              <div class="warn-box">
+              <div class="warn-box" style="margin-bottom:10px;">
                 <b>${escapeHtml(item.name)}</b><br/>
-                <a href="${escapeHtml(item.url)}" target="_blank">${escapeHtml(item.url)}</a>
+                <a href="${escapeHtml(item.url)}" target="_blank" style="color:#38bdf8;">${escapeHtml(item.url)}</a>
                 <form method="POST" action="/dashboard/${guildId}/purchase/remove" style="margin-top:10px;">
                   <input type="hidden" name="group" value="${key}" />
                   <input type="hidden" name="index" value="${index}" />
-                  <button type="submit">Remove</button>
+                  <button type="submit" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">Remove</button>
                 </form>
               </div>
             `).join("")
-            : "<p>No links added.</p>"
+            : "<p style='color:#64748b;'>No links added.</p>"
         }
 
         <h3>Add link</h3>
@@ -871,6 +889,7 @@ app.post("/dashboard/:guildId/purchase/remove", requireLogin, requireGuildAdmin,
 // ================= INFO =================
 app.get("/dashboard/:guildId/info", requireLogin, requireGuildAdmin, (req, res) => {
   const { guildId } = req.params;
+  const { getClient } = require("./bot");
   const client = getClient();
   const guild = client?.guilds?.cache?.get(guildId);
 
@@ -878,13 +897,13 @@ app.get("/dashboard/:guildId/info", requireLogin, requireGuildAdmin, (req, res) 
     req,
     guildId,
     tab: "info",
-    title: "Info",
+    title: "Server Info",
     content: `
       <div class="card">
-        <h2>Server Info</h2>
+        <h2>Server Overview</h2>
         <p><b>Server:</b> ${escapeHtml(guild?.name || guildId)}</p>
-        <p><b>Server ID:</b> ${escapeHtml(guildId)}</p>
-        <p><b>Members:</b> ${guild?.memberCount ?? "Unknown"}</p>
+        <p><b>Server ID:</b> <code>${escapeHtml(guildId)}</code></p>
+        <p><b>Total Members:</b> ${guild?.memberCount ?? "Unknown"}</p>
       </div>
     `
   }));
@@ -892,7 +911,7 @@ app.get("/dashboard/:guildId/info", requireLogin, requireGuildAdmin, (req, res) 
 
 function startWeb() {
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Dashboard running at http://localhost:${PORT}`);
+    console.log(`🌐 Dashboard running at http://localhost:${PORT}`);
   });
 }
 
