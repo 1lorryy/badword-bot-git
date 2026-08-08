@@ -12,8 +12,8 @@ const STAFF_ROLE_ID = "1481370041420087474";
 
 module.exports = {
   name: "status",
-  description: "Displays live bot engine performance, server metrics, and personal stats across interactive pages.",
-  async execute(message, args, client, getGuildData) {
+  description: "Displays live bot performance, AI engine metrics, server stats, and personal dossier.",
+  async execute(message, args, client) {
     // Staff bypass check
     const isStaff = message.member.roles.cache.has(STAFF_ROLE_ID) ||
                     message.member.permissions.has("Administrator") ||
@@ -52,48 +52,29 @@ module.exports = {
     const joinedTs = Math.floor(message.member.joinedTimestamp / 1000);
     const createdTs = Math.floor(message.author.createdTimestamp / 1000);
 
-    // AI Persona Tracker
-    const data = getGuildData ? getGuildData(guild.id) : {};
-    const personalities = [
-      "Dry & Sarcastic 😒", "Lighthearted Roaster 🔥", "Sweaty Toxic Gamer 🎮", "Max Aura Brainrot 🌀",
-      "Tin Foil Hat Theorist 👁️", "Soap Opera Drama Queen 🎭", "Over-Aggressive Hype Man 📢", "Scurvy Sea Dog 🏴‍☠️"
-    ];
-    const index = data.currentPersonaIndex || 0;
-    const currentPersonaName = personalities[index % personalities.length];
-
-    if (!data.channelCounters) data.channelCounters = {};
-    const channelCounter = data.channelCounters[message.channel.id] || 0;
-    const msgsRemaining = Math.max(0, 50 - channelCounter);
-
-    // Visual Progress Bar for Rotation
-    const progressBarLength = 10;
-    const completedBlocks = Math.min(progressBarLength, Math.floor((channelCounter / 50) * progressBarLength));
-    const remainingBlocks = progressBarLength - completedBlocks;
-    const progressVisual = "🟦".repeat(completedBlocks) + "⬛".repeat(remainingBlocks);
-
     // ================= PAGE 1: ENGINE & AI SYSTEM =================
     const page1Embed = new EmbedBuilder()
-      .setColor("#5865F2")
-      .setTitle("👑 GRAND REGENT • SYSTEM & ENGINE STATUS")
+      .setColor("#8B5CF6")
+      .setTitle("⚡ GRAND REGENT • SYSTEM & AI ENGINE STATUS")
       .setThumbnail(client.user.displayAvatarURL())
       .addFields(
         { 
-          name: "⚡ Core Engine Metrics", 
-          value: `• **Latency:** \`${ping}ms\`\n• **System Uptime:** \`${uptimeString}\`\n• **RAM Allocation:** \`${memoryUsed} MB\`\n• **Node Environment:** \`${process.version}\``, 
+          name: "🖥️ Core Engine Metrics", 
+          value: `• **API Latency:** \`${ping}ms\`\n• **System Uptime:** \`${uptimeString}\`\n• **RAM Usage:** \`${memoryUsed} MB\`\n• **Node.js Environment:** \`${process.version}\``, 
           inline: true 
         },
         { 
-          name: "🎭 Active AI Module", 
-          value: `• **Current Persona:** **${currentPersonaName}**\n• **Shift Tracking:** \`${msgsRemaining}\` msgs left in <#${message.channel.id}>\n${progressVisual} \`[${channelCounter}/50]\``, 
+          name: "🧠 1000000-IQ AI Engine Status", 
+          value: `• **Active Model:** \`${process.env.OPENAI_MODEL || "GPT-4o"}\`\n• **Real-Time Clock:** \`Enabled (Live Sync)\`\n• **Lore Context:** \`DonQuixotes Lounge (Don / Lorry)\`\n• **Anti-Bypass Guardrails:** \`Active (Leetspeak / Reverse / TOS)\``, 
           inline: false 
         }
       )
-      .setFooter({ text: "Page 1 of 2 • Donquixote Store Utility Engine" })
+      .setFooter({ text: "Page 1 of 2 • DonQuixotes Lounge Utility Engine" })
       .setTimestamp();
 
     // ================= PAGE 2: GUILD & PERSONAL PROFILE =================
     const page2Embed = new EmbedBuilder()
-      .setColor("#7289DA")
+      .setColor("#EC4899")
       .setTitle("🏰 SERVER & USER ANALYTICS")
       .setThumbnail(message.author.displayAvatarURL({ forceStatic: false }))
       .addFields(
@@ -104,18 +85,18 @@ module.exports = {
         },
         { 
           name: "👤 Your Member Dossier", 
-          value: `• **Server Join Rank:** Member **#${joinPosition}**\n• **Joined Guild:** <t:${joinedTs}:F> (<t:${joinedTs}:R>)\n• **Account Age:** <t:${createdTs}:D> (<t:${createdTs}:R>)`, 
+          value: `• **Server Join Rank:** Member **#${joinPosition}**\n• **Joined Guild:** <t:${joinedTs}:F> (<t:${joinedTs}:R>)\n• **Account Created:** <t:${createdTs}:D> (<t:${createdTs}:R>)`, 
           inline: false 
         }
       )
-      .setFooter({ text: "Page 2 of 2 • Donquixote Store Utility Engine" })
+      .setFooter({ text: "Page 2 of 2 • DonQuixotes Lounge Utility Engine" })
       .setTimestamp();
 
     // Navigation Buttons
     const getRow = (page) => new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("status_prev")
-        .setLabel("◀ System Status")
+        .setLabel("◀ System & AI Status")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(page === 1),
       new ButtonBuilder()
@@ -155,7 +136,7 @@ module.exports = {
     // Clean up buttons after timeout
     collector.on("end", () => {
       const disabledRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("disabled_prev").setLabel("◀ System Status").setStyle(ButtonStyle.Secondary).setDisabled(true),
+        new ButtonBuilder().setCustomId("disabled_prev").setLabel("◀ System & AI Status").setStyle(ButtonStyle.Secondary).setDisabled(true),
         new ButtonBuilder().setCustomId("disabled_next").setLabel("Server Stats ▶").setStyle(ButtonStyle.Secondary).setDisabled(true)
       );
       response.edit({ components: [disabledRow] }).catch(() => null);
