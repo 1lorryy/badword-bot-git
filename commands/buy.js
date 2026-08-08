@@ -37,6 +37,7 @@ const DEFAULT_DATA = {
 
 function loadData() {
   try {
+    if (!fs.existsSync(DATA_FILE)) return {};
     return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
     return {};
@@ -44,7 +45,12 @@ function loadData() {
 }
 
 function saveData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  try {
+    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
+  } catch (err) {
+    console.error("Save Error:", err);
+  }
 }
 
 function formatLinks(items) {
@@ -52,7 +58,6 @@ function formatLinks(items) {
   return items.map(item => `✨ **[${item.name}](${item.url})**`).join("\n");
 }
 
-// ================= THE MAIN SHOW COMMAND =================
 async function handlePurchaseCommand(message) {
   await message.delete().catch(() => null);
 
@@ -62,14 +67,12 @@ async function handlePurchaseCommand(message) {
   if (!fullData[guildID]) fullData[guildID] = JSON.parse(JSON.stringify(DEFAULT_DATA));
   const settings = fullData[guildID];
 
-  const links = settings.purchaseLinks || DEFAULT_DATA.purchaseLinks;
-  
-  if (!settings.wallets) settings.wallets = {};
-  
-  if (settings.wallets.crypto && !settings.wallets.ltc) {
-    settings.wallets.ltc = settings.wallets.crypto;
-  }
+  // Pull purchase links directly from live dashboard storage
+  const links = settings.purchaseLinks && Object.keys(settings.purchaseLinks).length > 0 
+    ? settings.purchaseLinks 
+    : DEFAULT_DATA.purchaseLinks;
 
+  if (!settings.wallets) settings.wallets = {};
   if (!settings.wallets.ltc || settings.wallets.ltc === "Not Set Yet") {
     settings.wallets.ltc = DEFAULT_DATA.wallets.ltc;
     saveData(fullData);
@@ -82,31 +85,11 @@ async function handlePurchaseCommand(message) {
     .setDescription("Secure your perks instantly via Roblox Gamepasses, or pay with Crypto below.")
     .setColor("#5865F2")
     .addFields(
-      { 
-        name: "✈️ PREMIUM CLASSES", 
-        value: formatLinks(links.classes), 
-        inline: false 
-      },
-      { 
-        name: "⏱️ ADS (10M – 6H)", 
-        value: formatLinks(links.ads6h), 
-        inline: true 
-      },
-      { 
-        name: "🕒 ADS (6H – 24H)", 
-        value: formatLinks(links.ads24h), 
-        inline: true 
-      },
-      { 
-        name: "➕ VALUE EXTRAS & PINGS", 
-        value: formatLinks(links.extras), 
-        inline: false 
-      },
-      {
-        name: "🪙 LITECOIN (LTC) WALLET (Tap address to copy!)",
-        value: `💳 **LTC Address:**\n\`${ltcWallet}\``,
-        inline: false
-      }
+      { name: "✈️ PREMIUM CLASSES", value: formatLinks(links.classes), inline: false },
+      { name: "⏱️ ADS (10M – 6H)", value: formatLinks(links.ads6h), inline: true },
+      { name: "🕒 ADS (6H – 24H)", value: formatLinks(links.ads24h), inline: true },
+      { name: "➕ VALUE EXTRAS & PINGS", value: formatLinks(links.extras), inline: false },
+      { name: "🪙 LITECOIN (LTC) WALLET (Tap address to copy!)", value: `💳 **LTC Address:**\n\`${ltcWallet}\``, inline: false }
     )
     .setFooter({ text: "💎 Send payment proof right here in this ticket once completed!" })
     .setTimestamp();
@@ -114,7 +97,6 @@ async function handlePurchaseCommand(message) {
   await message.channel.send({ embeds: [embed] }).catch(() => null);
 }
 
-// ================= THE EDITING COMMAND =================
 async function handlePurchEditCommand(message, args) {
   if (!message.member.permissions.has("Administrator")) {
     return message.reply("❌ You do not have permissions to use this command.").then(m => setTimeout(() => m.delete(), 5000));
@@ -128,12 +110,9 @@ async function handlePurchEditCommand(message, args) {
   const usage = "💡 **Usage:** `?purchedit <category> <number> <new_url>`\n\n" +
                 "**Categories:** `classes`, `ads6h`, `ads24h`, `extras`\n" +
                 "**Crypto Wallets:** `?purchedit wallet <ltc/btc/eth> <address>`\n\n" +
-                "**Example:** `?purchedit classes 1 https://roblox.com/...` (Changes Economy link)\n" +
-                "**Example:** `?purchedit wallet ltc Ltc1q...`";
+                "**Example:** `?purchedit classes 1 https://roblox.com/...`";
 
-  if (!args || args.length < 2) {
-    return message.reply(usage);
-  }
+  if (!args || args.length < 2) return message.reply(usage);
 
   const category = args[0].toLowerCase();
   const indexOrWallet = args[1].toLowerCase();
@@ -144,13 +123,12 @@ async function handlePurchEditCommand(message, args) {
     if (coinType === "crypto") coinType = "ltc";
 
     if (!["ltc", "btc", "eth", "sol"].includes(coinType)) {
-      return message.reply("❌ Use `?purchedit wallet ltc <address>` (or btc/eth/sol) to update your address.");
+      return message.reply("❌ Use `?purchedit wallet ltc <address>` to update your address.");
     }
     if (!value) return message.reply(`❌ Please provide a valid ${coinType.toUpperCase()} wallet address!`);
     
     if (!settings.wallets) settings.wallets = {};
     settings.wallets[coinType] = value;
-    
     saveData(fullData);
     return message.reply(`✅ Successfully updated your **${coinType.toUpperCase()}** wallet address!`);
   }
@@ -159,6 +137,7 @@ async function handlePurchEditCommand(message, args) {
     if (!value) return message.reply("❌ Please include the new URL link destination!");
     
     const itemIndex = parseInt(indexOrWallet) - 1;
+    if (!settings.purchaseLinks) settings.purchaseLinks = JSON.parse(JSON.stringify(DEFAULT_DATA.purchaseLinks));
     const items = settings.purchaseLinks[category];
 
     if (isNaN(itemIndex) || itemIndex < 0 || itemIndex >= items.length) {
