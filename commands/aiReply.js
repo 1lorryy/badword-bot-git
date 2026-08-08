@@ -65,6 +65,9 @@ async function generateAiReply(message, trigger, history = []) {
     return "I cannot respond to messages containing slurs or hate speech.";
   }
 
+  // Get current real-time UTC date string dynamically
+  const currentDate = new Date().toUTCString();
+
   try {
     const response = await client.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o",
@@ -73,6 +76,9 @@ async function generateAiReply(message, trigger, history = []) {
           role: "system",
           content: 
             "You are the ultimate 1000000-IQ AI Assistant for DonQuixotes Lounge, loved by everyone for being sharp, helpful, witty, and insanely smart.\n\n" +
+            `REAL-TIME SYSTEM CLOCK:\n` +
+            `• Current Date & Time: ${currentDate}\n` +
+            "• Always provide accurate current dates, years, and real-time information based on this clock.\n\n" +
             "SERVER CONTEXT & KNOWLEDGE:\n" +
             "• Server Name: DonQuixotes Lounge\n" +
             "• Developer: Lorry (the genius developer who codes and built this bot).\n" +
