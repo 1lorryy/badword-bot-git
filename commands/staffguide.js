@@ -1,13 +1,13 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
-// Default layout used if no custom text has been set yet
+// Default layout updated with all upgraded bot features
 const DEFAULT_GUIDE_TEXT = 
 `How to use all moderation, management, and AutoMod staff commands.
 ───
 
 ⚠️ **Warnings**
 • \`?warn @user [reason]\` — Issue an official warning
-• \`?warnings @user\` — Check a user's warn history & IDs
+• \`?warnings [@user]\` — Check warn history with dynamic timestamps & page jump
 • \`?unwarn @user [warn_id]\` — Remove a specific warning
 
 🔇 **Mutes & Timeouts**
@@ -17,31 +17,38 @@ const DEFAULT_GUIDE_TEXT =
 🔨 **Kicks & Bans**
 • \`?kick @user [reason]\` — Kick user from server
 • \`?ban @user [reason]\` — Ban user & purge recent messages
+• \`?softban @user [reason]\` — Kick user & wipe 7 days of message history
 • \`?unban [user_id]\` — Unban user using their Discord ID
 
 ✏️ **Chat & Channel Controls**
-• \`?purge [amount]\` — Delete multiple messages at once
-• \`?rename <new-name>\` — Rename the current channel
-• \`?slowmode [#channel] [time]\` — Set channel slowmode (e.g. \`?slowmode 5s\` or \`?slowmode #chat 10s\`)
-• \`?slowmode [off / 0]\` — Turn off channel slowmode
-• \`?modstats [@staff]\` — Check moderation action stats
+• \`?purge [1-100]\` — Bulk delete recent messages
+• \`?purge @user [1-100]\` — Delete messages from a specific user
+• \`?purge bots [1-100]\` — Clean up bot messages
+• \`?purge links [1-100]\` — Delete messages containing links
+• \`?rename <new-name>\` — Rename channel (Ticket categories only)
+• \`?slowmode [#channel] [time]\` — Set channel slowmode (e.g. \`5s\` or \`off\`)
+• \`?modstats [@staff]\` — Check moderator action statistics
 • \`?modlogs [@user]\` — View recent moderation log entries
 
 👤 **Roles & Management**
 • \`?role @user [role]\` — Add or remove a role from a user
-• \`?temprole @user [time] [role]\` — Give a role temporarily (e.g. \`7d\`)
+• \`?temprole @user [time] [role]\` — Give temporary role (Auto-removes across restarts)
 • \`?rolecreate [role_name] [color_hex]\` — Create a new server role
 • \`?roleicon @role <image/URL/emoji>\` — Set or update a role's icon
-• \`?customcolor @role #HEX\` — Change the color of a specific role
+• \`?customcolor\` / \`?color\` — Open interactive custom hex color picker
 • \`?setnick @user [new_nickname]\` — Change a user's server nickname
 • \`?status\` — Check bot system status & performance
+
+🌙 **AFK & Utilities**
+• \`?afk [reason]\` / \`?afk global\` — Set AFK status (Pings survive redeploys)
+• \`?help\` — Open interactive button command center
 
 🚫 **Blacklist & Staff Guide**
 • \`?bl [word]\` — Add a word to auto-blacklist
 • \`?unbl [word]\` — Remove a word from blacklist
 • \`?words\` — View all blacklisted words
 • \`?staffguide\` — Show this command usage guide
-• \`?staffguidedit [message_id] <new_text>\` — Edit staff guide content`;
+• \`?staffguidedit <message_id> [new_text]\` — Edit staff guide content`;
 
 module.exports = {
   name: "staffguide",
