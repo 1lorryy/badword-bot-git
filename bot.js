@@ -375,40 +375,38 @@ async function handleCommands(message, getGuildData) {
   const command = (args.shift() || "").toLowerCase();
   if (!command) return true;
 
-  // ================= CUSTOM COMMANDS =================
+// ================= CUSTOM COMMANDS & EMBEDS =================
   if (data.customCommands?.[command]) {
     const custom = data.customCommands[command];
 
+    // 1. AI Trigger
     if (typeof custom === "object" && custom.ai === true) {
-      let aiReply = null;
-      try {
-        aiReply = await generateAiReply(message, message.content);
-      } catch (err) {
-        console.error(err);
-        return true;
-      }
-      if (!aiReply) {
-        return message.reply("AI unavailable.");
-      }
+      let aiReply = await generateAiReply(message, message.content).catch(() => null);
+      if (!aiReply) return message.reply("AI unavailable.");
       return message.channel.send(aiReply);
     }
 
+    // 2. Dashboard Custom Embed Triggers
+    if (typeof custom === "object" && custom.embeds && custom.embeds.length > 0) {
+      return message.channel.send({ embeds: custom.embeds });
+    }
+
+    // 3. Legacy Embed Format
     if (typeof custom === "object" && custom.type === "embed") {
       const embed = new EmbedBuilder()
         .setTitle(custom.title || "Embed")
         .setDescription(custom.description || "")
         .setColor(custom.color ? parseInt(custom.color.replace("#", ""), 16) : 0x5865f2);
 
-      if (custom.url) {
-        embed.setURL(custom.url);
-      }
+      if (custom.url) embed.setURL(custom.url);
       return message.channel.send({ embeds: [embed] });
     }
 
+    // 4. Plain Text Trigger
     const response = typeof custom === "string" ? custom : custom.response || "No response set.";
     return message.channel.send({
       content: response,
-      allowedMentions: { parse: [] }
+      allowedMentions: custom.allowPings ? { parse: ["users", "roles"] } : { parse: [] }
     });
   }
 
