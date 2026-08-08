@@ -573,7 +573,7 @@ async function handleCommands(message, getGuildData) {
     return message.reply(`✅ Warned ${member.user.tag}\nWarn ID: \`${warnId}\``);
   }
 
- // ================= WARNINGS =================
+  // ================= WARNINGS =================
   if (command === "warnings") {
     const member = await findTargetMember(message, args) || message.member;
     const warnings = data.warnings[member.id] || [];
@@ -627,18 +627,11 @@ async function handleCommands(message, getGuildData) {
 
       textCollector.on("collect", async (msg) => {
         const targetPage = parseInt(msg.content.trim(), 10);
-
-        // Delete the user's typed page number message to keep chat clean
         msg.delete().catch(() => null);
 
         if (targetPage >= 1 && targetPage <= totalPages) {
           currentPage = targetPage - 1;
-          await embedMessage
-            .edit({
-              embeds: [generateWarningEmbed(currentPage)],
-              components: [generateWarningButtons(currentPage)]
-            })
-            .catch(() => null);
+          await embedMessage.edit({ embeds: [generateWarningEmbed(currentPage)], components: [generateWarningButtons(currentPage)] }).catch(() => null);
         }
       });
 
@@ -653,7 +646,7 @@ async function handleCommands(message, getGuildData) {
     }
     return true;
   }
-  
+
   // ================= UNWARN =================
   if (command === "unwarn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
@@ -913,7 +906,7 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-// ================= PURGE =================
+  // ================= PURGE =================
   if (command === "purge") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
@@ -934,7 +927,6 @@ async function handleCommands(message, getGuildData) {
     let targetType = "all";
     let amountInput = args[0];
 
-    // Determine purge filter target
     if (targetMember) {
       targetType = "user";
       amountInput = args[1];
@@ -951,11 +943,9 @@ async function handleCommands(message, getGuildData) {
       return message.reply(`❌ Please specify a valid number between 1 and 100.`);
     }
 
-    // Delete trigger command message first
     await message.delete().catch(() => null);
 
     try {
-      // Fetch messages (up to 100 to filter through)
       const fetched = await message.channel.messages.fetch({ limit: Math.min(amount * 2, 100) });
 
       let toDelete = fetched;
@@ -993,7 +983,7 @@ async function handleCommands(message, getGuildData) {
       return deleteAfter(errReply, 5000);
     }
   }
-  
+
   // ================= ROLE COMMAND =================
   if (command === "role") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
@@ -1232,7 +1222,6 @@ async function handleCommands(message, getGuildData) {
   if (command === "help") {
     const totalCustomCmds = data.customCommands ? Object.keys(data.customCommands).length : 0;
 
-    // --- Page 1: Overview ---
     const pageOverview = new EmbedBuilder()
       .setColor(0x5865f2)
       .setTitle("🔥 Don Don Command Center")
@@ -1249,7 +1238,6 @@ async function handleCommands(message, getGuildData) {
       .setFooter({ text: "Page 1/4 • Don Don Operations" })
       .setTimestamp();
 
-    // --- Page 2: Moderation & AutoMod ---
     const pageMod = new EmbedBuilder()
       .setColor(0xef4444)
       .setTitle("🛡️ Moderation & AutoMod Commands")
@@ -1282,7 +1270,6 @@ async function handleCommands(message, getGuildData) {
       .setFooter({ text: "Page 2/4 • Moderation" })
       .setTimestamp();
 
-    // --- Page 3: Security & Verification ---
     const pageSecurity = new EmbedBuilder()
       .setColor(0x3b82f6)
       .setTitle("🔒 Advanced Verification & Security")
@@ -1302,7 +1289,6 @@ async function handleCommands(message, getGuildData) {
       .setFooter({ text: "Page 3/4 • Security" })
       .setTimestamp();
 
-    // --- Page 4: Utility, Roles & Fun ---
     const pageUtility = new EmbedBuilder()
       .setColor(0x10b981)
       .setTitle("⚙️ Utility, Roles & Tools")
@@ -1388,7 +1374,10 @@ async function handleCommands(message, getGuildData) {
 
     return true;
   }
-  
+
+  return false;
+}
+
 // ================= TEMPORARY ROLE EXPIRATION ENGINE =================
 async function processExpiredTempRoles(client) {
   const now = Date.now();
@@ -1442,10 +1431,8 @@ function startBot() {
   client.once("ready", () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
 
-    // 1. Run immediately on boot to catch any expirations missed during downtime/redeploy
     processExpiredTempRoles(client);
 
-    // 2. Keep checking every 60 seconds
     setInterval(() => {
       processExpiredTempRoles(client);
     }, 60 * 1000);
