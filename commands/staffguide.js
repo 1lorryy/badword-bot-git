@@ -1,55 +1,49 @@
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
-const fs = require("fs");
-const path = require("path");
+🛡️ Moderation & Staff Commands Usage Guide
+How to use all moderation, management, and AutoMod staff commands.
+───
 
-const STAFF_GUIDE_FILE = process.env.STAFF_GUIDE_FILE || path.join(__dirname, "..", "staff-guide-data.json");
+⚠️ Warnings
+• ?warn @user [reason] — Issue an official warning
+• ?warnings [@user] — Check warn history with dynamic timestamps & page jump
+• ?unwarn @user [warn_id] — Remove a specific warning
 
-function loadStaffGuide() {
-  try {
-    if (fs.existsSync(STAFF_GUIDE_FILE)) {
-      return JSON.parse(fs.readFileSync(STAFF_GUIDE_FILE, "utf8"));
-    }
-  } catch (err) {
-    console.error("Error reading staff guide file:", err);
-  }
-  return {
-    title: "🛡️ DONQUIXOTES LOUNGE • STAFF PROTOCOLS & ESCALATION",
-    color: "#2B2D31",
-    description: "Standard Warn Escalation Ladder, Staff Commands, and Utility Integrations."
-  };
-}
+🔇 Mutes & Timeouts
+• ?mute @user [time] [reason] — Timeout user (e.g. 5m, 30m, 12h)
+• ?unmute @user — Remove an active timeout
 
-module.exports = {
-  name: "staffguide",
-  description: "Displays staff guidelines edited from the dashboard",
-  async execute(message, args) {
-    message.delete().catch(() => null);
+🔨 Kicks & Bans
+• ?kick @user [reason] — Kick user from server
+• ?ban @user [reason] — Ban user & purge recent messages
+• ?softban @user [reason] — Kick user & wipe 7 days of message history
+• ?unban [user_id] — Unban user using their Discord ID
 
-    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-      return message.channel.send("❌ **Access Denied:** Administrator permission required.")
-        .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
-    }
+✏️ Chat & Channel Controls
+• ?purge [1-100] — Bulk delete recent messages
+• ?purge @user [1-100] — Delete messages from a specific user
+• ?purge bots [1-100] — Clean up bot messages
+• ?purge links [1-100] — Delete messages containing links
+• ?rename <new-name> — Rename channel (Ticket categories only)
+• ?slowmode [#channel] [time] — Set channel slowmode (e.g. 5s or off)
+• ?modstats [@staff] — Check moderator action statistics
+• ?modlogs [@user] — View recent moderation log entries
 
-    // Read live data from JSON
-    const guideData = loadStaffGuide();
-    const hexColor = parseInt((guideData.color || "#2B2D31").replace("#", ""), 16);
+👤 Roles & Management
+• ?role @user [role] — Add or remove a role from a user
+• ?temprole @user [time] [role] — Give temporary role (Auto-removes across restarts)
+• ?rolecreate [role_name] [color_hex] — Create a new server role
+• ?roleicon @role <image/URL/emoji> — Set or update a role's icon
+• ?customcolor / ?color — Open interactive custom hex color picker
+• ?setnick @user [new_nickname] — Change a user's server nickname
+• ?status — Check bot system status & performance
 
-    const guideEmbed = new EmbedBuilder()
-      .setColor(isNaN(hexColor) ? 0x2b2d31 : hexColor)
-      .setTitle(guideData.title || "🛡️ STAFF GUIDELINES")
-      .setDescription(guideData.description || "No guidelines configured.")
-      .addFields(
-        {
-          name: "🌐 Member & Utility Commands",
-          value: 
-            "• `?tz [zone]` — Set or view personal timezone (e.g., `?tz EST`, `?tz UTC+2`).\n" +
-            "• `?joininfo [@user]` — Display join rank, milestone badge, and synced timezone.",
-          inline: false
-        }
-      )
-      .setFooter({ text: "Don Don Staff Operations • Command Usage Guide" })
-      .setTimestamp();
+🌙 AFK & Utilities
+• ?afk [reason] / ?afk global — Set AFK status (Pings survive redeploys)
+• ?help — Open interactive button command center
 
-    return message.channel.send({ embeds: [guideEmbed] });
-  }
-};
+🚫 Blacklist & Staff Guide
+• ?bl [word] — Add a word to auto-blacklist
+• ?unbl [word] — Remove a word from blacklist
+• ?words — View all blacklisted words
+• ?staffguide — Show this command usage guide
+• ?staffguidedit <message_id> [new_text] — Edit staff guide content
+Don Don Staff Operations • Command Usage Guide•gestern um 12:25 Uhr
