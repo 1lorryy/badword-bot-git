@@ -28,9 +28,11 @@ module.exports = {
         .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
     }
 
-    const data = getGuildData(message.guild.id);
+    // Resolve guild data safely
+    const data = typeof getGuildData === "function" ? getGuildData(message.guild.id) : {};
     if (!data.timezones) data.timezones = {};
 
+    // View timezone if no arguments given
     if (!args[0]) {
       const userTz = data.timezones[message.author.id] || "Not Set";
       return message.reply({
@@ -43,11 +45,15 @@ module.exports = {
       });
     }
 
+    // Format & Save
     let inputTz = args[0].toUpperCase();
     if (TZ_ALIASES[inputTz]) inputTz = TZ_ALIASES[inputTz];
 
     data.timezones[message.author.id] = inputTz;
-    saveData();
+
+    if (typeof saveData === "function") {
+      saveData();
+    }
 
     return message.reply({
       embeds: [
