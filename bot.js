@@ -452,9 +452,15 @@ async function handleCommands(message, getGuildData) {
     return statusCmd.execute(message, args, client, getGuildData);
   }
 
+// ================= JOININFO & TIMEZONE =================
   if (command === "joininfo") {
     const joinInfoCmd = require("./commands/joininfo.js");
-    return joinInfoCmd.execute(message, args);
+    return joinInfoCmd.execute(message, args, client, getGuildData);
+  }
+
+  if (command === "tz" || command === "timezone") {
+    const tzCmd = require("./commands/tz.js");
+    return tzCmd.execute(message, args, client, getGuildData, saveData);
   }
 
   if (command === "timer") {
