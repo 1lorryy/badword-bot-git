@@ -14,8 +14,8 @@ function loadStaffGuide() {
   }
   return {
     title: "🛡️ DONQUIXOTES LOUNGE • STAFF PROTOCOLS & ESCALATION",
-    color: "#5865F2",
-    description: "Standard Warn Escalation Ladder and Staff Commands."
+    color: "#2B2D31",
+    description: "Standard Warn Escalation Ladder, Staff Commands, and Utility Integrations."
   };
 }
 
@@ -32,12 +32,21 @@ module.exports = {
 
     // Read live data from JSON
     const guideData = loadStaffGuide();
-    const hexColor = parseInt((guideData.color || "#5865F2").replace("#", ""), 16);
+    const hexColor = parseInt((guideData.color || "#2B2D31").replace("#", ""), 16);
 
     const guideEmbed = new EmbedBuilder()
-      .setColor(isNaN(hexColor) ? 0x5865f2 : hexColor)
+      .setColor(isNaN(hexColor) ? 0x2b2d31 : hexColor)
       .setTitle(guideData.title || "🛡️ STAFF GUIDELINES")
       .setDescription(guideData.description || "No guidelines configured.")
+      .addFields(
+        {
+          name: "🌐 Member & Utility Commands",
+          value: 
+            "• `?tz [zone]` — Set or view personal timezone (e.g., `?tz EST`, `?tz UTC+2`).\n" +
+            "• `?joininfo [@user]` — Display join rank, milestone badge, and synced timezone.",
+          inline: false
+        }
+      )
       .setFooter({ text: "Don Don Staff Operations • Command Usage Guide" })
       .setTimestamp();
 
