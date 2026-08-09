@@ -1221,7 +1221,7 @@ async function handleCommands(message, getGuildData) {
     const totalCustomCmds = data.customCommands ? Object.keys(data.customCommands).length : 0;
 
     const pageOverview = new EmbedBuilder()
-      .setColor(0x5865f2)
+      .setColor(0x2b2d31)
       .setTitle("🔥 Don Don Command Center")
       .setDescription(
         `Welcome to the **Don Don** server management bot!\n` +
@@ -1231,13 +1231,13 @@ async function handleCommands(message, getGuildData) {
       .addFields(
         { name: "🛡️ Moderation & AutoMod", value: "Warnings, mutes, kicks, bans, blacklists, and staff guides.", inline: true },
         { name: "🔒 Advanced Security", value: "Verification settings, member scans, and trust filters.", inline: true },
-        { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, custom colors, AFK, and timers.", inline: true }
+        { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, custom colors, AFK, timezone, and analytics.", inline: true }
       )
       .setFooter({ text: "Page 1/4 • Don Don Operations" })
       .setTimestamp();
 
     const pageMod = new EmbedBuilder()
-      .setColor(0xef4444)
+      .setColor(0x2b2d31)
       .setTitle("🛡️ Moderation & AutoMod Commands")
       .setDescription(`Commands reserved for staff and moderators. Prefix: \`${prefix}\``)
       .addFields(
@@ -1269,7 +1269,7 @@ async function handleCommands(message, getGuildData) {
       .setTimestamp();
 
     const pageSecurity = new EmbedBuilder()
-      .setColor(0x3b82f6)
+      .setColor(0x2b2d31)
       .setTitle("🔒 Advanced Verification & Security")
       .setDescription(`Configure server verification and anti-raid parameters. Prefix: \`${prefix}\``)
       .addFields({
@@ -1288,7 +1288,7 @@ async function handleCommands(message, getGuildData) {
       .setTimestamp();
 
     const pageUtility = new EmbedBuilder()
-      .setColor(0x10b981)
+      .setColor(0x2b2d31)
       .setTitle("⚙️ Utility, Roles & Tools")
       .setDescription(`General tools, customization, and member commands. Prefix: \`${prefix}\``)
       .addFields(
@@ -1306,6 +1306,8 @@ async function handleCommands(message, getGuildData) {
         {
           name: "🌐 Tools & Community",
           value:
+            `• \`${prefix}joininfo [@user]\` — View join rank & milestone analytics\n` +
+            `• \`${prefix}tz [zone]\` — Set/view personal timezone\n` +
             `• \`${prefix}afk [reason]\` / \`${prefix}afk global\` — Set AFK status\n` +
             `• \`${prefix}translate [lang] [text]\` — Translate message\n` +
             `• \`${prefix}timer [time] [label]\` — Set countdown timer\n` +
