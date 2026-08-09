@@ -1156,72 +1156,80 @@ async function handleCommands(message, getGuildData) {
     return message.reply({ embeds: [embed] });
   }
 
-  // ================= SNIPE =================
+ // ================= SNIPE =================
   if (command === "snipe") {
     if (args[0]?.toLowerCase() === "on") {
       if (!canManageGuild(message)) return message.reply("❌ No permission.");
       data.snipeEnabled = true;
       saveData();
-      return message.reply("✅ Snipe enabled.");
+      return message.reply("✅ Snipe logging enabled for this server.");
     }
 
     if (args[0]?.toLowerCase() === "off") {
       if (!canManageGuild(message)) return message.reply("❌ No permission.");
       data.snipeEnabled = false;
       saveData();
-      return message.reply("❌ Snipe disabled.");
+      return message.reply("❌ Snipe logging disabled.");
     }
 
     if (!data.snipeEnabled) {
-      return message.reply("❌ Snipe is disabled.");
+      return message.reply("❌ Snipe is currently disabled on this server.");
     }
 
-    const snipes = data.snipes?.[message.channel.id];
-    if (!snipes || !snipes.length) {
-      return message.reply("Nothing to snipe.");
+    // STRICT CHANNEL SCOPING: Only pulls array matching THIS channel ID
+    const currentChannelSnipes = data.snipes?.[message.channel.id];
+
+    if (!currentChannelSnipes || !currentChannelSnipes.length) {
+      return message.reply(`ℹ️ There are no recently deleted messages logged in <#${message.channel.id}>.`);
     }
 
-    const index = parseInt(args[0]) || 1;
-    const snipe = snipes[index - 1];
+    const index = parseInt(args[0], 10) || 1;
+    const snipe = currentChannelSnipes[index - 1];
 
     if (!snipe) {
-      return message.reply(`Only ${snipes.length} deleted messages stored.`);
+      return message.reply(`⚠️ Only ${currentChannelSnipes.length} deleted message(s) stored for <#${message.channel.id}>.`);
     }
 
     const embed = new EmbedBuilder()
-      .setTitle(`📌 Sniped Message #${index}`)
+      .setTitle(`📌 Sniped Message #${index} in #${message.channel.name}`)
       .setColor(0x5865f2)
       .addFields(
         { name: "Author", value: `<@${snipe.authorId}>`, inline: true },
         { name: "Deleted", value: `<t:${Math.floor(snipe.deletedAt / 1000)}:R>`, inline: true },
-        { name: "Message", value: snipe.content.slice(0, 1024) }
+        { name: "Message Content", value: snipe.content.slice(0, 1024) }
       )
-      .setFooter({ text: `${index}/${snipes.length} stored snipes` });
+      .setFooter({ text: `Showing ${index}/${currentChannelSnipes.length} stored snipes for this channel` });
 
     return message.reply({ embeds: [embed] });
   }
 
-  // ================= SNIPES =================
+  // ================= SNIPES (LIST ALL FOR CURRENT CHANNEL) =================
   if (command === "snipes") {
-    const snipes = data.snipes?.[message.channel.id];
-    if (!snipes || !snipes.length) {
-      return message.reply("Nothing to snipe.");
+    if (!data.snipeEnabled) {
+      return message.reply("❌ Snipe is currently disabled.");
+    }
+
+    // STRICT CHANNEL SCOPING
+    const currentChannelSnipes = data.snipes?.[message.channel.id];
+
+    if (!currentChannelSnipes || !currentChannelSnipes.length) {
+      return message.reply(`ℹ️ There are no recently deleted messages logged in <#${message.channel.id}>.`);
     }
 
     const embed = new EmbedBuilder()
-      .setTitle("📌 Recent Deleted Messages")
+      .setTitle(`📌 Recent Deleted Messages in #${message.channel.name}`)
       .setColor(0x5865f2)
       .setDescription(
-        snipes
+        currentChannelSnipes
           .slice(0, 5)
-          .map((s, i) => `**${i + 1}.** <@${s.authorId}> • <t:${Math.floor(s.deletedAt / 1000)}:R>\n${s.content}`)
+          .map((s, i) => `**${i + 1}.** <@${s.authorId}> • <t:${Math.floor(s.deletedAt / 1000)}:R>\n└ ${s.content}`)
           .join("\n\n")
       )
-      .setFooter({ text: `${snipes.length} stored deleted messages` });
+      .setFooter({ text: `${currentChannelSnipes.length} deleted message(s) logged for this channel` });
 
     return message.reply({ embeds: [embed] });
   }
-
+  
   // ================= HELP (INTERACTIVE BUTTON MENU) =================
   if (command === "help") {
     const totalCustomCmds = data.customCommands ? Object.keys(data.customCommands).length : 0;
