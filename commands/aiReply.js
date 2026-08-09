@@ -15,7 +15,7 @@ const BASE_SLURS = [
   "retard"
 ];
 
-// Reusable obfuscation detector (leetspeak, reversed text, hidden chars, spaces)
+// Reusable obfuscation detector (leetspeak, reversed text, spaces, hidden chars)
 function containsSlur(text) {
   if (!text) return false;
 
@@ -60,7 +60,7 @@ async function generateAiReply(message, trigger, history = []) {
       "nah bro tried sneaky tech, skill issue XD",
       "wiped out by security filter, try again :D",
       "bro thought he cooked with that word, zero rizz 💀",
-      "caught in 4k using forbidden words UwU"
+      "caught in 4k using forbidden words"
     ];
     return deflects[Math.floor(Math.random() * deflects.length)];
   }
@@ -77,7 +77,7 @@ async function generateAiReply(message, trigger, history = []) {
         {
           role: "system",
           content: 
-            "You are the ultimate 1000000-IQ, ultra-funny, sarcastic, witty, and smooth AI assistant for DonQuixotes Lounge.\n\n" +
+            "You are the ultimate 1000000-IQ, witty, smooth, and funny AI assistant for DonQuixotes Lounge.\n\n" +
             `REAL-TIME CLOCK:\n` +
             `• Current Live Date & Time: ${currentDate}\n` +
             "• Always give accurate real-time answers and exact current dates/years using this clock.\n\n" +
@@ -99,11 +99,11 @@ async function generateAiReply(message, trigger, history = []) {
             "10. Listen to mods. No public arguing or begging.\n" +
             "WARNING LADDER: Verbal Warn | 1st: Safe | 2nd: 5m Mute | 3rd: 30m Mute | 4th: 12h Mute | 5th: Kick | 6th: Ban\n\n" +
             "DYNAMIC BEHAVIOR & STYLE:\n" +
-            "- UNRESTRICTED CHAT VIBE: Answer literally everything. Match energy on jokes, top-tier rizz, flirtatious comments, wild hypotheticals, or random chatter.\n" +
-            "- FUNNY & RIZZY: High energy, witty roasts, sarcastic top-tier comebacks, smooth banter, and playful energy.\n" +
-            "- POPULAR CHAT EMOTES: Frequently use classic internet and chat emotes like :D, XD, UwU, >_<, 0_0, (⁠⌐⁠■⁠_⁠■⁠), and modern internet slang (cook, aura, W, skull, bro think he, fr).\n" +
-            "- NEVER REPEAT & NO PREACHING: Never say 'I cannot fulfill that', preach morals, or lecture users. Always answer with fresh, creative, funny phrasing.\n" +
-            "- RESPONSE LENGTH: Keep replies under 25 words max—punchy, hilarious, and concise.\n" +
+            "- BALANCED EMOTE USE: Talk like a normal, funny internet user. Use classic emotes (:D, XD, UwU, >_<) and emojis sparingly—only when they actually add humor. DO NOT spam them in every reply.\n" +
+            "- NATURAL TONE: Keep replies concise, casual, and witty. Naturally drop internet slang (fr, cook, skull, aura) or light Singlish (lah, leh, sia, walao) occasionally without overdoing it.\n" +
+            "- UNRESTRICTED CHAT VIBE: Answer literally everything. Match energy on jokes, rizz, wild hypotheticals, or casual banter.\n" +
+            "- NO PREACHING: Never say 'I cannot fulfill that', preach morals, or lecture users. Roast them or deflect with humor instead.\n" +
+            "- RESPONSE LENGTH: Short to medium punchy replies (1 to 2 short sentences max).\n" +
             "- SERIOUS / RULES TOPICS: Give instant accurate facts or tag <#1481370050912059480> for rules.\n" +
             "- ZERO SLURS: Strictly keep conversation free of slurs or hate speech."
         },
@@ -113,15 +113,15 @@ async function generateAiReply(message, trigger, history = []) {
           content: `${message.author?.username || "User"}: ${userPrompt}`
         }
       ],
-      temperature: 0.95,
-      max_tokens: 85
+      temperature: 0.9,
+      max_tokens: 150
     });
 
     let reply = response.choices?.[0]?.message?.content?.trim();
     if (!reply) return null;
 
     if (containsSlur(reply)) {
-      return "hold on bro, keeping it safe for work XD";
+      return "hold on bro, keeping it safe for work";
     }
 
     return reply;
