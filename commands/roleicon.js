@@ -1,109 +1,62 @@
-const { EmbedBuilder, PermissionsBitField } = require("discord.js");
-
-// Set allowed role IDs here so buyers can also use the command
-const ALLOWED_BUYER_ROLE_IDS = [
-  "1481370041441189959", // Replace with your First Class Role ID
-  "1481370041432932379", // Replace with your Business Class Role ID
-  "1481370041420087474", // Replace with your Premium Class Role ID
-  "1492630307650666546"  // Replace with your Economy Class Role ID
-];
-
-/**
- * Helper to parse custom Discord emojis (<:name:id> or <a:name:id>) into CDN URLs
- */
-function parseEmojiToUrl(input) {
-  if (!input) return null;
-  
-  // Custom Emoji Regex: <:emoji_name:123456789012345678> or animated <a:emoji_name:123456789012345678>
-  const customEmojiMatch = input.match(/<a?:(\w+):(\d+)>/);
-  if (customEmojiMatch) {
-    const isAnimated = input.startsWith("<a:");
-    const emojiId = customEmojiMatch[2];
-    const extension = isAnimated ? "gif" : "png";
-    return `https://cdn.discordapp.com/emojis/${emojiId}.${extension}?size=128&quality=lossless`;
-  }
-
-  // If it's already an HTTP/HTTPS image link
-  if (input.startsWith("http://") || input.startsWith("https://")) {
-    return input;
-  }
-
-  return null;
-}
+const { PermissionsBitField } = require("discord.js");
 
 module.exports = {
   name: "roleicon",
-  description: "Set or change a role icon using an image, URL, or custom emoji.",
+  description: "Set a custom icon for a server role using an image attachment, URL, or emoji.",
   async execute(message, args) {
-    // 1. Permission Check: Admin/Manage Roles OR holding an allowed buyer role
-    const isStaff =
-      message.member.permissions.has(PermissionsBitField.Flags.ManageRoles) ||
-      message.member.permissions.has(PermissionsBitField.Flags.Administrator);
-
-    const hasBuyerRole = message.member.roles.cache.some((role) =>
-      ALLOWED_BUYER_ROLE_IDS.includes(role.id)
-    );
-
-    if (!isStaff && !hasBuyerRole) {
-      return message.reply("❌ You do not have permission to use `?roleicon`!");
+    // 1. Permission checks
+    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+      return message.reply("❌ You need the **Manage Roles** permission to use this command.");
     }
 
-    // 2. Bot Permission Check
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return message.reply("❌ I need **Manage Roles** permission to change role icons.");
+      return message.reply("❌ I am missing the **Manage Roles** permission in this server.");
     }
 
-    // 3. Find Target Role
-    const roleMention = message.mentions.roles.first();
-    const roleIdOrName = args[0];
-
-    if (!roleMention && !roleIdOrName) {
-      return message.reply("Usage: `?roleicon @role <Image / URL / Custom Emoji>`");
-    }
-
-    const role =
-      roleMention ||
-      message.guild.roles.cache.get(roleIdOrName) ||
-      message.guild.roles.cache.find(
-        (r) => r.name.toLowerCase() === roleIdOrName.toLowerCase()
-      );
+    // 2. Identify target role
+    const role = message.mentions.roles.first() || 
+                 message.guild.roles.cache.get(args[0]) || 
+                 message.guild.roles.cache.find(r => r.name.toLowerCase() === args[0]?.toLowerCase());
 
     if (!role) {
-      return message.reply("❌ Could not find that role.");
+      return message.reply("❌ Please specify a valid role. Usage: `?roleicon @role [upload image or paste URL]`");
     }
 
-    // Role Hierarchy Safeguard
+    // 3. Role hierarchy check
     if (role.position >= message.guild.members.me.roles.highest.position) {
-      return message.reply("❌ That role is higher than or equal to my highest role.");
+      return message.reply(`❌ I cannot edit **${role.name}**! Please drag my bot role higher than **${role.name}** in Server Settings > Roles.`);
     }
 
-    // 4. Extract Icon Source (Attachment, Custom Emoji, or URL)
-    const rawInput = args[1];
-    let iconUrl = message.attachments.first()?.url || parseEmojiToUrl(rawInput);
+    // 4. Extract icon URL from attachment, custom emoji, or direct URL
+    let iconUrl = null;
+
+    if (message.attachments.size > 0) {
+      iconUrl = message.attachments.first().url;
+    } else if (args[1]) {
+      const emojiMatch = args[1].match(/<a?:.+?:(\d+)>/);
+      if (emojiMatch) {
+        iconUrl = `https://cdn.discordapp.com/emojis/${emojiMatch[1]}.png`;
+      } else if (args[1].startsWith("http://") || args[1].startsWith("https://")) {
+        iconUrl = args[1];
+      }
+    }
 
     if (!iconUrl) {
-      return message.reply(
-        "❌ Please provide a valid **Image URL**, attach an **Image**, or send a **Custom Emoji** (`<:emoji:id>`)!"
-      );
+      return message.reply("❌ No image found! Please attach an image file directly to your message or provide an image link.");
     }
 
-    // 5. Apply Icon to Role
+    // 5. Update role icon
     try {
       await role.setIcon(iconUrl);
-
-      const embed = new EmbedBuilder()
-        .setTitle("🎨 Role Icon Updated")
-        .setColor(role.color || 0x5865f2)
-        .setDescription(`Successfully updated icon for **${role.name}**!`)
-        .setThumbnail(iconUrl)
-        .setTimestamp();
-
-      return message.reply({ embeds: [embed] });
+      return message.reply(`✅ Successfully set the icon for **${role.name}**!`);
     } catch (err) {
-      console.error("Roleicon Error:", err);
+      console.error("RoleIcon Execution Error:", err);
       return message.reply(
-        "❌ Failed to set role icon. Make sure the server has **Boost Level 2+** unlocked for role icons, and that the link/emoji is valid!"
+        "❌ Failed to set role icon. Please verify that:\n" +
+        "1. The image size is under **256 KB**.\n" +
+        "2. The file is a valid `.png` or `.jpg` image.\n" +
+        "3. The bot's role is positioned above the target role."
       );
     }
-  },
+  }
 };
