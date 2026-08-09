@@ -4,7 +4,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Comprehensive list of severe slurs and hate speech bases
+// Base guardrail list for slurs
 const BASE_SLURS = [
   "cunt", 
   "nigger", 
@@ -15,29 +15,23 @@ const BASE_SLURS = [
   "retard"
 ];
 
-// Reusable function to detect obfuscated slurs (reversed, leetspeak, spaces, hidden characters)
+// Reusable obfuscation detection (leetspeak, reversed text, spaces, zero-width)
 function containsSlur(text) {
   if (!text) return false;
 
-  // 1. Normalize unicode and strip hidden/zero-width characters
   let clean = text
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\u200B-\u200D\uFEFF]/g, "")
     .toLowerCase();
 
-  // 2. Leetspeak map to normalize common character substitutions
   const leetMap = {
     '4': 'a', '@': 'a', '3': 'e', '1': 'i', '!': 'i', '|': 'i',
     '0': 'o', '5': 's', '$': 's', '7': 't', '+': 't', 'v': 'u'
   };
   
   let deLeeted = clean.split("").map(char => leetMap[char] || char).join("");
-
-  // 3. Reverse the string to catch backwards attempts (e.g., "tnuc")
   let reversed = deLeeted.split("").reverse().join("");
-
-  // 4. Strip non-alphanumeric chars to catch spaced attempts (e.g., "c u n t")
   let alphaOnly = deLeeted.replace(/[^a-z0-9]/g, "");
   let reversedAlphaOnly = reversed.replace(/[^a-z0-9]/g, "");
 
@@ -60,16 +54,21 @@ async function generateAiReply(message, trigger, history = []) {
 
   const userPrompt = trigger || message.content || "";
 
-  // Guardrail check on user input before processing
+  // Dynamic funny deflection on input slur attempt instead of standard robotic refusals
   if (containsSlur(userPrompt)) {
-    return "Nice try, but slurs aren't flying here.";
+    const deflects = [
+      "nah bro tried sneaky tech, skill issue XD",
+      "wiped out by security filter, try again :D",
+      "bro thought he cooked with that word, zero rizz 💀",
+      "caught in 4k using forbidden words UwU"
+    ];
+    return deflects[Math.floor(Math.random() * deflects.length)];
   }
 
-  // Get current real-time UTC date string dynamically
   const currentDate = new Date().toUTCString();
 
-  // Slice up to the last 250 chat history messages for massive context memory
-  const slicedHistory = Array.isArray(history) ? history.slice(-250) : [];
+  // Upped history context memory slice to 1000 messages
+  const slicedHistory = Array.isArray(history) ? history.slice(-1000) : [];
 
   try {
     const response = await client.chat.completions.create({
@@ -78,34 +77,21 @@ async function generateAiReply(message, trigger, history = []) {
         {
           role: "system",
           content: 
-            "You are the ultimate 1000000-IQ AI Assistant for DonQuixotes Lounge. You are smart, funny, sarcastic, witty, and super adaptable.\n\n" +
+            "You are the ultimate 1000000-IQ, ultra-funny, sarcastic, insanely witty, and smooth AI bot for DonQuixotes Lounge.\n\n" +
             `REAL-TIME CLOCK:\n` +
             `• Current Live Date & Time: ${currentDate}\n` +
-            "• Always provide accurate real-time answers and exact current years/dates using this clock.\n\n" +
+            "• Use this clock for exact timestamps and real-time facts.\n\n" +
             "ROLES & LORE:\n" +
-            "• SERVER OWNER: Don (The boss and owner running DonQuixotes Lounge).\n" +
-            "• BOT DEVELOPER & CREATOR: Lorry (The genius programmer who created, owns, and codes this bot).\n" +
+            "• SERVER OWNER: Don (The owner running DonQuixotes Lounge).\n" +
+            "• BOT DEVELOPER & CREATOR: Lorry (The genius developer who created, owns, and codes this bot).\n" +
             "• SERVER NAME: DonQuixotes Lounge\n" +
             "• RULES CHANNEL: <#1481370050912059480>\n\n" +
-            "OFFICIAL SERVER RULES (REFERENCE ONLY IF ASKED):\n" +
-            "1. Respect everyone. No hate speech, bullying, or discrimination.\n" +
-            "2. No spamming or flooding chat.\n" +
-            "3. No NSFW content or discussions.\n" +
-            "4. Follow Discord TOS (https://discord.com/terms).\n" +
-            "5. No advertising or self-promotion without staff permission.\n" +
-            "6. Keep channels topic-relevant.\n" +
-            "7. Do not ping staff unnecessarily or abuse tickets.\n" +
-            "8. English only in main chats.\n" +
-            "9. No doxxing or personal info sharing.\n" +
-            "10. Listen to mods. No public arguing or begging.\n" +
-            "WARNING LADDER: Verbal Warn | 1st: Safe | 2nd: 5m Mute | 3rd: 30m Mute | 4th: 12h Mute | 5th: Kick | 6th: Ban\n\n" +
-            "DYNAMIC BEHAVIOR & CONVERSATION DIRECTIVES:\n" +
-            "- ULTRA SHORT RESPONSES: Keep every reply strictly under 15 words or 1 short sentence max. Never write multi-sentence messages, paragraphs, or long explanations.\n" +
-            "- NEVER REPEAT REPLIES: Always answer differently with fresh, creative phrasing.\n" +
-            "- ANSWER EVERYTHING: Match the user energy on jokes, rizz, flirtatious comments, or random chatter.\n" +
-            "- NO PREACHY REFUSALS: Never say 'I cannot fulfill that request' or lecture users. Roast them or use a sarcastic comeback instead.\n" +
-            "- SERIOUS / RULES TOPICS: Give accurate factual answers instantly or tag <#1481370050912059480> for rules.\n" +
-            "- STRICT SAFETY: Zero tolerance for slurs or bypass attempts (leetspeak, reversed text, spaces)."
+            "PERSONALITY & STYLE:\n" +
+            "- FUNNY AS HELL & RIZZY: High energy, funny roasts, unmatched rizz, humorous banter, playful flirting, and sarcastic top-tier comebacks.\n" +
+            "- CHAT EMOTES & SLANG: Naturally use classic chat emotes like :D, XD, UwU, >_<, 0_0, (⁠⌐⁠■⁠_⁠■⁠), and hype gaming/internet slang (cook, aura, W, skull, bro think he, fr).\n" +
+            "- NO ROBOTIC REFUSALS: Never lecture users, preach morals, or say 'I cannot fulfill that'. Match their vibe, banter back, roast them, or deflect humorously.\n" +
+            "- RESPONSE LENGTH: Keep replies punchy, hilarious, and concise (under 25 words per reply max).\n" +
+            "- ZERO SLURS / KEEP CLEAN: Absolutely zero hate speech or slurs."
         },
         ...slicedHistory,
         {
@@ -114,15 +100,14 @@ async function generateAiReply(message, trigger, history = []) {
         }
       ],
       temperature: 0.95,
-      max_tokens: 45
+      max_tokens: 80
     });
 
     let reply = response.choices?.[0]?.message?.content?.trim();
     if (!reply) return null;
 
-    // Post-generation safety fallback for slurs only
     if (containsSlur(reply)) {
-      return "Hold up, let's keep it clean.";
+      return "hold on bro, keeping it safe for work XD";
     }
 
     return reply;
