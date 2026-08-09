@@ -1543,13 +1543,23 @@ function startBot() {
       const wasCommand = await handleCommands(message, getGuildData);
       if (wasCommand) return;
 
-      // 6. ================= AI TRIGGER ENGINE RESPONSES =================
-      if (!isAiCommand && !isReplyToBot) return;
+// 6. ================= AI TRIGGER ENGINE RESPONSES =================
+      const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
+
+      // Trigger AI if using command prefix (?ai), replying to the bot, OR pinging @bot directly
+      if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
 
       let triggerText = message.content;
+
       if (isAiCommand) {
         triggerText = message.content.slice(`${prefix}ai`.length).trim();
         if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
+      } else if (isBotMentioned) {
+        // Strip out the mention tag (<@123456789>) so the AI only receives pure text
+        triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
+        if (!triggerText) {
+          return message.reply("Hey! How can I help you today?");
+        }
       }
 
       const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
