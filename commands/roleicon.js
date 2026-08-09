@@ -23,16 +23,7 @@ module.exports = {
       return message.reply("❌ Please specify a valid role.\n**Usage:** `?roleicon @role [upload image or paste URL]`");
     }
 
-    // 3. Verify role hierarchy
-    const botHighestRole = message.guild.members.me.roles.highest;
-    if (role.position >= botHighestRole.position) {
-      return message.reply(
-        `❌ **Role Hierarchy Error:** My highest role (\`${botHighestRole.name}\`) is placed lower than or equal to **${role.name}**.\n` +
-        `▸ **Fix:** Go to **Server Settings > Roles** and drag my bot's role above **${role.name}**.`
-      );
-    }
-
-    // 4. Extract image source (Attachment, Custom Emoji, or URL)
+    // 3. Extract image source (Attachment, Custom Emoji, or URL)
     let iconUrl = null;
 
     if (message.attachments.size > 0) {
@@ -52,10 +43,10 @@ module.exports = {
       return message.reply("❌ No valid image found! Please attach an image file directly to your message or provide an image link.");
     }
 
-    const processingMsg = await message.reply("🔄 *Processing image & auto-resizing to 128x128 for Discord...*");
+    const processingMsg = await message.reply("🔄 *Processing image & attempting role icon update...*");
 
     try {
-      // 5. Download and process image with Jimp
+      // 4. Download and process image with Jimp
       const image = await Jimp.read(iconUrl);
 
       // Auto-resize to standard 128x128 role icon dimensions
@@ -64,17 +55,17 @@ module.exports = {
       // Export as compressed PNG Buffer
       const resizedBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
 
-      // 6. Set the role icon
+      // 5. Attempt direct API update (Discord evaluates permissions directly)
       await role.setIcon(resizedBuffer);
 
-      return processingMsg.edit(`✅ Successfully auto-resized and updated the custom role icon for **${role.name}**!`);
+      return processingMsg.edit(`✅ Successfully updated the custom role icon for **${role.name}**!`);
     } catch (err) {
       console.error("RoleIcon Execution Error:", err);
 
       let errorReason = "An unexpected error occurred while setting the role icon.";
 
       if (err.code === 50013) {
-        errorReason = "Bot lacks permission or role hierarchy position to edit this role.";
+        errorReason = `Discord rejected the request because **${role.name}** is positioned higher than or equal to my bot role in Server Settings > Roles.`;
       } else if (err.code === 50001) {
         errorReason = "Server lacks Boost Level 2 features required for custom role icons.";
       } else if (err.code === 50035 || err.message?.includes("256")) {
