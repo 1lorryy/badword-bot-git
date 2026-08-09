@@ -3,7 +3,6 @@ const { EmbedBuilder } = require("discord.js");
 const BOT_COMMANDS_CHANNEL_ID = "1481370051264254259";
 const STAFF_ROLE_ID = "1481370041420087474";
 
-// Valid timezone offset aliases
 const TZ_ALIASES = {
   EST: "UTC-5", EDT: "UTC-4",
   CST: "UTC-6", CDT: "UTC-5",
@@ -18,7 +17,7 @@ const TZ_ALIASES = {
 module.exports = {
   name: "tz",
   aliases: ["timezone"],
-  description: "Set or view your personal timezone for status and join info cards.",
+  description: "Set or view your personal timezone.",
   async execute(message, args, client, getGuildData, saveData) {
     const isStaff = message.member.roles.cache.has(STAFF_ROLE_ID) ||
                     message.member.permissions.has("Administrator") ||
@@ -32,19 +31,18 @@ module.exports = {
     const data = getGuildData(message.guild.id);
     if (!data.timezones) data.timezones = {};
 
-    // View current timezone if no args provided
     if (!args[0]) {
-      const userTz = data.timezones[message.author.id] || "Not Set (Default: UTC)";
+      const userTz = data.timezones[message.author.id] || "Not Set";
       return message.reply({
         embeds: [
           new EmbedBuilder()
-            .setColor("#5865F2")
-            .setDescription(`🌐 **Your Current Timezone:** \`${userTz}\`\n\n*Set it using:* \`?tz <timezone>\` *(e.g. \`?tz EST\`, \`?tz UTC+2\`, \`?tz Europe/London\`)*`)
+            .setColor("#2B2D31")
+            .setAuthor({ name: `${message.author.username} • Timezone Status`, iconURL: message.author.displayAvatarURL() })
+            .setDescription(`🌐 **Active Timezone:** \`${userTz}\`\n\n*Update with:* \`?tz <EST | UTC+2 | Europe/London>\``)
         ]
       });
     }
 
-    // Process and save new timezone
     let inputTz = args[0].toUpperCase();
     if (TZ_ALIASES[inputTz]) inputTz = TZ_ALIASES[inputTz];
 
@@ -54,8 +52,8 @@ module.exports = {
     return message.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#22C55E")
-          .setDescription(`✅ **Timezone Updated:** Set to \`${inputTz}\` for ${message.author.username}! This will now appear on your \`?joininfo\` card.`)
+          .setColor("#2B2D31")
+          .setDescription(`⚡ **Timezone set to \`${inputTz}\`** for <@${message.author.id}>! Synced with \`?joininfo\`.`)
       ]
     });
   }
