@@ -17,18 +17,34 @@ function formatDuration(ms) {
   return `${sec}s`;
 }
 
+// Clean ALL [AFK] prefixes from a display string
+function cleanAfkPrefix(str) {
+  if (!str) return "";
+  return str.replace(/^(\[AFK\]\s*)+/gi, "").trim();
+}
+
 async function handleAfkCommand(message, args, prefix, getGuildData, saveData) {
   const isGlobal = args[0]?.toLowerCase() === "global";
   const reason = (isGlobal ? args.slice(1) : args).join(" ").trim() || "AFK";
   const member = message.member;
-  const oldNickname = member.nickname || null;
+
+  const serverKey = `${message.guild.id}:${message.author.id}`;
+  const existingGlobal = globalAfkUsers.get(message.author.id);
+  const existingServer = serverAfkUsers.get(serverKey);
+  const existingAfk = existingGlobal || existingServer;
+
+  // 1. Determine pure pre-AFK nickname without any [AFK] tags
+  let originalName = existingAfk?.oldNickname;
+  if (!originalName) {
+    originalName = member.nickname ? cleanAfkPrefix(member.nickname) : member.user.username;
+  }
 
   const afkData = {
     reason,
     since: Date.now(),
-    pings: [],
-    oldNickname,
-    originGuildId: message.guild.id // Persist origin server so pings stay synced on redeploys
+    pings: existingAfk?.pings || [],
+    oldNickname: originalName,
+    originGuildId: message.guild.id
   };
 
   const data = getGuildData(message.guild.id);
@@ -36,32 +52,37 @@ async function handleAfkCommand(message, args, prefix, getGuildData, saveData) {
     data.afk = { global: {}, servers: {} };
   }  
 
+  // 2. Clear previous mode entries when toggling/updating AFK
   if (isGlobal) {
+    serverAfkUsers.delete(serverKey);
+    if (data.afk.servers) delete data.afk.servers[serverKey];
+
     globalAfkUsers.set(message.author.id, afkData);
     data.afk.global[message.author.id] = afkData;
   } else {
-    const key = `${message.guild.id}:${message.author.id}`;
-    serverAfkUsers.set(key, afkData);
-    data.afk.servers[key] = afkData;
+    globalAfkUsers.delete(message.author.id);
+    if (data.afk.global) delete data.afk.global[message.author.id];
+
+    serverAfkUsers.set(serverKey, afkData);
+    data.afk.servers[serverKey] = afkData;
   }
 
   saveData();
 
+  // 3. Set AFK Nickname safely
   if (message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames) && member.manageable) {
-    const base = member.nickname || member.user.globalName || member.user.username;
-    const clean = base.replace(/^\[AFK\]\s*/i, "");
-    const newNick = `[AFK] ${clean}`.slice(0, 32);
+    const newNick = `[AFK] ${originalName}`.slice(0, 32);
     await member.setNickname(newNick).catch(() => null);
   }
 
   return message.reply({
     embeds: [
       new EmbedBuilder()
-        .setColor(0xfacc15)
-        .setDescription(
-          `🌙 **${message.author.username} is AFK** — ${reason}` +
-          (isGlobal ? "\n🌍 Mode: Global" : "\n🏠 Mode: This server")
-        )
+        .setColor(0x5865F2)
+        .setAuthor({ name: `${message.author.username} is now AFK`, iconURL: message.author.displayAvatarURL() })
+        .setDescription(`💬 **Reason:** ${reason}`)
+        .addFields({ name: "🌐 Scope", value: isGlobal ? "`Global`" : "`Server Only`", inline: true })
+        .setTimestamp()
     ],
     allowedMentions: { parse: [] }
   }).catch(() => null);
@@ -76,12 +97,11 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
   const authorAfk = globalAfk || serverAfk;
 
   // ================= RETURN HANDLER =================
-  if (authorAfk && !message.content.startsWith(`${prefix}afk`)) {
+  if (authorAfk && !message.content.toLowerCase().startsWith(`${prefix}afk`)) {
     
     globalAfkUsers.delete(message.author.id);
     serverAfkUsers.delete(serverKey);
 
-    // Clean up from original guild storage where AFK was initiated
     if (authorAfk.originGuildId) {
       const originData = getGuildData(authorAfk.originGuildId);
       if (originData?.afk?.global) {
@@ -98,15 +118,26 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
 
     const awayFor = formatDuration(Date.now() - authorAfk.since);
 
+    // FIX NICKNAME STUCK ISSUE: Forcefully restore or reset nickname
     if (message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames) && message.member.manageable) {
-      await message.member.setNickname(authorAfk.oldNickname || null, "Returned from AFK").catch(() => null);
+      const cleanOriginal = cleanAfkPrefix(authorAfk.oldNickname);
+      
+      // If oldNickname matches their default username, reset nickname to null (default)
+      if (!cleanOriginal || cleanOriginal.toLowerCase() === message.author.username.toLowerCase()) {
+        await message.member.setNickname("").catch(() => null);
+      } else {
+        await message.member.setNickname(cleanOriginal).catch(async () => {
+          // Fallback reset if setting original fails
+          await message.member.setNickname("").catch(() => null);
+        });
+      }
     }
 
-    let pingList = "No one pinged you while you were away.";
+    let pingList = "No mentions while away.";
     if (authorAfk.pings && authorAfk.pings.length > 0) {
       pingList = authorAfk.pings
         .slice(-10)
-        .map((p, i) => `${i + 1}. **${p.authorTag}** — [Jump to message](${p.url})`)
+        .map((p, i) => `**${i + 1}.** **${p.authorTag}** — [Jump to message](${p.url})`)
         .join("\n")
         .slice(0, 1000);
     }
@@ -115,8 +146,8 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
       embeds: [
         new EmbedBuilder()
           .setColor(0x22c55e)
-          .setAuthor({ name: `${message.member.displayName} is back`, iconURL: message.author.displayAvatarURL() })
-          .setDescription(`⏱️ **Away for:** ${awayFor}\n💬 **Reason:** ${authorAfk.reason}`)
+          .setAuthor({ name: `Welcome back, ${message.member.displayName.replace(/^\[AFK\]\s*/i, "")}!`, iconURL: message.author.displayAvatarURL() })
+          .setDescription(`⏱️ **Away for:** \`${awayFor}\` | 💬 **Reason:** ${authorAfk.reason}`)
           .addFields({ name: "📬 Recent Mentions", value: pingList })
           .setTimestamp()
       ],
@@ -146,7 +177,6 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
 
     if (afkInfo.pings.length > 20) afkInfo.pings.shift();
 
-    // Write pings directly into the origin server's stored JSON entry
     if (afkInfo.originGuildId) {
       const originData = getGuildData(afkInfo.originGuildId);
       if (!originData.afk) originData.afk = { global: {}, servers: {} };
@@ -166,7 +196,11 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
     saveData();    
 
     await message.reply({
-      content: `🌙 **${user.username}** is AFK — ${afkInfo.reason} (${awayFor} ago)`,
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xE2B714)
+          .setDescription(`🌙 **${user.username}** is currently AFK: **${afkInfo.reason}** (\`${awayFor}\` ago)`)
+      ],
       allowedMentions: { parse: [] }
     }).catch(() => null);
   }
