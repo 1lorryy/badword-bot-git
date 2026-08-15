@@ -13,6 +13,7 @@ const roleIconCommand = require("./commands/roleicon.js");
 const roleCreateCommand = require("./commands/rolecreate.js");
 const customColorCommand = require("./commands/customcolor.js");
 const shopCommand = require("./commands/shop.js");
+const dailyCommand = require("./commands/daily.js");
 
 // NEW COMMAND IMPORTS
 const marriageCommand = require("./commands/marriage.js");
