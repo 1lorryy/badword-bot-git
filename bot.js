@@ -371,6 +371,12 @@ async function registerSlashCommands() {
       .setIntegrationTypes(globalIntegrationTypes),
 
     new SlashCommandBuilder()
+  .setName("daily")
+  .setDescription("Claim your daily reward")
+  .setContexts(globalContexts)
+  .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
       .setName("status")
       .setDescription("Check system health")
       .setContexts(globalContexts)
@@ -604,7 +610,7 @@ async function handleCommands(message, getGuildData) {
   const funCommandsList = [
     "ship", "shop", "store", "marketplace", "8ball", "coinflip", "flip", 
     "roll", "rps", "marry", "divorce", "marriage", "marriages", 
-    "adopt", "disown", "family", "children", "parents"
+    "adopt", "disown", "family", "children", "parents", "daily"
   ];
 
   if (funCommandsList.includes(command)) {
@@ -614,6 +620,41 @@ async function handleCommands(message, getGuildData) {
       deleteAfter(message, 5000);
       return true;
     }
+  }
+
+  if (command === "daily") {
+    const userId = message.author.id;
+    
+    // Ensure economy / user data structures exist
+    if (!data.economy) data.economy = {};
+    if (!data.economy[userId]) {
+      data.economy[userId] = { balance: 0, lastDaily: 0 };
+    }
+
+    const userData = data.economy[userId];
+    const cooldownTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    const now = Date.now();
+    const timeLeft = cooldownTime - (now - userData.lastDaily);
+
+    if (timeLeft > 0) {
+      const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+      const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+      return message.reply(`⏱️ You have already claimed your daily reward! Come back in **${hours}h ${minutes}m**.`);
+    }
+
+    // Reward amount (adjust as needed)
+    const rewardAmount = 500;
+    userData.balance += rewardAmount;
+    userData.lastDaily = now;
+    saveData();
+
+    const embed = new EmbedBuilder()
+      .setTitle("🎁 Daily Reward Claimed!")
+      .setDescription(`You successfully collected your daily reward of **${rewardAmount} coins**!`)
+      .setColor(0x57F287)
+      .setTimestamp();
+
+    return message.reply({ embeds: [embed] });
   }
 
   if (command === "ship") {
