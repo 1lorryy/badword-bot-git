@@ -112,11 +112,13 @@ const PROTECTED_BLACKLIST = [
 
 let client;
 
-// ================= DATA SAVE =================
+// ================= DATA AUTO-SAVE SECURITY =================
 function loadData() {
   try {
+    if (!fs.existsSync(DATA_FILE)) return {};
     return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-  } catch {
+  } catch (err) {
+    console.error("❌ Error reading data file:", err);
     return {};
   }
 }
@@ -124,13 +126,16 @@ function loadData() {
 let store = loadData();
 
 function saveData() {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
+  try {
+    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), "utf8");
+  } catch (err) {
+    console.error("❌ Error writing auto-save to file:", err);
+  }
 }
 
 function getGuildData(guildId) {
-  store = loadData();
-
+  // Ensure guild entry exists in memory
   if (!store[guildId]) {
     store[guildId] = {
       prefix: DEFAULT_PREFIX,
@@ -147,49 +152,39 @@ function getGuildData(guildId) {
         extras: []
       },
       birthdays: {},
+      afkUsers: {},          // Persistent AFK store
+      channelCounters: {},     // Chat entries
       snipeEnabled: true,
       snipes: {}
     };
     saveData();
   }
 
-  if (!Array.isArray(store[guildId].words)) store[guildId].words = [];
-  if (!Array.isArray(store[guildId].blockedLinks)) store[guildId].blockedLinks = [];
-  if (!store[guildId].customCommands || typeof store[guildId].customCommands !== "object") {
-    store[guildId].customCommands = {};
-  }
-  if (!store[guildId].warnings || typeof store[guildId].warnings !== "object") {
-    store[guildId].warnings = {};
-  }
+  const guild = store[guildId];
 
-  if (!store[guildId].cooldowns || typeof store[guildId].cooldowns !== "object") {
-    store[guildId].cooldowns = {};
-  }
+  // Safeguard all nested object & array references
+  if (!Array.isArray(guild.words)) guild.words = [];
+  if (!Array.isArray(guild.blockedLinks)) guild.blockedLinks = [];
+  if (!guild.customCommands || typeof guild.customCommands !== "object") guild.customCommands = {};
+  if (!guild.warnings || typeof guild.warnings !== "object") guild.warnings = {};
+  if (!guild.cooldowns || typeof guild.cooldowns !== "object") guild.cooldowns = {};
+  if (!guild.afkUsers || typeof guild.afkUsers !== "object") guild.afkUsers = {};
+  if (!guild.channelCounters || typeof guild.channelCounters !== "object") guild.channelCounters = {};
 
-  if (!store[guildId].purchaseLinks || typeof store[guildId].purchaseLinks !== "object") {
-    store[guildId].purchaseLinks = {
-      classes: [],
-      ads6h: [],
-      ads24h: [],
-      extras: []
-    };
+  if (!guild.purchaseLinks || typeof guild.purchaseLinks !== "object") {
+    guild.purchaseLinks = { classes: [], ads6h: [], ads24h: [], extras: [] };
   }
 
   for (const key of ["classes", "ads6h", "ads24h", "extras"]) {
-    if (!Array.isArray(store[guildId].purchaseLinks[key])) {
-      store[guildId].purchaseLinks[key] = [];
+    if (!Array.isArray(guild.purchaseLinks[key])) {
+      guild.purchaseLinks[key] = [];
     }
   }
   
-  if (!store[guildId].modStats || typeof store[guildId].modStats !== "object") {
-    store[guildId].modStats = {};
-  }
-  
-  if (!store[guildId].birthdays || typeof store[guildId].birthdays !== "object") {
-    store[guildId].birthdays = {};
-  }
-  if (!store[guildId].verification || typeof store[guildId].verification !== "object") {
-    store[guildId].verification = {
+  if (!guild.modStats || typeof guild.modStats !== "object") guild.modStats = {};
+  if (!guild.birthdays || typeof guild.birthdays !== "object") guild.birthdays = {};
+  if (!guild.verification || typeof guild.verification !== "object") {
+    guild.verification = {
       verifiedRole: null,
       unverifiedRole: null,
       trustedDays: 7,
@@ -199,11 +194,10 @@ function getGuildData(guildId) {
     };
   }
 
-  if (!store[guildId].tempRoles) store[guildId].tempRoles = [];
+  if (!guild.tempRoles) guild.tempRoles = [];
+  if (!guild.prefix) guild.prefix = DEFAULT_PREFIX;
 
-  if (!store[guildId].prefix) store[guildId].prefix = DEFAULT_PREFIX;
-
-  return store[guildId];
+  return guild;
 }
 
 // ================= HELPERS =================
@@ -1613,28 +1607,48 @@ function startBot() {
     // 1. Slash Commands Handling
     if (interaction.isChatInputCommand()) {
 
-      // --- SHIP COMMAND HANDLER ---
+// --- SHIP COMMAND HANDLER ---
       if (interaction.commandName === 'ship') {
-        const user1 = interaction.options.getUser('first');
+        // Fall back gracefully if options are omitted
+        const user1 = interaction.options.getUser('first') || interaction.options.getUser('user') || interaction.user;
         const user2 = interaction.options.getUser('second') || interaction.user;
 
-        const combinedIds = BigInt(user1.id) + BigInt(user2.id);
+        // Self-ship guard
+        if (user1.id === user2.id) {
+          return await interaction.reply({ 
+            content: "❌ You cannot ship yourself with yourself!", 
+            ephemeral: true 
+          });
+        }
+
+        // Sort IDs so 'UserA + UserB' gives the exact same result as 'UserB + UserA'
+        const id1 = BigInt(user1.id);
+        const id2 = BigInt(user2.id);
+        const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
         const shipPercentage = Number(combinedIds % 101n);
 
         let resultMsg = `💖 **Ship Match**: ${user1.username} x ${user2.username}\n`;
         resultMsg += `**Score**: ${shipPercentage}%\n`;
 
-        if (shipPercentage > 85) resultMsg += "✨ Perfect match!";
+        if (shipPercentage > 85) resultMsg += "✨ Perfect match! You two should get married! 💍";
         else if (shipPercentage > 50) resultMsg += "👍 Looking pretty good!";
         else resultMsg += "😬 Maybe stick to being friends.";
 
         return await interaction.reply({ content: resultMsg });
       }
 
-      // --- GENERIC CONVERSION FOR OTHER COMMANDS ---
+// --- GENERIC CONVERSION FOR OTHER COMMANDS ---
       await interaction.deferReply({ ephemeral: true }).catch(() => null);
 
-      const targetUser = interaction.options.getUser("user") || interaction.options.getUser("child");
+      // Check all common target option names used across slash commands
+      const targetUser = 
+        interaction.options.getUser("user") || 
+        interaction.options.getUser("first") || 
+        interaction.options.getUser("second") || 
+        interaction.options.getUser("target") || 
+        interaction.options.getUser("spouse") || 
+        interaction.options.getUser("child");
+
       const args = targetUser ? [targetUser.id] : [];
 
       const fakeMessage = {
@@ -1643,7 +1657,14 @@ function startBot() {
         member: interaction.member || { id: interaction.user.id, user: interaction.user, roles: { cache: new Map() }, permissions: { has: () => false } },
         guild: interaction.guild,
         channel: interaction.channel,
-        mentions: { members: { first: () => targetUser ? interaction.guild?.members.cache.get(targetUser.id) : null } },
+        mentions: { 
+          members: { 
+            first: () => targetUser ? interaction.guild?.members.cache.get(targetUser.id) : null 
+          },
+          users: {
+            first: () => targetUser || null
+          }
+        },
         reply: async (payload) => {
           const data = typeof payload === "string" ? { content: payload } : payload;
           if (interaction.deferred || interaction.replied) {
