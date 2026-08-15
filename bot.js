@@ -448,7 +448,6 @@ function saveSnipe(message) {
 }
 
 // ================= STANDALONE PREFIX SHIP HANDLER =================
-// ================= STANDALONE PREFIX SHIP HANDLER =================
 async function handleShipCommand(message, args) {
   let user1, user2;
   const mentions = message.mentions.users.first(2);
@@ -471,7 +470,7 @@ async function handleShipCommand(message, args) {
   }
 
   if (!user1 || !user2) {
-    return message.reply("❌ Mention a user to ship! Example: `?ship @user`");
+    return message.reply("❌ Mention someone to ship! Example: `?ship @user`");
   }
 
   if (user1.id === user2.id) {
@@ -484,37 +483,43 @@ async function handleShipCommand(message, args) {
   const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
   const percentage = Number(combinedIds % 101n);
 
-  // Compact 8-block bar
-  const totalBlocks = 8;
+  // Compact 6-block bar
+  const totalBlocks = 6;
   const filled = Math.round((percentage / 100) * totalBlocks);
   const bar = "💖".repeat(filled) + "🖤".repeat(totalBlocks - filled);
 
+  // Dynamic content & gifs/images per tier
   let comment = "";
   let color = 0xff69b4;
+  let imgUrl = "";
 
   if (percentage >= 85) {
-    comment = "💍 Perfect match! Absolute soulmates.";
+    comment = "✨ **Soulmates!** Get married already! 💍";
     color = 0xff1493;
-  } else if (percentage >= 60) {
-    comment = "🔥 Looking pretty cute together!";
+    imgUrl = "https://media.giphy.com/media/26hpKMT7M4iOtdaSc/giphy.gif"; // Cute heart seal / hug gif
+  } else if (percentage >= 50) {
+    comment = "👀 **Cute combo!** There's definitely a spark here.";
     color = 0xff69b4;
-  } else if (percentage >= 35) {
-    comment = "👀 There's a slight spark, maybe?";
-    color = 0xffb6c1;
+    imgUrl = "https://media.giphy.com/media/l41Jw7AedR39y4S40/giphy.gif"; // Subtle sweet reaction
+  } else if (percentage >= 25) {
+    comment = "😬 **Awkward...** Stick to sending memes in chat.";
+    color = 0xffa500;
+    imgUrl = "https://media.giphy.com/media/H5C8CevNMbpBqNqFjl/giphy.gif"; // Side eye meme gif
   } else {
-    comment = "💀 Yikes... stay as friends.";
-    color = 0x7289da;
+    comment = "💀 **0% Chemistry.** Stay at least 50 feet apart!";
+    color = 0x2f3136;
+    imgUrl = "https://media.giphy.com/media/e2wFI0JGg6Tcg/giphy.gif"; // Funny cat crying / facepalm
   }
 
   const shipEmbed = new EmbedBuilder()
     .setColor(color)
-    .setTitle("💘 Matchmaker")
+    .setAuthor({ name: "💘 Compatibility Check" })
     .setDescription(
-      `**${user1.username}** x **${user2.username}**\n` +
-      `**${percentage}%** \`[${bar}]\`\n\n` +
+      `**${user1.username}**  ×  **${user2.username}**\n` +
+      `**${percentage}%** \`${bar}\`\n\n` +
       `${comment}`
     )
-    .setThumbnail(user2.displayAvatarURL({ dynamic: true, size: 128 }))
+    .setThumbnail(imgUrl) // Small image/GIF on the side so it's not floody!
     .setFooter({ 
       text: `Shipped by ${message.author.username}`, 
       iconURL: message.author.displayAvatarURL({ dynamic: true }) 
