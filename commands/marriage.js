@@ -2,6 +2,15 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentTyp
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
+// Ring Catalog Definition
+const RINGS = {
+  wood: { name: "🪵 Wooden Ring", price: 1, img: "https://cdn-icons-png.flaticon.com/512/3504/3504381.png" },
+  onion: { name: "🍟 Plastic Onion Ring", price: 50, img: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png" },
+  code: { name: "💻 Binary Code Band", price: 1024, img: "https://cdn-icons-png.flaticon.com/512/2103/2103633.png" },
+  glow: { name: "✨ Glow-in-the-Dark Ring", price: 25000, img: "https://cdn-icons-png.flaticon.com/512/2904/2904838.png" },
+  supernova: { name: "🌌 Supernova Diamond Ring", price: 999999999, img: "https://cdn-icons-png.flaticon.com/512/1086/1086741.png" }
+};
+
 function formatDuration(ms) {
   const sec = Math.floor(ms / 1000);
   const min = Math.floor(sec / 60);
@@ -16,7 +25,7 @@ function formatDuration(ms) {
 module.exports = {
   name: "marry",
   aliases: ["marriage", "married", "divorce", "spouse"],
-  description: "Marry another user, check status privately, or request a divorce.",
+  description: "Marry another user with custom rings, check status, or request a divorce.",
   data: new SlashCommandBuilder()
     .setName("marry")
     .setDescription("Marriage management system")
@@ -24,12 +33,23 @@ module.exports = {
       sub.setName("status")
         .setDescription("Check marriage status privately")
         .addUserOption(opt => opt.setName("user").setDescription("Target user (leave empty for yourself)").setRequired(false))
-        .addBooleanOption(opt => opt.setName("private").setDescription("Hide response so only you see it").setRequired(false))
     )
     .addSubcommand(sub =>
       sub.setName("propose")
-        .setDescription("Propose to another user")
+        .setDescription("Propose to another user with a ring")
         .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(true))
+        .addStringOption(opt =>
+          opt.setName("ring")
+            .setDescription("Ring type to offer")
+            .setRequired(false)
+            .addChoices(
+              { name: "🪵 Wooden Ring (1 coin)", value: "wood" },
+              { name: "🍟 Plastic Onion Ring (50 coins)", value: "onion" },
+              { name: "💻 Binary Code Band (1,024 coins)", value: "code" },
+              { name: "✨ Glow-in-the-Dark Ring (25,000 coins)", value: "glow" },
+              { name: "🌌 Supernova Diamond Ring (999,999,999 coins)", value: "supernova" }
+            )
+        )
     )
     .addSubcommand(sub =>
       sub.setName("divorce")
@@ -49,6 +69,7 @@ module.exports = {
     if (!sub || sub === "status" || message.content.toLowerCase().includes("married")) {
       const targetUser = message.mentions.users.first() || message.author;
       const targetData = data.marriages[targetUser.id];
+      const ring = targetData ? (RINGS[targetData.ring] || RINGS.wood) : null;
 
       const statusEmbed = new EmbedBuilder()
         .setColor(targetData ? 0xff69b4 : 0x2b2d31)
@@ -61,7 +82,9 @@ module.exports = {
         .setFooter({ text: "DonQuixotes Lounge • Marriage System" });
 
       if (targetData) {
+        statusEmbed.setThumbnail(ring.img);
         statusEmbed.addFields(
+          { name: "💍 Ring Exchanged", value: ring.name, inline: true },
           { name: "⏳ Together For", value: `\`${formatDuration(Date.now() - targetData.since)}\``, inline: true },
           { name: "📅 Married Since", value: `<t:${Math.floor(targetData.since / 1000)}:D>`, inline: true }
         );
@@ -100,7 +123,7 @@ module.exports = {
 
     // PROPOSE
     const target = message.mentions.users.first();
-    if (!target) return message.reply("❌ Mention a user to propose to! Usage: `?marry @user` or `?marry status`");
+    if (!target) return message.reply("❌ Mention a user to propose to! Usage: `?marry @user [wood|onion|code|glow|supernova]`");
 
     if (target.id === userId) return message.reply("❌ You cannot marry yourself!");
     if (target.bot) return message.reply("❌ You cannot marry bots!");
@@ -110,6 +133,10 @@ module.exports = {
     if (data.marriageCooldowns[userId] && Date.now() < data.marriageCooldowns[userId]) {
       return message.reply(`⏳ You are on post-divorce cooldown for \`${formatDuration(data.marriageCooldowns[userId] - Date.now())}\`.`);
     }
+
+    // Ring Selection Logic (Defaults to wood if not specified)
+    const chosenRingKey = (args[1] && RINGS[args[1].toLowerCase()]) ? args[1].toLowerCase() : "wood";
+    const ring = RINGS[chosenRingKey];
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("accept_marry").setLabel("Accept 💍").setStyle(ButtonStyle.Success),
@@ -122,7 +149,12 @@ module.exports = {
         new EmbedBuilder()
           .setColor(0xff69b4)
           .setTitle("💍 Marriage Proposal!")
-          .setDescription(`**${message.author.username}** has proposed to **${target.username}**!\nDo you accept?`)
+          .setDescription(
+            `**${message.author.username}** has proposed to **${target.username}**!\n\n` +
+            `**Offered Ring:** ${ring.name}\n` +
+            `**Value:** \`${ring.price.toLocaleString()} coins\``
+          )
+          .setThumbnail(ring.img)
       ],
       components: [row]
     });
@@ -134,8 +166,8 @@ module.exports = {
 
       if (i.customId === "accept_marry") {
         const now = Date.now();
-        data.marriages[userId] = { partnerId: target.id, partnerTag: target.username, since: now };
-        data.marriages[target.id] = { partnerId: userId, partnerTag: message.author.username, since: now };
+        data.marriages[userId] = { partnerId: target.id, partnerTag: target.username, since: now, ring: chosenRingKey };
+        data.marriages[target.id] = { partnerId: userId, partnerTag: message.author.username, since: now, ring: chosenRingKey };
         saveData();
 
         await i.update({
@@ -143,7 +175,8 @@ module.exports = {
             new EmbedBuilder()
               .setColor(0x57f287)
               .setTitle("🎉 Just Married!")
-              .setDescription(`💖 **${message.author.username}** & **${target.username}** are now officially married!`)
+              .setDescription(`💖 **${message.author.username}** & **${target.username}** are now officially married!\n\nThey exchanged the **${ring.name}** 💍✨`)
+              .setThumbnail(ring.img)
           ],
           components: []
         });
