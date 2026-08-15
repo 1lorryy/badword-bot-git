@@ -241,6 +241,12 @@ function hasBypassRole(message) {
   );
 }
 
+// Helper to check if user can execute fun commands (Staff or in #commands channel)
+function canUseFunCommand(message) {
+  if (isStaffMember(message.member) || canManageGuild(message)) return true;
+  return message.channel.id === BDAY_COMMAND_CHANNEL_ID;
+}
+
 async function findTargetMember(message, args) {
   const mention = message.mentions?.members?.first();
   if (mention) return mention;
@@ -593,6 +599,22 @@ async function handleCommands(message, getGuildData) {
   const args = message.content.slice(prefix.length).trim().split(/\s+/);
   const command = (args.shift() || "").toLowerCase();
   if (!command) return true;
+
+  // Fun & Subcategory Channel Restriction Check
+  const funCommandsList = [
+    "ship", "shop", "store", "marketplace", "8ball", "coinflip", "flip", 
+    "roll", "rps", "marry", "divorce", "marriage", "marriages", 
+    "adopt", "disown", "family", "children", "parents"
+  ];
+
+  if (funCommandsList.includes(command)) {
+    if (!canUseFunCommand(message)) {
+      const reply = await message.reply(`❌ You can only use fun commands inside <#${BDAY_COMMAND_CHANNEL_ID}>!`);
+      deleteAfter(reply, 5000);
+      deleteAfter(message, 5000);
+      return true;
+    }
+  }
 
   if (command === "ship") {
     return handleShipCommand(message, args);
@@ -1783,6 +1805,18 @@ function startBot() {
 // ================= INTERACTION LISTENER =================
 client.on("interactionCreate", async (interaction) => {
   if (interaction.isChatInputCommand()) {
+
+    // Enforce channel restrictions for slash fun commands if not staff
+    const funSlashCommands = ['8ball', 'coinflip', 'roll', 'rps', 'ship', 'shop', 'marry', 'divorce', 'marriages', 'adopt'];
+    if (funSlashCommands.includes(interaction.commandName)) {
+      const isStaff = isStaffMember(interaction.member) || interaction.member?.permissions.has(PermissionsBitField.Flags.Administrator);
+      if (!isStaff && interaction.channelId !== BDAY_COMMAND_CHANNEL_ID) {
+        return await interaction.reply({
+          content: `❌ You can only use fun commands inside <#${BDAY_COMMAND_CHANNEL_ID}>!`,
+          ephemeral: true
+        });
+      }
+    }
 
     if (interaction.commandName === '8ball') {
       const q = interaction.options.getString('question');
