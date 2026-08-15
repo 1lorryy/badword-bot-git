@@ -1602,110 +1602,245 @@ function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-  // ================= INTERACTION LISTENER =================
-  client.on("interactionCreate", async (interaction) => {
-    // 1. Slash Commands Handling
-    if (interaction.isChatInputCommand()) {
+// ================= REGISTER SLASH COMMANDS =================
+async function registerSlashCommands() {
+  const commands = [
+    new SlashCommandBuilder()
+      .setName("ping")
+      .setDescription("Check latency")
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
 
-// --- SHIP COMMAND HANDLER ---
-      if (interaction.commandName === 'ship') {
-        // Fall back gracefully if options are omitted
-        const user1 = interaction.options.getUser('first') || interaction.options.getUser('user') || interaction.user;
-        const user2 = interaction.options.getUser('second') || interaction.user;
+    new SlashCommandBuilder()
+      .setName("status")
+      .setDescription("Check system health")
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
 
-        // Self-ship guard
-        if (user1.id === user2.id) {
-          return await interaction.reply({ 
-            content: "❌ You cannot ship yourself with yourself!", 
-            ephemeral: true 
-          });
+    new SlashCommandBuilder()
+      .setName("snipe")
+      .setDescription("View deleted messages")
+      .setContexts(InteractionContextType.Guild)
+      .setIntegrationTypes(ApplicationIntegrationType.GuildInstall),
+
+    new SlashCommandBuilder()
+      .setName("marry")
+      .setDescription("Propose to a user")
+      .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(true))
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
+      .setName("divorce")
+      .setDescription("Divorce your current spouse")
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
+      .setName("marriages")
+      .setDescription("View all active marriages in the server")
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
+      .setName("adopt")
+      .setDescription("Adopt or manage family members")
+      .addUserOption(opt => opt.setName("child").setDescription("User to adopt").setRequired(false))
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
+      .setName("ship")
+      .setDescription("Calculate compatibility between two users")
+      .addUserOption(opt => opt.setName("first").setDescription("First user").setRequired(true))
+      .addUserOption(opt => opt.setName("second").setDescription("Second user").setRequired(false))
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes)
+  ].map(command => command.toJSON());
+
+  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+
+  try {
+    console.log("🔄 Registering slash commands...");
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: commands }
+    );
+    console.log("✅ Slash commands successfully registered.");
+  } catch (error) {
+    console.error("❌ Failed to register slash commands:", error);
+  }
+}
+  
+// ================= STANDALONE PREFIX SHIP HANDLER =================
+async function handleShipCommand(message, args) {
+  let user1, user2;
+  const mentions = message.mentions.users.first(2);
+
+  if (mentions.length >= 2) {
+    user1 = mentions[0];
+    user2 = mentions[1];
+  } else if (mentions.length === 1) {
+    user1 = message.author;
+    user2 = mentions[0];
+  } else if (args.length >= 2) {
+    const m1 = await findTargetMember(message, [args[0]]);
+    const m2 = await findTargetMember(message, [args[1]]);
+    user1 = m1 ? m1.user : message.author;
+    user2 = m2 ? m2.user : null;
+  } else if (args.length === 1) {
+    const m1 = await findTargetMember(message, [args[0]]);
+    user1 = message.author;
+    user2 = m1 ? m1.user : null;
+  }
+
+  if (!user1 || !user2) {
+    return message.reply("❌ Please mention a user to ship with! Example: `?ship @user` or `?ship @user1 @user2`");
+  }
+
+  if (user1.id === user2.id) {
+    return message.reply("❌ You cannot ship someone with themselves!");
+  }
+
+  const id1 = BigInt(user1.id);
+  const id2 = BigInt(user2.id);
+  const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
+  const shipPercentage = Number(combinedIds % 101n);
+
+  let resultMsg = `💖 **Ship Match**: **${user1.username}** x **${user2.username}**\n`;
+  resultMsg += `**Score**: \`${shipPercentage}%\`\n`;
+
+  if (shipPercentage > 85) resultMsg += "✨ Perfect match! You two should get married! 💍";
+  else if (shipPercentage > 50) resultMsg += "👍 Looking pretty good!";
+  else resultMsg += "😬 Maybe stick to being friends.";
+
+  return message.channel.send(resultMsg);
+}
+  
+// ================= PREFIX ROUTING IN HANDLECOMMANDS =================
+if (command === "ship") {
+  return handleShipCommand(message, args);
+}
+
+if (
+  command === "marry" ||
+  command === "divorce" ||
+  command === "marriage" ||
+  command === "marriages"
+) {
+  if (marriageCommand && typeof marriageCommand.execute === "function") {
+    return marriageCommand.execute(message, [command, ...args], prefix, getGuildData, saveData);
+  }
+}
+
+if (
+  command === "adopt" ||
+  command === "disown" ||
+  command === "family" ||
+  command === "children" ||
+  command === "parents"
+) {
+  if (adoptionCommand && typeof adoptionCommand.execute === "function") {
+    return adoptionCommand.execute(message, [command, ...args], prefix, getGuildData, saveData);
+  }
+}
+
+// ================= INTERACTION LISTENER =================
+client.on("interactionCreate", async (interaction) => {
+  if (interaction.isChatInputCommand()) {
+
+    if (interaction.commandName === 'ship') {
+      const user1 = interaction.options.getUser('first') || interaction.user;
+      const user2 = interaction.options.getUser('second') || interaction.user;
+
+      if (user1.id === user2.id) {
+        return await interaction.reply({ 
+          content: "❌ You cannot ship yourself with yourself!", 
+          ephemeral: true 
+        });
+      }
+
+      const id1 = BigInt(user1.id);
+      const id2 = BigInt(user2.id);
+      const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
+      const shipPercentage = Number(combinedIds % 101n);
+
+      let resultMsg = `💖 **Ship Match**: ${user1.username} x ${user2.username}\n`;
+      resultMsg += `**Score**: ${shipPercentage}%\n`;
+
+      if (shipPercentage > 85) resultMsg += "✨ Perfect match! You two should get married! 💍";
+      else if (shipPercentage > 50) resultMsg += "👍 Looking pretty good!";
+      else resultMsg += "😬 Maybe stick to being friends.";
+
+      return await interaction.reply({ content: resultMsg });
+    }
+
+    await interaction.deferReply({ ephemeral: true }).catch(() => null);
+
+    const targetUser = 
+      interaction.options.getUser("user") || 
+      interaction.options.getUser("first") || 
+      interaction.options.getUser("second") || 
+      interaction.options.getUser("target") || 
+      interaction.options.getUser("spouse") || 
+      interaction.options.getUser("child");
+
+    const args = targetUser ? [targetUser.id] : [];
+
+    const fakeMessage = {
+      content: `${DEFAULT_PREFIX}${interaction.commandName} ${args.join(" ")}`.trim(),
+      author: interaction.user,
+      member: interaction.member || { id: interaction.user.id, user: interaction.user, roles: { cache: new Map() }, permissions: { has: () => false } },
+      guild: interaction.guild,
+      channel: interaction.channel,
+      mentions: { 
+        members: { 
+          first: () => targetUser ? interaction.guild?.members.cache.get(targetUser.id) : null 
+        },
+        users: {
+          first: () => targetUser || null
         }
+      },
+      reply: async (payload) => {
+        const data = typeof payload === "string" ? { content: payload } : payload;
+        if (interaction.deferred || interaction.replied) {
+          return await interaction.followUp({ ...data, ephemeral: true });
+        }
+        return await interaction.reply({ ...data, ephemeral: true });
+      },
+      delete: async () => null
+    };
 
-        // Sort IDs so 'UserA + UserB' gives the exact same result as 'UserB + UserA'
-        const id1 = BigInt(user1.id);
-        const id2 = BigInt(user2.id);
-        const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
-        const shipPercentage = Number(combinedIds % 101n);
+    await handleCommands(fakeMessage, getGuildData);
+    return;
+  }
 
-        let resultMsg = `💖 **Ship Match**: ${user1.username} x ${user2.username}\n`;
-        resultMsg += `**Score**: ${shipPercentage}%\n`;
-
-        if (shipPercentage > 85) resultMsg += "✨ Perfect match! You two should get married! 💍";
-        else if (shipPercentage > 50) resultMsg += "👍 Looking pretty good!";
-        else resultMsg += "😬 Maybe stick to being friends.";
-
-        return await interaction.reply({ content: resultMsg });
-      }
-
-// --- GENERIC CONVERSION FOR OTHER COMMANDS ---
-      await interaction.deferReply({ ephemeral: true }).catch(() => null);
-
-      // Check all common target option names used across slash commands
-      const targetUser = 
-        interaction.options.getUser("user") || 
-        interaction.options.getUser("first") || 
-        interaction.options.getUser("second") || 
-        interaction.options.getUser("target") || 
-        interaction.options.getUser("spouse") || 
-        interaction.options.getUser("child");
-
-      const args = targetUser ? [targetUser.id] : [];
-
-      const fakeMessage = {
-        content: `${DEFAULT_PREFIX}${interaction.commandName} ${args.join(" ")}`.trim(),
-        author: interaction.user,
-        member: interaction.member || { id: interaction.user.id, user: interaction.user, roles: { cache: new Map() }, permissions: { has: () => false } },
-        guild: interaction.guild,
-        channel: interaction.channel,
-        mentions: { 
-          members: { 
-            first: () => targetUser ? interaction.guild?.members.cache.get(targetUser.id) : null 
-          },
-          users: {
-            first: () => targetUser || null
-          }
-        },
-        reply: async (payload) => {
-          const data = typeof payload === "string" ? { content: payload } : payload;
-          if (interaction.deferred || interaction.replied) {
-            return await interaction.followUp({ ...data, ephemeral: true });
-          }
-          return await interaction.reply({ ...data, ephemeral: true });
-        },
-        delete: async () => null
-      };
-
-      await handleCommands(fakeMessage, getGuildData);
-      return;
+  if (interaction.isButton() || interaction.isModalSubmit()) {
+    if (
+      interaction.customId === "open_hex_modal" ||
+      interaction.customId === "hex_color_modal" ||
+      interaction.customId === "clear_hex_color"
+    ) {
+      return customColorCommand.handleInteraction(interaction);
     }
 
-    // 2. Buttons and Modals Handling
-    if (interaction.isButton() || interaction.isModalSubmit()) {
-      if (
-        interaction.customId === "open_hex_modal" ||
-        interaction.customId === "hex_color_modal" ||
-        interaction.customId === "clear_hex_color"
-      ) {
-        return customColorCommand.handleInteraction(interaction);
-      }
-
-      if (
-        interaction.customId.startsWith("marriage_") &&
-        marriageCommand &&
-        typeof marriageCommand.handleInteraction === "function"
-      ) {
-        return marriageCommand.handleInteraction(interaction, getGuildData, saveData);
-      }
-
-      if (
-        interaction.customId.startsWith("adoption_") &&
-        adoptionCommand &&
-        typeof adoptionCommand.handleInteraction === "function"
-      ) {
-        return adoptionCommand.handleInteraction(interaction, getGuildData, saveData);
-      }
+    if (
+      interaction.customId.startsWith("marriage_") &&
+      marriageCommand &&
+      typeof marriageCommand.handleInteraction === "function"
+    ) {
+      return marriageCommand.handleInteraction(interaction, getGuildData, saveData);
     }
-  });
+
+    if (
+      interaction.customId.startsWith("adoption_") &&
+      adoptionCommand &&
+      typeof adoptionCommand.handleInteraction === "function"
+    ) {
+      return adoptionCommand.handleInteraction(interaction, getGuildData, saveData);
+    }
+  }
+});
 
   // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
