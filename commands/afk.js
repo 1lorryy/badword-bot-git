@@ -25,7 +25,7 @@ function cleanAfkPrefix(str) {
 
 async function handleAfkCommand(message, args, prefix, getGuildData, saveData) {
   const isGlobal = args[0]?.toLowerCase() === "global";
-  const reason = (isGlobal ? args.slice(1) : args).join(" ").trim() || "AFK";
+  const reason = (isGlobal ? args.slice(1) : args).join(" ").trim() || "Stepped away";
   const member = message.member;
 
   const serverKey = `${message.guild.id}:${message.author.id}`;
@@ -78,10 +78,13 @@ async function handleAfkCommand(message, args, prefix, getGuildData, saveData) {
   return message.reply({
     embeds: [
       new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setAuthor({ name: `${message.author.username} is now AFK`, iconURL: message.author.displayAvatarURL() })
-        .setDescription(`💬 **Reason:** ${reason}`)
-        .addFields({ name: "🌐 Scope", value: isGlobal ? "`Global`" : "`Server Only`", inline: true })
+        .setColor(0x2b2d31)
+        .setAuthor({ 
+          name: `${message.author.username} went AFK`, 
+          iconURL: message.author.displayAvatarURL({ dynamic: true }) 
+        })
+        .setDescription(`💤 **Reason:** ${reason}\n🌐 **Scope:** ${isGlobal ? "`Global`" : "`Server Only`"}`)
+        .setFooter({ text: "DonQuixotes Lounge • AFK System" })
         .setTimestamp()
     ],
     allowedMentions: { parse: [] }
@@ -118,37 +121,38 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
 
     const awayFor = formatDuration(Date.now() - authorAfk.since);
 
-    // FIX NICKNAME STUCK ISSUE: Forcefully restore or reset nickname
+    // Restore or reset nickname cleanly
     if (message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames) && message.member.manageable) {
       const cleanOriginal = cleanAfkPrefix(authorAfk.oldNickname);
       
-      // If oldNickname matches their default username, reset nickname to null (default)
       if (!cleanOriginal || cleanOriginal.toLowerCase() === message.author.username.toLowerCase()) {
         await message.member.setNickname("").catch(() => null);
       } else {
         await message.member.setNickname(cleanOriginal).catch(async () => {
-          // Fallback reset if setting original fails
           await message.member.setNickname("").catch(() => null);
         });
       }
     }
 
-    let pingList = "No mentions while away.";
+    let pingList = "*No pings received while away.*";
     if (authorAfk.pings && authorAfk.pings.length > 0) {
       pingList = authorAfk.pings
-        .slice(-10)
-        .map((p, i) => `**${i + 1}.** **${p.authorTag}** — [Jump to message](${p.url})`)
-        .join("\n")
-        .slice(0, 1000);
+        .slice(-5)
+        .map((p, i) => `**${i + 1}.** **${p.authorTag}** ➔ [Jump to Message](${p.url})`)
+        .join("\n");
     }
 
     await message.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor(0x22c55e)
-          .setAuthor({ name: `Welcome back, ${message.member.displayName.replace(/^\[AFK\]\s*/i, "")}!`, iconURL: message.author.displayAvatarURL() })
+          .setColor(0x57f287)
+          .setAuthor({ 
+            name: `Welcome back, ${message.member.displayName.replace(/^\[AFK\]\s*/i, "")}!`, 
+            iconURL: message.author.displayAvatarURL({ dynamic: true }) 
+          })
           .setDescription(`⏱️ **Away for:** \`${awayFor}\` | 💬 **Reason:** ${authorAfk.reason}`)
-          .addFields({ name: "📬 Recent Mentions", value: pingList })
+          .addFields({ name: "📬 Missed Mentions", value: pingList })
+          .setFooter({ text: "DonQuixotes Lounge • AFK System" })
           .setTimestamp()
       ],
       allowedMentions: { parse: [] }
@@ -198,7 +202,7 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
     await message.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor(0xE2B714)
+          .setColor(0xfee75c)
           .setDescription(`🌙 **${user.username}** is currently AFK: **${afkInfo.reason}** (\`${awayFor}\` ago)`)
       ],
       allowedMentions: { parse: [] }
