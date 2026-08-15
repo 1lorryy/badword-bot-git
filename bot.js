@@ -452,10 +452,10 @@ async function handleShipCommand(message, args) {
   let user1, user2;
   const mentions = message.mentions.users.first(2);
 
-  if (mentions.length >= 2) {
+  if (mentions && mentions.length >= 2) {
     user1 = mentions[0];
     user2 = mentions[1];
-  } else if (mentions.length === 1) {
+  } else if (mentions && mentions.length === 1) {
     user1 = message.author;
     user2 = mentions[0];
   } else if (args.length >= 2) {
@@ -470,26 +470,65 @@ async function handleShipCommand(message, args) {
   }
 
   if (!user1 || !user2) {
-    return message.reply("❌ Please mention a user to ship with! Example: `?ship @user` or `?ship @user1 @user2` prompt");
+    return message.reply("❌ Please mention a user to ship! Example: `?ship @user` or `?ship @user1 @user2`");
   }
 
   if (user1.id === user2.id) {
-    return message.reply("❌ You cannot ship someone with themselves!");
+    return message.reply("❌ Self-love is great, but you can't ship someone with themselves!");
   }
 
+  // Deterministic 0-100% ship score calculation
   const id1 = BigInt(user1.id);
   const id2 = BigInt(user2.id);
   const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
   const shipPercentage = Number(combinedIds % 101n);
 
-  let resultMsg = `💖 **Ship Match**: **${user1.username}** x **${user2.username}**\n`;
-  resultMsg += `**Score**: \`${shipPercentage}%\`\n`;
+  // Generate Visual Progress Bar (10 Blocks)
+  const totalBlocks = 10;
+  const filledBlocks = Math.round((shipPercentage / 100) * totalBlocks);
+  const emptyBlocks = totalBlocks - filledBlocks;
+  const progressBar = "💖".repeat(filledBlocks) + "🖤".repeat(emptyBlocks);
 
-  if (shipPercentage > 85) resultMsg += "✨ Perfect match! You two should get married! 💍";
-  else if (shipPercentage > 50) resultMsg += "👍 Looking pretty good!";
-  else resultMsg += "😬 Maybe stick to being friends.";
+  // Dynamic status text, colors, and cute banner assets based on match percentage
+  let comment = "";
+  let embedColor = 0xff69b4; // Default cute pink
+  let bannerUrl = "https://i.imgur.com/4M34gA1.gif"; // Cute heart GIF
 
-  return message.channel.send(resultMsg);
+  if (shipPercentage >= 90) {
+    comment = "💞 **Soulmates!** Wedding bells are ringing in the distance! 💍✨";
+    embedColor = 0xff1493; // Deep Pink
+  } else if (shipPercentage >= 75) {
+    comment = "💘 **Match Made in Heaven!** You two have crazy spark! 🔥";
+    embedColor = 0xff69b4; // Hot Pink
+  } else if (shipPercentage >= 50) {
+    comment = "💕 **Looking Good!** Give it time and sweet snacks! 🍬";
+    embedColor = 0xffb6c1; // Light Pink
+  } else if (shipPercentage >= 25) {
+    comment = "😅 **Friend Zone Alert!** Keep it casual for now.";
+    embedColor = 0xffa500; // Orange
+  } else {
+    comment = "💀 **Yikes!** Total disaster, stay at least 50 feet apart!";
+    embedColor = 0x6c757d; // Grey
+  }
+
+  const shipEmbed = new EmbedBuilder()
+    .setTitle("💘 Love Calculator & Matchmaker")
+    .setColor(embedColor)
+    .setDescription(`### **${user1.username}** ❤️ **${user2.username}**`)
+    .addFields(
+      { name: "📊 Compatibility Score", value: `**${shipPercentage}%**`, inline: true },
+      { name: "💖 Matchmeter", value: `${progressBar}`, inline: false },
+      { name: "💬 Verdict", value: comment, inline: false }
+    )
+    .setThumbnail(user2.displayAvatarURL({ dynamic: true, size: 256 }))
+    .setImage(bannerUrl)
+    .setFooter({ 
+      text: `Shipped by ${message.author.username}`, 
+      iconURL: message.author.displayAvatarURL({ dynamic: true }) 
+    })
+    .setTimestamp();
+
+  return message.channel.send({ embeds: [shipEmbed] });
 }
 
 // ================= COMMANDS =================
