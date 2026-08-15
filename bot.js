@@ -1645,6 +1645,9 @@ function startBot() {
     }
   });
 
+// Add this line at the top of your bot setup function:
+function startBot() {
+
   // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
     try {
@@ -1715,7 +1718,7 @@ function startBot() {
       const wasCommand = await handleCommands(message, getGuildData);
       if (wasCommand) return;
 
-// 6. ================= AI TRIGGER ENGINE RESPONSES =================
+      // 6. ================= AI TRIGGER ENGINE RESPONSES =================
       const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
 
       if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
