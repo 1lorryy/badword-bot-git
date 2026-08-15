@@ -31,7 +31,6 @@ const {
   ButtonStyle,
   REST,
   Routes,
-  SlashCommandBuilder
 } = require("discord.js");
 
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json");
