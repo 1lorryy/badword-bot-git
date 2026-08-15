@@ -352,10 +352,32 @@ async function sendModLog(embed) {
 // ================= REGISTER SLASH COMMANDS =================
 async function registerSlashCommands() {
   const commands = [
-    new SlashCommandBuilder().setName("ping").setDescription("Check latency"),
-    new SlashCommandBuilder().setName("help").setDescription("Open command list"),
-    new SlashCommandBuilder().setName("status").setDescription("Check system health"),
-    new SlashCommandBuilder().setName("snipe").setDescription("View deleted messages")
+    new SlashCommandBuilder()
+      .setName("ping")
+      .setDescription("Check latency")
+      .setDMCapable(true),
+
+    new SlashCommandBuilder()
+      .setName("status")
+      .setDescription("Check system health")
+      .setDMCapable(true),
+
+    new SlashCommandBuilder()
+      .setName("snipe")
+      .setDescription("View deleted messages"),
+
+    // NEW DM & GAME COMMANDS
+    new SlashCommandBuilder()
+      .setName("marry")
+      .setDescription("Propose to or check marriage status with a user")
+      .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(false))
+      .setDMCapable(true),
+
+    new SlashCommandBuilder()
+      .setName("adopt")
+      .setDescription("Adopt or manage family members")
+      .addUserOption(opt => opt.setName("child").setDescription("User to adopt").setRequired(false))
+      .setDMCapable(true)
   ].map(command => command.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
@@ -1285,6 +1307,19 @@ async function handleCommands(message, getGuildData) {
 
     return message.reply({ embeds: [embed] });
   }
+
+// ================= HELP (STAFF ONLY PREFIX COMMAND) =================
+  if (command === "help") {
+    // Restrict help to staff/mods only
+    if (!canManageGuild(message)) {
+      const reply = await message.reply("❌ The help command is restricted to server staff.");
+      deleteAfter(reply, 5000);
+      deleteAfter(message, 5000);
+      return true;
+    }
+
+    const totalCustomCmds = data.customCommands ? Object.keys(data.customCommands).length : 0;
+    // ... rest of your pageOverview, pages, and button logic ...  
   
 // ================= HELP (5-PAGE INTERACTIVE BUTTON MENU) =================
   if (command === "help") {
@@ -1551,22 +1586,29 @@ function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-  // ================= INTERACTION LISTENER =================
+// ================= INTERACTION LISTENER =================
   client.on("interactionCreate", async (interaction) => {
     // 1. Slash Commands Handling
     if (interaction.isChatInputCommand()) {
+      // Ephemerally acknowledge interaction so only the command user sees it
+      await interaction.deferReply({ ephemeral: true }).catch(() => null);
+
+      const targetUser = interaction.options.getUser("user") || interaction.options.getUser("child");
+      const args = targetUser ? [targetUser.id] : [];
+
       const fakeMessage = {
-        content: `${DEFAULT_PREFIX}${interaction.commandName}`,
+        content: `${DEFAULT_PREFIX}${interaction.commandName} ${args.join(" ")}`.trim(),
         author: interaction.user,
-        member: interaction.member,
+        member: interaction.member || { id: interaction.user.id, user: interaction.user, roles: { cache: new Map() }, permissions: { has: () => false } },
         guild: interaction.guild,
         channel: interaction.channel,
-        mentions: { members: { first: () => null } },
+        mentions: { members: { first: () => targetUser ? interaction.guild?.members.cache.get(targetUser.id) : null } },
         reply: async (payload) => {
+          const data = typeof payload === "string" ? { content: payload } : payload;
           if (interaction.deferred || interaction.replied) {
-            return await interaction.followUp(payload);
+            return await interaction.followUp({ ...data, ephemeral: true });
           }
-          return await interaction.reply(payload);
+          return await interaction.reply({ ...data, ephemeral: true });
         },
         delete: async () => null
       };
@@ -1585,7 +1627,6 @@ function startBot() {
         return customColorCommand.handleInteraction(interaction);
       }
 
-      // MARRIAGE INTERACTION ROUTER
       if (
         interaction.customId.startsWith("marriage_") &&
         marriageCommand &&
@@ -1594,7 +1635,6 @@ function startBot() {
         return marriageCommand.handleInteraction(interaction, getGuildData, saveData);
       }
 
-      // ADOPTION INTERACTION ROUTER
       if (
         interaction.customId.startsWith("adoption_") &&
         adoptionCommand &&
