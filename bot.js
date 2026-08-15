@@ -349,35 +349,69 @@ async function sendModLog(embed) {
   await log.send({ embeds: [embed] }).catch(() => null);
 }
 
+const { 
+  SlashCommandBuilder, 
+  REST, 
+  Routes, 
+  InteractionContextType, 
+  ApplicationIntegrationType 
+} = require('discord.js');
+
+// Helper config to allow commands in Guilds, Bot DMs, and User-to-User DMs
+const globalContexts = [
+  InteractionContextType.Guild,
+  InteractionContextType.BotDM,
+  InteractionContextType.PrivateChannel
+];
+
+const globalIntegrationTypes = [
+  ApplicationIntegrationType.GuildInstall,
+  ApplicationIntegrationType.UserInstall
+];
+
 // ================= REGISTER SLASH COMMANDS =================
 async function registerSlashCommands() {
   const commands = [
     new SlashCommandBuilder()
       .setName("ping")
       .setDescription("Check latency")
-      .setDMPermission(true),
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
 
     new SlashCommandBuilder()
       .setName("status")
       .setDescription("Check system health")
-      .setDMPermission(true),
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
 
     new SlashCommandBuilder()
       .setName("snipe")
-      .setDescription("View deleted messages"),
+      .setDescription("View deleted messages")
+      .setContexts(InteractionContextType.Guild) // Snipe generally only works inside guild text channels
+      .setIntegrationTypes(ApplicationIntegrationType.GuildInstall),
 
-    // NEW DM & GAME COMMANDS
     new SlashCommandBuilder()
       .setName("marry")
       .setDescription("Propose to or check marriage status with a user")
       .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(false))
-      .setDMPermission(true),
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
 
     new SlashCommandBuilder()
       .setName("adopt")
       .setDescription("Adopt or manage family members")
       .addUserOption(opt => opt.setName("child").setDescription("User to adopt").setRequired(false))
-      .setDMPermission(true)
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    // NEW SHIP COMMAND
+    new SlashCommandBuilder()
+      .setName("ship")
+      .setDescription("Calculate compatibility between two users")
+      .addUserOption(opt => opt.setName("first").setDescription("First user").setRequired(true))
+      .addUserOption(opt => opt.setName("second").setDescription("Second user").setRequired(false))
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes)
   ].map(command => command.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
@@ -1584,6 +1618,26 @@ function startBot() {
   client.on("interactionCreate", async (interaction) => {
     // 1. Slash Commands Handling
     if (interaction.isChatInputCommand()) {
+
+      // --- SHIP COMMAND HANDLER ---
+      if (interaction.commandName === 'ship') {
+        const user1 = interaction.options.getUser('first');
+        const user2 = interaction.options.getUser('second') || interaction.user;
+
+        const combinedIds = BigInt(user1.id) + BigInt(user2.id);
+        const shipPercentage = Number(combinedIds % 101n);
+
+        let resultMsg = `💖 **Ship Match**: ${user1.username} x ${user2.username}\n`;
+        resultMsg += `**Score**: ${shipPercentage}%\n`;
+
+        if (shipPercentage > 85) resultMsg += "✨ Perfect match!";
+        else if (shipPercentage > 50) resultMsg += "👍 Looking pretty good!";
+        else resultMsg += "😬 Maybe stick to being friends.";
+
+        return await interaction.reply({ content: resultMsg });
+      }
+
+      // --- GENERIC CONVERSION FOR OTHER COMMANDS ---
       await interaction.deferReply({ ephemeral: true }).catch(() => null);
 
       const targetUser = interaction.options.getUser("user") || interaction.options.getUser("child");
