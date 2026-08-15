@@ -24,7 +24,10 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  REST,
+  Routes,
+  SlashCommandBuilder
 } = require("discord.js");
 
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json");
@@ -240,7 +243,7 @@ function hasBypassRole(message) {
 }
 
 async function findTargetMember(message, args) {
-  const mention = message.mentions.members.first();
+  const mention = message.mentions?.members?.first();
   if (mention) return mention;
 
   const input = args[0];
@@ -340,6 +343,29 @@ async function sendModLog(embed) {
   if (!log || !log.isTextBased()) return;
 
   await log.send({ embeds: [embed] }).catch(() => null);
+}
+
+// ================= REGISTER SLASH COMMANDS =================
+async function registerSlashCommands() {
+  const commands = [
+    new SlashCommandBuilder().setName("ping").setDescription("Check latency"),
+    new SlashCommandBuilder().setName("help").setDescription("Open command list"),
+    new SlashCommandBuilder().setName("status").setDescription("Check system health"),
+    new SlashCommandBuilder().setName("snipe").setDescription("View deleted messages")
+  ].map(command => command.toJSON());
+
+  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+
+  try {
+    console.log("🔄 Registering slash commands...");
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: commands }
+    );
+    console.log("✅ Slash commands successfully registered.");
+  } catch (error) {
+    console.error("❌ Failed to register slash commands:", error);
+  }
 }
 
 // ================= SNIPE =================
@@ -1442,8 +1468,10 @@ function startBot() {
     ]
   });
 
-  client.once("ready", () => {
+  client.once("ready", async () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
+
+    await registerSlashCommands();
 
     processExpiredTempRoles(client);
 
@@ -1470,6 +1498,29 @@ function startBot() {
 
   // ================= INTERACTION LISTENER =================
   client.on("interactionCreate", async (interaction) => {
+    // 1. Slash Commands Handling
+    if (interaction.isChatInputCommand()) {
+      const fakeMessage = {
+        content: `${DEFAULT_PREFIX}${interaction.commandName}`,
+        author: interaction.user,
+        member: interaction.member,
+        guild: interaction.guild,
+        channel: interaction.channel,
+        mentions: { members: { first: () => null } },
+        reply: async (payload) => {
+          if (interaction.deferred || interaction.replied) {
+            return await interaction.followUp(payload);
+          }
+          return await interaction.reply(payload);
+        },
+        delete: async () => null
+      };
+
+      await handleCommands(fakeMessage, getGuildData);
+      return;
+    }
+
+    // 2. Buttons and Modals Handling
     if (interaction.isButton() || interaction.isModalSubmit()) {
       if (
         interaction.customId === "open_hex_modal" ||
