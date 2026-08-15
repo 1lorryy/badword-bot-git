@@ -1319,7 +1319,132 @@ async function handleCommands(message, getGuildData) {
     }
 
     const totalCustomCmds = data.customCommands ? Object.keys(data.customCommands).length : 0;
-    // ... rest of your pageOverview, pages, and button logic ...  
+
+    // --- EMBED PAGES ---
+    const pageOverview = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("🔥 Don Don Command Center")
+      .setDescription(
+        `Welcome to the **Don Don** server management bot!\n` +
+        `Current Prefix: \`${prefix}\`\n\n` +
+        `Use the buttons below to browse commands by category:`
+      )
+      .addFields(
+        { name: "🛡️ Moderation & AutoMod", value: "Warnings, mutes, kicks, bans, blacklists, and staff guides.", inline: true },
+        { name: "🔒 Advanced Security", value: "Verification settings, member scans, and trust filters.", inline: true },
+        { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, AFK, and analytics.", inline: true },
+        { name: "🎮 Fun & Games", value: "Marriage, adoption, ships, auctions, custom colors, and timezones.", inline: true }
+      )
+      .setFooter({ text: "Page 1/5 • Don Don Operations" })
+      .setTimestamp();
+
+    const pageMod = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("🛡️ Moderation & AutoMod Commands")
+      .setDescription(`Commands reserved for staff and moderators. Prefix: \`${prefix}\``)
+      .addFields(
+        { name: "🔨 Core Moderation", value: `\`${prefix}warn\`, \`${prefix}mute\`, \`${prefix}unmute\`, \`${prefix}kick\`, \`${prefix}ban\`, \`${prefix}unban\`, \`${prefix}softban\`, \`${prefix}purge\`` },
+        { name: "📊 Staff Tracking & Logs", value: `\`${prefix}modlogs\`, \`${prefix}modstats\`, \`${prefix}staffleaderboard\`, \`${prefix}cases\`, \`${prefix}history\`` },
+        { name: "🤖 AutoMod & Filters", value: `\`${prefix}automod\`, \`${prefix}blacklist\`, \`${prefix}antilink\`, \`${prefix}antispam\`, \`${prefix}wordsfilter\`` }
+      )
+      .setFooter({ text: "Page 2/5 • Moderation" })
+      .setTimestamp();
+
+    const pageSecurity = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("🔒 Security & Protection")
+      .setDescription(`System controls to keep the server safe. Prefix: \`${prefix}\``)
+      .addFields(
+        { name: "🛡️ Raid & Verification", value: `\`${prefix}lockdown\`, \`${prefix}unlock\`, \`${prefix}verification\`, \`${prefix}altcheck\`, \`${prefix}antiraid\`` },
+        { name: "🔍 Auditing", value: `\`${prefix}scan\`, \`${prefix}trustscore\`, \`${prefix}perms\`, \`${prefix}auditlogs\`` }
+      )
+      .setFooter({ text: "Page 3/5 • Security" })
+      .setTimestamp();
+
+    const pageUtility = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("⚙️ Server & Utility")
+      .setDescription(`General management tools and features. Prefix: \`${prefix}\``)
+      .addFields(
+        { name: "🎫 Tickets & Roles", value: `\`${prefix}ticket setup\`, \`${prefix}addrole\`, \`${prefix}removerole\`, \`${prefix}reactionrole\`` },
+        { name: "📌 Utility Tools", value: `\`${prefix}afk\`, \`${prefix}avatar\`, \`${prefix}userinfo\`, \`${prefix}serverinfo\`, \`${prefix}stats\`, \`${prefix}ping\`` },
+        { name: "🎨 Custom Commands", value: `Active Custom Commands: **${totalCustomCmds}**\nUse \`${prefix}customcmd add/remove\` to manage.` }
+      )
+      .setFooter({ text: "Page 4/5 • Utility" })
+      .setTimestamp();
+
+    const pageFun = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("🎮 Fun & Community")
+      .setDescription(`Social and interactive server features. Prefix: \`${prefix}\``)
+      .addFields(
+        { name: "❤️ Social & Relationship", value: `\`${prefix}marry\`, \`${prefix}divorce\`, \`${prefix}adopt\`, \`${prefix}ship\`, \`${prefix}family\`` },
+        { name: "🎯 Games & Extras", value: `\`${prefix}auction\`, \`${prefix}color\`, \`${prefix}timezone\`, \`${prefix}8ball\`, \`${prefix}roll\`` }
+      )
+      .setFooter({ text: "Page 5/5 • Fun & Extras" })
+      .setTimestamp();
+
+    const pages = [pageOverview, pageMod, pageSecurity, pageUtility, pageFun];
+    let currentPage = 0;
+
+    // --- BUTTON COMPONENTS ---
+    const getRow = (pageIndex) => {
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("help_prev")
+          .setLabel("◀ Prev")
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(pageIndex === 0),
+        new ButtonBuilder()
+          .setCustomId("help_next")
+          .setLabel("Next ▶")
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(pageIndex === pages.length - 1),
+        new ButtonBuilder()
+          .setCustomId("help_close")
+          .setLabel("🗑️ Close")
+          .setStyle(ButtonStyle.Danger)
+      );
+    };
+
+    const helpMsg = await message.reply({
+      embeds: [pages[currentPage]],
+      components: [getRow(currentPage)]
+    });
+
+    // --- BUTTON INTERACTION COLLECTOR ---
+    const collector = helpMsg.createMessageComponentCollector({
+      filter: (i) => i.user.id === message.author.id,
+      time: 60000
+    });
+
+    collector.on("collect", async (i) => {
+      if (i.customId === "help_prev") {
+        currentPage--;
+        await i.update({ embeds: [pages[currentPage]], components: [getRow(currentPage)] });
+      } else if (i.customId === "help_next") {
+        currentPage++;
+        await i.update({ embeds: [pages[currentPage]], components: [getRow(currentPage)] });
+      } else if (i.customId === "help_close") {
+        collector.stop("closed");
+      }
+    });
+
+    collector.on("end", async (_, reason) => {
+      if (reason === "closed") {
+        deleteAfter(helpMsg, 0);
+        deleteAfter(message, 0);
+      } else {
+        const disabledRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("disabled_prev").setLabel("◀ Prev").setStyle(ButtonStyle.Secondary).setDisabled(true),
+          new ButtonBuilder().setCustomId("disabled_next").setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(true)
+        );
+        await helpMsg.edit({ components: [disabledRow] }).catch(() => {});
+      }
+    });
+
+    return true;
+  }
   
 // ================= HELP (5-PAGE INTERACTIVE BUTTON MENU) =================
 if (command === "help") {
