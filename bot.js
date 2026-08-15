@@ -1456,25 +1456,25 @@ async function handleCommands(message, getGuildData) {
     const pages = [pageOverview, pageMod, pageSecurity, pageUtility, pageFun];
     let currentPage = 0;
 
-    const generateButtons = (page) => {
-      return new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
-        new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(page === 1),
-        new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(page === 2),
-        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(page === 3),
-        new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun & Games").setStyle(ButtonStyle.Primary).setDisabled(page === 4)
-      );
-    };
+const generateButtons = (page) => {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+    new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(page === 1),
+    new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(page === 2),
+    new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(page === 3),
+    new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun & Games").setStyle(ButtonStyle.Primary).setDisabled(page === 4)
+  );
+};
 
-    const helpMsg = await message.reply({
-      embeds: [pages[currentPage]],
-      components: [generateButtons(currentPage)]
-    });
+const helpMsg = await message.reply({
+  embeds: [pages[currentPage]],
+  components: [generateButtons(currentPage)]
+});
 
-    const collector = helpMsg.createMessageComponentCollector({
-      filter: (i) => i.user.id === message.author.id,
-      time: 90000
-    });
+const collector = helpMsg.createMessageComponentCollector({
+  filter: (i) => i.user.id === message.author.id,
+  time: 90000
+});
 
     collector.on("collect", async (interaction) => {
       if (interaction.customId === "help_home") currentPage = 0;
