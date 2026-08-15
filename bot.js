@@ -1755,6 +1755,7 @@ if (
 client.on("interactionCreate", async (interaction) => {
   if (interaction.isChatInputCommand()) {
 
+    // Handled purely via interaction (RETURN early so fakeMessage doesn't run!)
     if (interaction.commandName === 'ship') {
       const user1 = interaction.options.getUser('first') || interaction.user;
       const user2 = interaction.options.getUser('second') || interaction.user;
@@ -1781,6 +1782,7 @@ client.on("interactionCreate", async (interaction) => {
       return await interaction.reply({ content: resultMsg });
     }
 
+    // Fallback adapter for hybrid prefix commands
     await interaction.deferReply({ ephemeral: true }).catch(() => null);
 
     const targetUser = 
