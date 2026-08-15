@@ -1974,7 +1974,10 @@ function startBot() {
       }
       
       // Route marriage/adoption/other slash commands to text parser handlers via fakeMessage wrapper
-      if (["marry", "divorce", "marriages", "adopt"].includes(interaction.commandName)) {
+if (["marry", "divorce", "marriages", "adopt"].includes(interaction.commandName)) {
+        await interaction.deferReply({ ephemeral: true }).catch(() => {});
+
+        // Safely extract target user based on available options
         const targetUser = 
           interaction.options.getUser("user") || 
           interaction.options.getUser("child") || 
@@ -1983,7 +1986,7 @@ function startBot() {
 
         let cmdArgs = [];
         if (interaction.commandName === "marry") {
-          cmdArgs.push(targetUser ? targetUser.id : "");
+          if (targetUser) cmdArgs.push(targetUser.id);
           const ringOpt = interaction.options.getString("ring");
           if (ringOpt) cmdArgs.push(ringOpt);
         } else if (targetUser) {
@@ -2007,7 +2010,7 @@ function startBot() {
           reply: async (payload) => {
             const data = typeof payload === "string" ? { content: payload } : payload;
             if (interaction.deferred || interaction.replied) {
-              return await interaction.followUp({ ...data, ephemeral: true });
+              return await interaction.editReply({ ...data });
             }
             return await interaction.reply({ ...data, ephemeral: true });
           },
