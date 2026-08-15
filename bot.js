@@ -480,6 +480,7 @@ async function handleCommands(message, getGuildData) {
       return adoptionCommand.execute(message, [command, ...args], prefix, getGuildData, saveData);
     }
   }
+}
 
   // ================= CUSTOM COMMANDS & EMBEDS =================
   if (data.customCommands?.[command]) {
