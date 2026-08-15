@@ -446,6 +446,8 @@ async function handleCommands(message, getGuildData) {
   if (!message.content.startsWith(prefix)) return false;
 
   const args = message.content.slice(prefix.length).trim().split(/\s+/);
+  
+  // ✅ Extract command FIRST
   const command = (args.shift() || "").toLowerCase();
   if (!command) return true;
 
