@@ -13,7 +13,6 @@ const roleIconCommand = require("./commands/roleicon.js");
 const roleCreateCommand = require("./commands/rolecreate.js");
 const customColorCommand = require("./commands/customcolor.js");
 const shopCommand = require("./commands/shop.js");
-const dailyCommand = require("./commands/daily.js");
 
 // NEW COMMAND IMPORTS
 const marriageCommand = require("./commands/marriage.js");
@@ -1803,187 +1802,188 @@ function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-// ================= INTERACTION LISTENER =================
-client.on("interactionCreate", async (interaction) => {
-  if (interaction.isChatInputCommand()) {
-
-    // Enforce channel restrictions for slash fun commands if not staff
-    const funSlashCommands = ['8ball', 'coinflip', 'roll', 'rps', 'ship', 'shop', 'marry', 'divorce', 'marriages', 'adopt'];
-    if (funSlashCommands.includes(interaction.commandName)) {
-      const isStaff = isStaffMember(interaction.member) || interaction.member?.permissions.has(PermissionsBitField.Flags.Administrator);
-      if (!isStaff && interaction.channelId !== BDAY_COMMAND_CHANNEL_ID) {
-        return await interaction.reply({
-          content: `❌ You can only use fun commands inside <#${BDAY_COMMAND_CHANNEL_ID}>!`,
-          ephemeral: true
-        });
-      }
-    }
-
-    if (interaction.commandName === '8ball') {
-      const q = interaction.options.getString('question');
-      const answers = [
-        "🎱 It is certain.", "🎱 It is decidedly so.", "🎱 Without a doubt.",
-        "🎱 Yes - definitely.", "🎱 You may rely on it.", "🎱 As I see it, yes.",
-        "🎱 Most likely.", "🎱 Outlook good.", "🎱 Yes.", "🎱 Signs point to yes.",
-        "🎱 Reply hazy, try again.", "🎱 Ask again later.", "🎱 Better not tell you now.",
-        "🎱 Cannot predict now.", "🎱 Concentrate and ask again.",
-        "🎱 Don't count on it.", "🎱 My reply is no.", "🎱 My sources say no.",
-        "🎱 Outlook not so good.", "🎱 Very doubtful."
-      ];
-      const answer = answers[Math.floor(Math.random() * answers.length)];
-      return await interaction.reply({ content: `🔮 **Question:** ${q}\n${answer}` });
-    }
-
-    if (interaction.commandName === 'coinflip') {
-      const result = Math.random() < 0.5 ? "🪙 Heads!" : "🪙 Tails!";
-      return await interaction.reply({ content: `The coin landed on **${result}**` });
-    }
-
-    if (interaction.commandName === 'roll') {
-      let max = interaction.options.getInteger('max') || 100;
-      if (max < 1) max = 100;
-      const rolled = Math.floor(Math.random() * max) + 1;
-      return await interaction.reply({ content: `🎲 You rolled a **${rolled}** (1-${max})` });
-    }
-
-    if (interaction.commandName === 'rps') {
-      const choices = ["rock", "paper", "scissors"];
-      const userChoice = interaction.options.getString('choice');
-      const botChoice = choices[Math.floor(Math.random() * choices.length)];
-      let outcome = "";
-      if (userChoice === botChoice) outcome = "It's a tie! 🤝";
-      else if (
-        (userChoice === "rock" && botChoice === "scissors") ||
-        (userChoice === "paper" && botChoice === "rock") ||
-        (userChoice === "scissors" && botChoice === "paper")
-      ) outcome = "You win! 🎉";
-      else outcome = "I win! 😈";
-
-      return await interaction.reply({ content: `🎮 You chose **${userChoice}**, I chose **${botChoice}**. ${outcome}` });
-    }
-
-    if (interaction.commandName === 'ship') {
-      const user1 = interaction.options.getUser('first') || interaction.user;
-      const user2 = interaction.options.getUser('second');
-
-      if (!user2) {
-        return await interaction.reply({
-          content: "❌ Mention someone to ship! Select a target user in the command options.",
-          ephemeral: true
-        });
-      }
-
-      if (user1.id === user2.id) {
-        return await interaction.reply({ 
-          content: "❌ You can't ship someone with themselves!", 
-          ephemeral: true 
-        });
-      }
-
-      // Deterministic 0-100% score calculation
-      const id1 = BigInt(user1.id);
-      const id2 = BigInt(user2.id);
-      const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
-      const percentage = Number(combinedIds % 101n);
-
-      // Compact 6-block bar
-      const totalBlocks = 6;
-      const filled = Math.round((percentage / 100) * totalBlocks);
-      const bar = "💖".repeat(filled) + "🖤".repeat(totalBlocks - filled);
-
-      // Dynamic content & gifs/images per tier
-      let comment = "";
-      let color = 0xff69b4;
-      let imgUrl = "";
-
-      if (percentage >= 85) {
-        comment = "✨ **Soulmates!** Get married already! 💍";
-        color = 0xff1493;
-        imgUrl = "https://media.giphy.com/media/26hpKMT7M4iOtdaSc/giphy.gif";
-      } else if (percentage >= 50) {
-        comment = "👀 **Cute combo!** There's definitely a spark here.";
-        color = 0xff69b4;
-        imgUrl = "https://media.giphy.com/media/l41Jw7AedR39y4S40/giphy.gif";
-      } else if (percentage >= 25) {
-        comment = "😬 **Awkward...** Stick to sending memes in chat.";
-        color = 0xffa500;
-        imgUrl = "https://media.giphy.com/media/H5C8CevNMbpBqNqFjl/giphy.gif";
-      } else {
-        comment = "💀 **0% Chemistry.** Stay at least 50 feet apart!";
-        color = 0x2f3136;
-        imgUrl = "https://media.giphy.com/media/e2wFI0JGg6Tcg/giphy.gif";
-      }
-
-      const shipEmbed = new EmbedBuilder()
-        .setColor(color)
-        .setAuthor({ name: "💘 Compatibility Check" })
-        .setDescription(
-          `**${user1.username}**  ×  **${user2.username}**\n` +
-          `**${percentage}%** \`${bar}\`\n\n` +
-          `${comment}`
-        )
-        .setThumbnail(imgUrl)
-        .setFooter({ 
-          text: `Shipped by ${interaction.user.username}`, 
-          iconURL: interaction.user.displayAvatarURL({ dynamic: true }) 
-        });
-
-      return await interaction.reply({ embeds: [shipEmbed] });
-    }
-
-    if (interaction.commandName === 'shop') {
-      const fakeMessage = {
-        author: interaction.user,
-        member: interaction.member,
-        guild: interaction.guild,
-        channel: interaction.channel,
-        reply: async (payload) => {
-          return await interaction.reply(payload);
+  // ================= INTERACTION LISTENER =================
+  client.on("interactionCreate", async (interaction) => {
+    if (interaction.isChatInputCommand()) {
+      // Enforce channel restrictions for slash fun commands if not staff
+      const funSlashCommands = ['8ball', 'coinflip', 'roll', 'rps', 'ship', 'shop', 'marry', 'divorce', 'marriages', 'adopt'];
+      if (funSlashCommands.includes(interaction.commandName)) {
+        const isStaff = isStaffMember(interaction.member) || interaction.member?.permissions.has(PermissionsBitField.Flags.Administrator);
+        if (!isStaff && interaction.channelId !== BDAY_COMMAND_CHANNEL_ID) {
+          return await interaction.reply({
+            content: `❌ You can only use fun commands inside <#${BDAY_COMMAND_CHANNEL_ID}>!`,
+            ephemeral: true
+          });
         }
-      };
-      const data = getGuildData(interaction.guild.id);
-      const prefix = data.prefix || DEFAULT_PREFIX;
-      return shopCommand.execute(fakeMessage, [], prefix, getGuildData, saveData, interaction);
-    }
-    
-      await interaction.deferReply({ ephemeral: true }).catch(() => null);
+      }
 
-      const targetUser = 
-        interaction.options.getUser("user") || 
-        interaction.options.getUser("first") || 
-        interaction.options.getUser("second") || 
-        interaction.options.getUser("target") || 
-        interaction.options.getUser("spouse") || 
-        interaction.options.getUser("child");
+      if (interaction.commandName === '8ball') {
+        const q = interaction.options.getString('question');
+        const answers = [
+          "🎱 It is certain.", "🎱 It is decidedly so.", "🎱 Without a doubt.",
+          "🎱 Yes - definitely.", "🎱 You may rely on it.", "🎱 As I see it, yes.",
+          "🎱 Most likely.", "🎱 Outlook good.", "🎱 Yes.", "🎱 Signs point to yes.",
+          "🎱 Reply hazy, try again.", "🎱 Ask again later.", "🎱 Better not tell you now.",
+          "🎱 Cannot predict now.", "🎱 Concentrate and ask again.",
+          "🎱 Don't count on it.", "🎱 My reply is no.", "🎱 My sources say no.",
+          "🎱 Outlook not so good.", "🎱 Very doubtful."
+        ];
+        const answer = answers[Math.floor(Math.random() * answers.length)];
+        return await interaction.reply({ content: `🔮 **Question:** ${q}\n${answer}` });
+      }
 
-      const args = targetUser ? [targetUser.id] : [];
+      if (interaction.commandName === 'coinflip') {
+        const result = Math.random() < 0.5 ? "🪙 Heads!" : "🪙 Tails!";
+        return await interaction.reply({ content: `The coin landed on **${result}**` });
+      }
 
-      const fakeMessage = {
-        content: `${DEFAULT_PREFIX}${interaction.commandName} ${args.join(" ")}`.trim(),
-        author: interaction.user,
-        member: interaction.member || { id: interaction.user.id, user: interaction.user, roles: { cache: new Map() }, permissions: { has: () => false } },
-        guild: interaction.guild,
-        channel: interaction.channel,
-        mentions: { 
-          members: { 
-            first: () => targetUser ? interaction.guild?.members.cache.get(targetUser.id) : null 
+      if (interaction.commandName === 'roll') {
+        let max = interaction.options.getInteger('max') || 100;
+        if (max < 1) max = 100;
+        const rolled = Math.floor(Math.random() * max) + 1;
+        return await interaction.reply({ content: `🎲 You rolled a **${rolled}** (1-${max})` });
+      }
+
+      if (interaction.commandName === 'rps') {
+        const choices = ["rock", "paper", "scissors"];
+        const userChoice = interaction.options.getString('choice');
+        const botChoice = choices[Math.floor(Math.random() * choices.length)];
+        let outcome = "";
+        if (userChoice === botChoice) outcome = "It's a tie! 🤝";
+        else if (
+          (userChoice === "rock" && botChoice === "scissors") ||
+          (userChoice === "paper" && botChoice === "rock") ||
+          (userChoice === "scissors" && botChoice === "paper")
+        ) outcome = "You win! 🎉";
+        else outcome = "I win! 😈";
+
+        return await interaction.reply({ content: `🎮 You chose **${userChoice}**, I chose **${botChoice}**. ${outcome}` });
+      }
+
+      if (interaction.commandName === 'ship') {
+        const user1 = interaction.options.getUser('first') || interaction.user;
+        const user2 = interaction.options.getUser('second');
+
+        if (!user2) {
+          return await interaction.reply({
+            content: "❌ Mention someone to ship! Select a target user in the command options.",
+            ephemeral: true
+          });
+        }
+
+        if (user1.id === user2.id) {
+          return await interaction.reply({ 
+            content: "❌ You can't ship someone with themselves!", 
+            ephemeral: true 
+          });
+        }
+
+        const id1 = BigInt(user1.id);
+        const id2 = BigInt(user2.id);
+        const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
+        const percentage = Number(combinedIds % 101n);
+
+        const totalBlocks = 6;
+        const filled = Math.round((percentage / 100) * totalBlocks);
+        const bar = "💖".repeat(filled) + "🖤".repeat(totalBlocks - filled);
+
+        let comment = "";
+        let color = 0xff69b4;
+        let imgUrl = "";
+
+        if (percentage >= 85) {
+          comment = "✨ **Soulmates!** Get married already! 💍";
+          color = 0xff1493;
+          imgUrl = "https://media.giphy.com/media/26hpKMT7M4iOtdaSc/giphy.gif";
+        } else if (percentage >= 50) {
+          comment = "👀 **Cute combo!** There's definitely a spark here.";
+          color = 0xff69b4;
+          imgUrl = "https://media.giphy.com/media/l41Jw7AedR39y4S40/giphy.gif";
+        } else if (percentage >= 25) {
+          comment = "😬 **Awkward...** Stick to sending memes in chat.";
+          color = 0xffa500;
+          imgUrl = "https://media.giphy.com/media/H5C8CevNMbpBqNqFjl/giphy.gif";
+        } else {
+          comment = "💀 **0% Chemistry.** Stay at least 50 feet apart!";
+          color = 0x2f3136;
+          imgUrl = "https://media.giphy.com/media/e2wFI0JGg6Tcg/giphy.gif";
+        }
+
+        const shipEmbed = new EmbedBuilder()
+          .setColor(color)
+          .setAuthor({ name: "💘 Compatibility Check" })
+          .setDescription(
+            `**${user1.username}**  ×  **${user2.username}**\n` +
+            `**${percentage}%** \`${bar}\`\n\n` +
+            `${comment}`
+          )
+          .setThumbnail(imgUrl)
+          .setFooter({ 
+            text: `Shipped by ${interaction.user.username}`, 
+            iconURL: interaction.user.displayAvatarURL({ dynamic: true }) 
+          });
+
+        return await interaction.reply({ embeds: [shipEmbed] });
+      }
+
+      if (interaction.commandName === 'shop') {
+        const fakeMessage = {
+          author: interaction.user,
+          member: interaction.member,
+          guild: interaction.guild,
+          channel: interaction.channel,
+          reply: async (payload) => {
+            return await interaction.reply(payload);
+          }
+        };
+        const data = getGuildData(interaction.guild.id);
+        const prefix = data.prefix || DEFAULT_PREFIX;
+        return shopCommand.execute(fakeMessage, [], prefix, getGuildData, saveData, interaction);
+      }
+      
+      // Route marriage/adoption/other slash commands to text parser handlers via fakeMessage wrapper
+      if (["marry", "divorce", "marriages", "adopt"].includes(interaction.commandName)) {
+        const targetUser = 
+          interaction.options.getUser("user") || 
+          interaction.options.getUser("child") || 
+          interaction.options.getUser("target") || 
+          interaction.options.getUser("spouse");
+
+        let cmdArgs = [];
+        if (interaction.commandName === "marry") {
+          cmdArgs.push(targetUser ? targetUser.id : "");
+          const ringOpt = interaction.options.getString("ring");
+          if (ringOpt) cmdArgs.push(ringOpt);
+        } else if (targetUser) {
+          cmdArgs.push(targetUser.id);
+        }
+
+        const fakeMessage = {
+          content: `${DEFAULT_PREFIX}${interaction.commandName} ${cmdArgs.join(" ")}`.trim(),
+          author: interaction.user,
+          member: interaction.member || { id: interaction.user.id, user: interaction.user, roles: { cache: new Map() }, permissions: { has: () => false } },
+          guild: interaction.guild,
+          channel: interaction.channel,
+          mentions: { 
+            members: { 
+              first: () => targetUser ? interaction.guild?.members.cache.get(targetUser.id) : null 
+            },
+            users: {
+              first: () => targetUser || null
+            }
           },
-          users: {
-            first: () => targetUser || null
-          }
-        },
-        reply: async (payload) => {
-          const data = typeof payload === "string" ? { content: payload } : payload;
-          if (interaction.deferred || interaction.replied) {
-            return await interaction.followUp({ ...data, ephemeral: true });
-          }
-          return await interaction.reply({ ...data, ephemeral: true });
-        },
-        delete: async () => null
-      };
+          reply: async (payload) => {
+            const data = typeof payload === "string" ? { content: payload } : payload;
+            if (interaction.deferred || interaction.replied) {
+              return await interaction.followUp({ ...data, ephemeral: true });
+            }
+            return await interaction.reply({ ...data, ephemeral: true });
+          },
+          delete: async () => null
+        };
 
-      await handleCommands(fakeMessage, getGuildData);
-      return;
+        return await handleCommands(fakeMessage, getGuildData);
+      }
     }
 
     if (interaction.isButton() || interaction.isModalSubmit()) {
