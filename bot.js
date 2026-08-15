@@ -355,12 +355,12 @@ async function registerSlashCommands() {
     new SlashCommandBuilder()
       .setName("ping")
       .setDescription("Check latency")
-      .setDMCapable(true),
+      .setDMPermission(true),
 
     new SlashCommandBuilder()
       .setName("status")
       .setDescription("Check system health")
-      .setDMCapable(true),
+      .setDMPermission(true),
 
     new SlashCommandBuilder()
       .setName("snipe")
@@ -371,13 +371,13 @@ async function registerSlashCommands() {
       .setName("marry")
       .setDescription("Propose to or check marriage status with a user")
       .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(false))
-      .setDMCapable(true),
+      .setDMPermission(true),
 
     new SlashCommandBuilder()
       .setName("adopt")
       .setDescription("Adopt or manage family members")
       .addUserOption(opt => opt.setName("child").setDescription("User to adopt").setRequired(false))
-      .setDMCapable(true)
+      .setDMPermission(true)
   ].map(command => command.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
@@ -1552,7 +1552,7 @@ function startBot() {
     ]
   });
 
-  client.once("ready", async () => {
+  client.once("clientReady", async () => {
     console.log(`🤖 Logged in as ${client.user.tag}!`);
 
     await registerSlashCommands();
