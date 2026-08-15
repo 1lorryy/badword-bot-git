@@ -1,11 +1,11 @@
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ComponentType, SlashCommandBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType, SlashCommandBuilder } = require("discord.js");
 
 const RINGS = [
-  { key: "wood", name: "🪵 Wooden Ring", price: 1, desc: "A rough, handmade wooden band. Perfect for a budget start.", img: "https://cdn-icons-png.flaticon.com/512/3504/3504381.png" },
-  { key: "onion", name: "🍟 Plastic Onion Ring", price: 50, desc: "Smells like fast food, surprisingly durable.", img: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png" },
-  { key: "code", name: "💻 Binary Code Band", price: 1024, desc: "Engraved with endless lines of code for tech lovers.", img: "https://cdn-icons-png.flaticon.com/512/2103/2103633.png" },
-  { key: "glow", name: "✨ Glow-in-the-Dark Ring", price: 25000, desc: "Illuminates brightly during late-night gaming sessions.", img: "https://cdn-icons-png.flaticon.com/512/2904/2904838.png" },
-  { key: "supernova", name: "🌌 Supernova Diamond Ring", price: 999999999, desc: "A legendary cosmic gemstone worth an absolute fortune.", img: "https://cdn-icons-png.flaticon.com/512/1086/1086741.png" }
+  { key: "wood", name: "🪵 Wooden Ring", price: 5, desc: "A rough, handmade wooden band. Perfect for a budget start.", img: "https://cdn-icons-png.flaticon.com/512/3504/3504381.png" },
+  { key: "onion", name: "🍟 Plastic Onion Ring", price: 150, desc: "Smells like fast food, surprisingly durable.", img: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png" },
+  { key: "code", name: "💻 Binary Code Band", price: 5000, desc: "Engraved with endless lines of code for tech lovers.", img: "https://cdn-icons-png.flaticon.com/512/2103/2103633.png" },
+  { key: "glow", name: "✨ Glow-in-the-Dark Ring", price: 50000, desc: "Illuminates brightly during late-night gaming sessions.", img: "https://cdn-icons-png.flaticon.com/512/2904/2904838.png" },
+  { key: "supernova", name: "🌌 Supernova Diamond Ring", price: 1000000, desc: "A legendary cosmic gemstone worth an absolute fortune.", img: "https://cdn-icons-png.flaticon.com/512/1086/1086741.png" }
 ];
 
 module.exports = {
@@ -28,7 +28,7 @@ module.exports = {
     const userCoins = data.economy[user.id].coins;
 
     const catalogDescription = RINGS.map(r => 
-      `**${r.name}** — \`${r.price.toLocaleString()} coins\`\n*${r.desc}*`
+      `**${r.name}** — \`${r.price.toLocaleString()} DON\`\n*${r.desc}*`
     ).join("\n\n");
 
     const shopEmbed = new EmbedBuilder()
@@ -39,20 +39,19 @@ module.exports = {
         catalogDescription
       )
       .addFields(
-        { name: "💰 Your Balance", value: `\`${userCoins.toLocaleString()} coins\``, inline: true },
+        { name: "💰 Your Balance", value: `\`${userCoins.toLocaleString()} DON\``, inline: true },
         { name: "📌 Tip", value: `You can also buy & propose using \`${prefix}marry propose @user [ring]\``, inline: false }
       )
       .setThumbnail(RINGS[0].img)
-      .setFooter({ text: "DonQuixotes Lounge • Shop System" });
+      .setFooter({ text: "donQuixoted lounge • Shop System" });
 
-    // Create a select menu for rings
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId("shop_ring_select")
       .setPlaceholder("🔍 Select a ring to inspect...")
       .addOptions(
         RINGS.map(r => ({
           label: r.name,
-          description: `Price: ${r.price.toLocaleString()} coins`,
+          description: `Price: ${r.price.toLocaleString()} DON`,
           value: r.key,
           emoji: r.name.split(" ")[0]
         }))
@@ -77,13 +76,13 @@ module.exports = {
         .setColor(0xff69b4)
         .setTitle(`💍 ${ring.name}`)
         .setDescription(
-          `**Price:** \`${ring.price.toLocaleString()} coins\`\n` +
+          `**Price:** \`${ring.price.toLocaleString()} DON\`\n` +
           `**Description:** ${ring.desc}\n\n` +
           `*To propose with this ring, use:*\n\`${prefix}marry propose @user ${ring.key}\``
         )
         .setThumbnail(ring.img)
-        .addFields({ name: "💰 Your Balance", value: `\`${data.economy[user.id].coins.toLocaleString()} coins\``, inline: true })
-        .setFooter({ text: "DonQuixotes Lounge • Shop System" });
+        .addFields({ name: "💰 Your Balance", value: `\`${data.economy[user.id].coins.toLocaleString()} DON\``, inline: true })
+        .setFooter({ text: "donQuixoted lounge • Shop System" });
 
       await i.update({ embeds: [updatedEmbed], components: [row] });
     });
