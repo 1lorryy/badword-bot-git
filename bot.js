@@ -29,8 +29,11 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  SlashCommandBuilder,
   REST,
   Routes,
+  InteractionContextType,
+  ApplicationIntegrationType
 } = require("discord.js");
 
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json");
@@ -347,14 +350,6 @@ async function sendModLog(embed) {
 
   await log.send({ embeds: [embed] }).catch(() => null);
 }
-
-const { 
-  SlashCommandBuilder, 
-  REST, 
-  Routes, 
-  InteractionContextType, 
-  ApplicationIntegrationType 
-} = require('discord.js');
 
 // Helper config to allow commands in Guilds, Bot DMs, and User-to-User DMs
 const globalContexts = [
