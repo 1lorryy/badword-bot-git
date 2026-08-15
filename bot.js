@@ -1256,7 +1256,7 @@ async function handleCommands(message, getGuildData) {
     return message.reply({ embeds: [embed] });
   }
   
-  // ================= HELP (INTERACTIVE BUTTON MENU) =================
+// ================= HELP (INTERACTIVE BUTTON MENU) =================
   if (command === "help") {
     const totalCustomCmds = data.customCommands ? Object.keys(data.customCommands).length : 0;
 
@@ -1271,9 +1271,10 @@ async function handleCommands(message, getGuildData) {
       .addFields(
         { name: "🛡️ Moderation & AutoMod", value: "Warnings, mutes, kicks, bans, blacklists, and staff guides.", inline: true },
         { name: "🔒 Advanced Security", value: "Verification settings, member scans, and trust filters.", inline: true },
-        { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, custom colors, AFK, timezone, and analytics.", inline: true }
+        { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, custom colors, AFK, timezone, and analytics.", inline: true },
+        { name: "🎮 Fun & Community", value: "Games, AI interactions, auctions, and entertaining server tools.", inline: true }
       )
-      .setFooter({ text: "Page 1/4 • Don Don Operations" })
+      .setFooter({ text: "Page 1/5 • Don Don Operations" })
       .setTimestamp();
 
     const pageMod = new EmbedBuilder()
@@ -1305,7 +1306,7 @@ async function handleCommands(message, getGuildData) {
             `• \`${prefix}staffguide\` / \`${prefix}staffguidedit\` — Usage guide setup`
         }
       )
-      .setFooter({ text: "Page 2/4 • Moderation" })
+      .setFooter({ text: "Page 2/5 • Moderation" })
       .setTimestamp();
 
     const pageSecurity = new EmbedBuilder()
@@ -1324,7 +1325,7 @@ async function handleCommands(message, getGuildData) {
           `• \`${prefix}verify autoban [on/off]\` — Toggle auto-ban on join\n` +
           `• \`${prefix}verify autokick [on/off]\` — Toggle auto-kick on join`
       })
-      .setFooter({ text: "Page 3/4 • Security" })
+      .setFooter({ text: "Page 3/5 • Security" })
       .setTimestamp();
 
     const pageUtility = new EmbedBuilder()
@@ -1344,21 +1345,19 @@ async function handleCommands(message, getGuildData) {
             `• \`${prefix}setnick @user [nick]\` — Change server nickname`
         },
         {
-          name: "🌐 Tools & Community",
+          name: "🌐 Tools & System",
           value:
             `• \`${prefix}joininfo [@user]\` — View join rank & milestone analytics\n` +
-            `• \`${prefix}tz [zone]\` — Set/view personal timezone\n` +
+            `• \`${prefix}tz [zone]\` / \`${prefix}timezone\` — Set/view personal timezone\n` +
+            `• \`${prefix}time [location]\` — Check local time for a region\n` +
             `• \`${prefix}afk [reason]\` / \`${prefix}afk global\` — Set AFK status\n` +
             `• \`${prefix}translate [lang] [text]\` — Translate message\n` +
             `• \`${prefix}timer [time] [label]\` — Set countdown timer\n` +
-            `• \`${prefix}birthday\` / \`${prefix}bday\` — Set birthday (\`#commands\` only)\n` +
-            `• \`${prefix}snipe\` / \`${prefix}snipes\` — View deleted messages\n` +
             `• \`${prefix}slowmode [time]\` — Channel slowmode control\n` +
-            `• \`${prefix}auction\` / \`${prefix}bid\` — Server auction system\n` +
             `• \`${prefix}status\` / \`${prefix}ping\` — System health & latency`
         }
       )
-      .setFooter({ text: "Page 4/4 • Utility & Tools" })
+      .setFooter({ text: "Page 4/5 • Utility & Tools" })
       .setTimestamp();
 
     if (totalCustomCmds > 0) {
@@ -1368,7 +1367,24 @@ async function handleCommands(message, getGuildData) {
       });
     }
 
-    const pages = [pageOverview, pageMod, pageSecurity, pageUtility];
+    const pageFun = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("🎮 Fun & Entertainment")
+      .setDescription(`Community features, mini-games, and fun tools. Prefix: \`${prefix}\``)
+      .addFields({
+        name: "🎲 Games & Interactive",
+        value:
+          `• \`${prefix}ai [prompt]\` — Ask the bot AI a direct prompt\n` +
+          `• \`${prefix}birthday\` / \`${prefix}bday\` — Set birthday (\`#commands\` only)\n` +
+          `• \`${prefix}snipe\` / \`${prefix}snipes\` — View recently deleted messages\n` +
+          `• \`${prefix}auction\` / \`${prefix}bid\` — Server auction system\n` +
+          `• \`${prefix}roll [max]\` — Roll a random number\n` +
+          `• \`${prefix}flip\` — Flip a coin`
+      })
+      .setFooter({ text: "Page 5/5 • Fun & Entertainment" })
+      .setTimestamp();
+
+    const pages = [pageOverview, pageMod, pageSecurity, pageUtility, pageFun];
     let currentPage = 0;
 
     const generateButtons = (page) => {
@@ -1376,7 +1392,8 @@ async function handleCommands(message, getGuildData) {
         new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
         new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(page === 1),
         new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(page === 2),
-        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(page === 3)
+        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Secondary).setDisabled(page === 3),
+        new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun").setStyle(ButtonStyle.Success).setDisabled(page === 4)
       );
     };
 
@@ -1395,6 +1412,7 @@ async function handleCommands(message, getGuildData) {
       else if (interaction.customId === "help_mod") currentPage = 1;
       else if (interaction.customId === "help_security") currentPage = 2;
       else if (interaction.customId === "help_utility") currentPage = 3;
+      else if (interaction.customId === "help_fun") currentPage = 4;
 
       await interaction.update({
         embeds: [pages[currentPage]],
@@ -1407,7 +1425,8 @@ async function handleCommands(message, getGuildData) {
         new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(true),
         new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(true),
         new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(true),
-        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(true)
+        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Secondary).setDisabled(true),
+        new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun").setStyle(ButtonStyle.Success).setDisabled(true)
       );
       helpMsg.edit({ components: [disabledRow] }).catch(() => null);
     });
@@ -1532,7 +1551,7 @@ function startBot() {
     }
   });
 
-  // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
     try {
       if (message.author.bot) return;
@@ -1634,6 +1653,11 @@ function startBot() {
       console.error("Error running inside messageCreate pipeline:", err);
     }
   });
+```[cite: 4]
+
+**Related Key Functions**
+* **`handleCommands()`**: Handles prefixed commands (`?warn`, `?kick`, `?ban`, etc.)[cite: 4].
+* **`interactionCreate`**: Handles Slash Commands and Discord UI elements like buttons and modals[cite: 4].
 
   client.on("messageDelete", async (message) => {
     try {
