@@ -1,49 +1,56 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
-const RING_COST = 5; // Set how many 'don' currency a ring costs (adjust as needed)
+const DAILY_REWARD = 100; // Adjust the reward amount as needed (e.g., 100 don currency)
+const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('buy')
-    .setDescription('Buy items from the shop using your don currency')
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('ring')
-        .setDescription(`Purchase a ring for ${RING_COST} don currency`)
-    ),
+    .setName('daily')
+    .setDescription('Claim your daily free currency reward!'),
 
-  category: 'fun',
+  async execute(messageOrInteraction, args, prefix, getGuildData, saveData, isSlash = false) {
+    const user = isSlash ? messageOrInteraction.user : messageOrInteraction.author;
+    const guild = messageOrInteraction.guild;
+    const data = getGuildData(guild.id);
 
-  async execute(interaction) {
-    const userId = interaction.user.id;
-    const subcommand = interaction.options.getSubcommand();
+    // Initialize user balances if they don't exist
+    if (!data.balances) data.balances = {};
+    if (!data.balances[user.id]) data.balances[user.id] = { don: 0, lastDaily: 0 };
 
-    // TODO: Fetch user data from your database
-    let userData = getUserData(userId);
+    const userData = data.balances[user.id];
+    const now = Date.now();
+    const timeLeft = (userData.lastDaily + COOLDOWN_MS) - now;
 
-    if (subcommand === 'ring') {
-      if (userData.don < RING_COST) {
-        return interaction.reply({
-          content: `❌ You don't have enough currency! A ring costs **${RING_COST} don**, but you only have **${userData.don} don**.`,
-          ephemeral: true
-        });
+    if (timeLeft > 0) {
+      // User is still on cooldown
+      const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+      const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+      
+      const replyContent = `⏳ You have already claimed your daily reward! Come back in **${hours}h ${minutes}m**ing.`;
+      
+      if (isSlash) {
+        return await messageOrInteraction.reply({ content: replyContent, ephemeral: true });
       }
-
-      // Deduct cost and give the ring (you can add an inventory flag like userData.hasRing = true)
-      userData.don -= RING_COST;
-      userData.hasRing = true; 
-      saveUserData(userId, userData); // TODO: Save to your database
-
-      const embed = new EmbedBuilder()
-        .setColor('#FFD700')
-        .setTitle('💍 Successful Purchase!')
-        .setDescription('Congratulations! You successfully bought a **Ring**!')
-        .addFields(
-          { name: 'Remaining Balance', value: `\`${userData.don} don\``, inline: true }
-        )
-        .setTimestamp();
-
-      return interaction.reply({ embeds: [embed] });
+      return await messageOrInteraction.reply(replyContent);
     }
-  },
+
+    // Give reward and update timestamp
+    userData.don += DAILY_REWARD;
+    userData.lastDaily = now;
+    saveData();
+
+    const embed = new EmbedBuilder()
+      .setColor(0x22c55e)
+      .setTitle('🎁 Daily Reward Claimed!')
+      .setDescription(`You successfully claimed your daily **${DAILY_REWARD} don** currency!`)
+      .addFields(
+        { name: 'New Balance', value: `\`${userData.don} don\``, inline: true }
+      )
+      .setTimestamp();
+
+    if (isSlash) {
+      return await messageOrInteraction.reply({ embeds: [embed] });
+    }
+    return await messageOrInteraction.reply({ embeds: [embed] });
+  }
 };
