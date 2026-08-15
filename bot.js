@@ -628,7 +628,7 @@ async function handleCommands(message, getGuildData) {
     // Ensure economy / user data structures exist
     if (!data.economy) data.economy = {};
     if (!data.economy[userId]) {
-      data.economy[userId] = { balance: 0, lastDaily: 0 };
+      data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0 };
     }
 
     const userData = data.economy[userId];
@@ -645,7 +645,7 @@ async function handleCommands(message, getGuildData) {
     // Check if user is married to determine the daily currency reward
     let isMarried = false;
     let ringType = "None";
-    let rewardAmount = 0.5; // Default base reward
+    let rewardAmount = 0.5; // Base reward for unmarried users
 
     if (data.marriages) {
       for (const marriage of Object.values(data.marriages)) {
@@ -653,7 +653,7 @@ async function handleCommands(message, getGuildData) {
           isMarried = true;
           ringType = marriage.ring || "Standard Ring";
           
-          // Give 1 don if married, 0.5 don if not (or based on ring tiers if desired)
+          // Reward increases to 1.0 DON if married
           rewardAmount = 1.0; 
           break;
         }
@@ -661,16 +661,23 @@ async function handleCommands(message, getGuildData) {
     }
 
     userData.balance += rewardAmount;
+    userData.coins = (userData.coins || 0) + rewardAmount;
     userData.lastDaily = now;
     saveData();
 
     const embed = new EmbedBuilder()
       .setTitle("🎁 Daily Reward Claimed!")
-      .setDescription(`You successfully collected your daily reward of **${rewardAmount} don**!${isMarried ? `\n💍 *Marriage Bonus Active* (Ring: **${ringType}**) ✨` : ""}`)
+      .setDescription(`You successfully collected your daily reward of **${rewardAmount} DON**!${isMarried ? `\n💍 *Marriage Bonus Active* (Ring: **${ringType}**) ✨` : ""}`)
       .setColor(0x57F287)
       .setTimestamp();
 
     return message.reply({ embeds: [embed] });
+  }
+
+  if (command === "shop" || command === "store" || command === "marketplace") {
+    if (shopCommand && typeof shopCommand.execute === "function") {
+      return shopCommand.execute(message, args, prefix, getGuildData, saveData);
+    }
   }
 
   if (command === "ship") {
