@@ -384,8 +384,20 @@ async function registerSlashCommands() {
 
     new SlashCommandBuilder()
       .setName("marry")
-      .setDescription("Propose to a user")
+      .setDescription("Propose to another user with a ring")
       .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(true))
+      .addStringOption(opt =>
+        opt.setName("ring")
+          .setDescription("Ring type to offer")
+          .setRequired(false)
+          .addChoices(
+            { name: "🪵 Wooden Ring (5 DON)", value: "wood" },
+            { name: "🍟 Plastic Onion Ring (150 DON)", value: "onion" },
+            { name: "💻 Binary Code Band (5,000 DON)", value: "code" },
+            { name: "✨ Glow-in-the-Dark Ring (50,000 DON)", value: "glow" },
+            { name: "🌌 Supernova Diamond Ring (1,000,000 DON)", value: "supernova" }
+          )
+      )
       .setContexts(globalContexts)
       .setIntegrationTypes(globalIntegrationTypes),
 
@@ -398,6 +410,7 @@ async function registerSlashCommands() {
     new SlashCommandBuilder()
       .setName("marriages")
       .setDescription("View all active marriages in the server")
+      .addUserOption(opt => opt.setName("user").setDescription("Target user (leave empty for yourself)").setRequired(false))
       .setContexts(globalContexts)
       .setIntegrationTypes(globalIntegrationTypes),
 
@@ -1609,7 +1622,7 @@ async function handleCommands(message, getGuildData) {
         {
           name: "💍 Family & Relationships",
           value:
-            `• \`${prefix}marry @user\` — Propose to a server member\n` +
+            `• \`${prefix}marry @user [ring]\` — Propose to a server member\n` +
             `• \`${prefix}divorce [@user]\` — End a marriage\n` +
             `• \`${prefix}marriages\` — View server marriages\n` +
             `• \`${prefix}ship @user1 [@user2]\` — Calculate love compatibility\n` +
