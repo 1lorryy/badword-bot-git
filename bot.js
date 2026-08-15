@@ -449,13 +449,17 @@ async function handleCommands(message, getGuildData) {
   const command = (args.shift() || "").toLowerCase();
   if (!command) return true;
 
+  // ================= SHIP COMMAND ROUTING =================
+  if (command === "ship") {
+    return handleShipCommand(message, args);
+  }
+
   // ================= MARRIAGE COMMAND ROUTING =================
   if (
     command === "marry" ||
     command === "divorce" ||
     command === "marriage" ||
-    command === "marriages" ||
-    command === "ship"
+    command === "marriages"
   ) {
     if (marriageCommand && typeof marriageCommand.execute === "function") {
       return marriageCommand.execute(message, [command, ...args], prefix, getGuildData, saveData);
