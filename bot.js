@@ -453,7 +453,7 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-// ================= CUSTOM COMMANDS & EMBEDS =================
+  // ================= CUSTOM COMMANDS & EMBEDS =================
   if (data.customCommands?.[command]) {
     const custom = data.customCommands[command];
 
@@ -530,7 +530,7 @@ async function handleCommands(message, getGuildData) {
     return statusCmd.execute(message, args, client, getGuildData);
   }
 
-// ================= JOININFO & TIMEZONE =================
+  // ================= JOININFO & TIMEZONE =================
   if (command === "joininfo") {
     const joinInfoCmd = require("./commands/joininfo.js");
     return joinInfoCmd.execute(message, args, client, getGuildData);
@@ -1234,7 +1234,7 @@ async function handleCommands(message, getGuildData) {
     return message.reply({ embeds: [embed] });
   }
 
- // ================= SNIPE =================
+  // ================= SNIPE =================
   if (command === "snipe") {
     if (args[0]?.toLowerCase() === "on") {
       if (!canManageGuild(message)) return message.reply("❌ No permission.");
@@ -1254,7 +1254,6 @@ async function handleCommands(message, getGuildData) {
       return message.reply("❌ Snipe is currently disabled on this server.");
     }
 
-    // STRICT CHANNEL SCOPING: Only pulls array matching THIS channel ID
     const currentChannelSnipes = data.snipes?.[message.channel.id];
 
     if (!currentChannelSnipes || !currentChannelSnipes.length) {
@@ -1287,7 +1286,6 @@ async function handleCommands(message, getGuildData) {
       return message.reply("❌ Snipe is currently disabled.");
     }
 
-    // STRICT CHANNEL SCOPING
     const currentChannelSnipes = data.snipes?.[message.channel.id];
 
     if (!currentChannelSnipes || !currentChannelSnipes.length) {
@@ -1308,9 +1306,8 @@ async function handleCommands(message, getGuildData) {
     return message.reply({ embeds: [embed] });
   }
 
-// ================= HELP (STAFF ONLY PREFIX COMMAND) =================
+  // ================= HELP (STAFF ONLY PREFIX COMMAND) =================
   if (command === "help") {
-    // Restrict help to staff/mods only
     if (!canManageGuild(message)) {
       const reply = await message.reply("❌ The help command is restricted to server staff.");
       deleteAfter(reply, 5000);
@@ -1456,25 +1453,25 @@ async function handleCommands(message, getGuildData) {
     const pages = [pageOverview, pageMod, pageSecurity, pageUtility, pageFun];
     let currentPage = 0;
 
-const generateButtons = (page) => {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
-    new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(page === 1),
-    new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(page === 2),
-    new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(page === 3),
-    new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun & Games").setStyle(ButtonStyle.Primary).setDisabled(page === 4)
-  );
-};
+    const generateButtons = (page) => {
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(page === 1),
+        new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(page === 2),
+        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(page === 3),
+        new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun & Games").setStyle(ButtonStyle.Primary).setDisabled(page === 4)
+      );
+    };
 
-const helpMsg = await message.reply({
-  embeds: [pages[currentPage]],
-  components: [generateButtons(currentPage)]
-});
+    const helpMsg = await message.reply({
+      embeds: [pages[currentPage]],
+      components: [generateButtons(currentPage)]
+    });
 
-const collector = helpMsg.createMessageComponentCollector({
-  filter: (i) => i.user.id === message.author.id,
-  time: 90000
-});
+    const collector = helpMsg.createMessageComponentCollector({
+      filter: (i) => i.user.id === message.author.id,
+      time: 90000
+    });
 
     collector.on("collect", async (interaction) => {
       if (interaction.customId === "help_home") currentPage = 0;
@@ -1504,195 +1501,6 @@ const collector = helpMsg.createMessageComponentCollector({
 
   return false;
 }
-  
-// ================= HELP (5-PAGE INTERACTIVE BUTTON MENU) =================
-if (command === "help") {
-  const totalCustomCmds = data.customCommands ? Object.keys(data.customCommands).length : 0;
-
-  const pageOverview = new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle("🔥 Don Don Command Center")
-    .setDescription(
-      `Welcome to the **Don Don** server management bot!\n` +
-      `Current Prefix: \`${prefix}\`\n\n` +
-      `Use the buttons below to browse commands by category:`
-    )
-    .addFields(
-      { name: "🛡️ Moderation & AutoMod", value: "Warnings, mutes, kicks, bans, blacklists, and staff guides.", inline: true },
-      { name: "🔒 Advanced Security", value: "Verification settings, member scans, and trust filters.", inline: true },
-      { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, AFK, and analytics.", inline: true },
-      { name: "🎮 Fun & Games", value: "Marriage, adoption, ships, auctions, custom colors, and timezones.", inline: true }
-    )
-    .setFooter({ text: "Page 1/5 • Don Don Operations" })
-    .setTimestamp();
-
-  const pageMod = new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle("🛡️ Moderation & AutoMod Commands")
-    .setDescription(`Commands reserved for staff and moderators. Prefix: \`${prefix}\``)
-    .addFields(
-      {
-        name: "🔨 Punishments & Logs",
-        value:
-          `• \`${prefix}warn @user [reason]\` — Issue a warning\n` +
-          `• \`${prefix}warnings [@user]\` — View warn history\n` +
-          `• \`${prefix}unwarn @user [id]\` — Clear warning\n` +
-          `• \`${prefix}mute @user [time] [reason]\` — Timeout user\n` +
-          `• \`${prefix}unmute @user\` — Remove timeout\n` +
-          `• \`${prefix}kick @user [reason]\` — Kick member\n` +
-          `• \`${prefix}ban @user [reason]\` — Ban member & purge msgs\n` +
-          `• \`${prefix}softban @user [reason]\` — Kick & wipe 7d msgs\n` +
-          `• \`${prefix}unban [user_id]\` — Unban user ID`
-      },
-      {
-        name: "🚫 Chat & Blacklist",
-        value:
-          `• \`${prefix}purge [1-100]\` — Bulk delete (supports \`@user\`, \`bots\`, \`links\`)\n` +
-          `• \`${prefix}bl [word]\` / \`${prefix}unbl [word]\` — Manage blacklist\n` +
-          `• \`${prefix}words\` — List blacklisted words\n` +
-          `• \`${prefix}modstats [@staff]\` — View moderator activity\n` +
-          `• \`${prefix}modlogs [@user]\` — Check recent moderation entries\n` +
-          `• \`${prefix}staffguide\` / \`${prefix}staffguidedit\` — Usage guide setup`
-      }
-    )
-    .setFooter({ text: "Page 2/5 • Moderation" })
-    .setTimestamp();
-
-  const pageSecurity = new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle("🔒 Advanced Verification & Security")
-    .setDescription(`Configure server verification and anti-raid parameters. Prefix: \`${prefix}\``)
-    .addFields({
-      name: "🛡️ Verification Controls",
-      value:
-        `• \`${prefix}verify settings\` — Check current security setup\n` +
-        `• \`${prefix}verify scan @user\` — Scan account risk score\n` +
-        `• \`${prefix}verify massscan\` — Scan all unverified members\n` +
-        `• \`${prefix}verify verifiedrole [role]\` — Set verified role\n` +
-        `• \`${prefix}verify unverifiedrole [role]\` — Set unverified role\n` +
-        `• \`${prefix}verify trusteddays [days]\` — Set minimum account age threshold\n` +
-        `• \`${prefix}verify autoban [on/off]\` — Toggle auto-ban on join\n` +
-        `• \`${prefix}verify autokick [on/off]\` — Toggle auto-kick on join`
-    })
-    .setFooter({ text: "Page 3/5 • Security" })
-    .setTimestamp();
-
-  const pageUtility = new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle("⚙️ Utility, Roles & Tools")
-    .setDescription(`General tools, administration, and member commands. Prefix: \`${prefix}\``)
-    .addFields(
-      {
-        name: "👤 Role & Channel Management",
-        value:
-          `• \`${prefix}role @user [role]\` — Toggle user role\n` +
-          `• \`${prefix}temprole @user [time] [role]\` — Give temporary role\n` +
-          `• \`${prefix}rolecreate [name] [hex]\` — Create a new role\n` +
-          `• \`${prefix}roleicon @role [icon]\` — Set custom role icon\n` +
-          `• \`${prefix}rename [new-name]\` — Rename ticket channels\n` +
-          `• \`${prefix}setnick @user [nick]\` — Change server nickname`
-      },
-      {
-        name: "🌐 Tools & System",
-        value:
-          `• \`${prefix}joininfo [@user]\` — View join rank & milestone analytics\n` +
-          `• \`${prefix}afk [reason]\` / \`${prefix}afk global\` — Set AFK status\n` +
-          `• \`${prefix}translate [lang] [text]\` — Translate message\n` +
-          `• \`${prefix}timer [time] [label]\` — Set countdown timer\n` +
-          `• \`${prefix}birthday\` / \`${prefix}bday\` — Set birthday (\`#commands\` only)\n` +
-          `• \`${prefix}snipe\` / \`${prefix}snipes\` — View deleted messages\n` +
-          `• \`${prefix}slowmode [time]\` — Channel slowmode control\n` +
-          `• \`${prefix}status\` / \`${prefix}ping\` — System health & latency`
-      }
-    )
-    .setFooter({ text: "Page 4/5 • Utility & Tools" })
-    .setTimestamp();
-
-  if (totalCustomCmds > 0) {
-    pageUtility.addFields({
-      name: "💬 Custom Commands",
-      value: Object.keys(data.customCommands).map(c => `\`${prefix}${c}\``).join(" ").slice(0, 1024)
-    });
-  }
-
-  const pageFun = new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle("🎮 Fun, Social & Games")
-    .setDescription(`Interactive family systems, games, and personal customization. Prefix: \`${prefix}\``)
-    .addFields(
-      {
-        name: "💍 Family & Relationships",
-        value:
-          `• \`${prefix}marry @user\` — Propose to a server member\n` +
-          `• \`${prefix}divorce [@user]\` — End a marriage\n` +
-          `• \`${prefix}marriages\` — View server marriages\n` +
-          `• \`${prefix}ship @user1 [@user2]\` — Calculate love compatibility\n` +
-          `• \`${prefix}adopt @user\` — Adopt a child into your family\n` +
-          `• \`${prefix}disown @user\` — Disown a child\n` +
-          `• \`${prefix}family [@user]\` — View family tree`
-      },
-      {
-        name: "🎨 Games & Personalization",
-        value:
-          `• \`${prefix}customcolor\` / \`${prefix}color\` — Personal role color studio\n` +
-          `• \`${prefix}tz [zone]\` — Set or check personal timezone\n` +
-          `• \`${prefix}auction\` / \`${prefix}bid\` — Server auction & bidding engine`
-      }
-    )
-    .setFooter({ text: "Page 5/5 • Fun & Games" })
-    .setTimestamp();
-
-  const pages = [pageOverview, pageMod, pageSecurity, pageUtility, pageFun];
-  let currentPage = 0;
-
-  const generateButtons = (page) => {
-    return new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
-      new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(page === 1),
-      new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(page === 2),
-      new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(page === 3),
-      new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun & Games").setStyle(ButtonStyle.Primary).setDisabled(page === 4)
-    );
-  };
-
-  const helpMsg = await message.reply({
-    embeds: [pages[currentPage]],
-    components: [generateButtons(currentPage)]
-  });
-
-  const collector = helpMsg.createMessageComponentCollector({
-    filter: (i) => i.user.id === message.author.id,
-    time: 90000
-  });
-
-  collector.on("collect", async (interaction) => {
-    if (interaction.customId === "help_home") currentPage = 0;
-    else if (interaction.customId === "help_mod") currentPage = 1;
-    else if (interaction.customId === "help_security") currentPage = 2;
-    else if (interaction.customId === "help_utility") currentPage = 3;
-    else if (interaction.customId === "help_fun") currentPage = 4;
-
-    await interaction.update({
-      embeds: [pages[currentPage]],
-      components: [generateButtons(currentPage)]
-    });
-  });
-
-collector.on("end", async () => {
-      const disabledRow = new ActionRowBuilder().addComponents(
-        generateButtons(currentPage).components.map(button =>
-          ButtonBuilder.from(button).setDisabled(true)
-        )
-      );
-
-      await helpMsg.edit({ components: [disabledRow] }).catch(() => null);
-    });
-
-    return true;
-  } // Closes: if (command === "help")
-
-  return false;
-}); // Closes: client.on("messageCreate", async (message) => { ... })
 
 // ================= TEMPORARY ROLE EXPIRATION ENGINE =================
 async function processExpiredTempRoles(client) {
@@ -1772,11 +1580,10 @@ function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-// ================= INTERACTION LISTENER =================
+  // ================= INTERACTION LISTENER =================
   client.on("interactionCreate", async (interaction) => {
     // 1. Slash Commands Handling
     if (interaction.isChatInputCommand()) {
-      // Ephemerally acknowledge interaction so only the command user sees it
       await interaction.deferReply({ ephemeral: true }).catch(() => null);
 
       const targetUser = interaction.options.getUser("user") || interaction.options.getUser("child");
@@ -1830,9 +1637,6 @@ function startBot() {
       }
     }
   });
-
-// Add this line at the top of your bot setup function:
-function startBot() {
 
   // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
@@ -1921,7 +1725,6 @@ function startBot() {
         }
       }
 
-      // Show typing indicator instantly to mask generation lag
       await message.channel.sendTyping().catch(() => null);
 
       const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
