@@ -642,15 +642,31 @@ async function handleCommands(message, getGuildData) {
       return message.reply(`⏱️ You have already claimed your daily reward! Come back in **${hours}h ${minutes}m**.`);
     }
 
-    // Reward amount (adjust as needed)
-    const rewardAmount = 500;
+    // Check if user is married to determine the daily currency reward
+    let isMarried = false;
+    let ringType = "None";
+    let rewardAmount = 0.5; // Default base reward
+
+    if (data.marriages) {
+      for (const marriage of Object.values(data.marriages)) {
+        if (marriage.partners && marriage.partners.includes(userId)) {
+          isMarried = true;
+          ringType = marriage.ring || "Standard Ring";
+          
+          // Give 1 don if married, 0.5 don if not (or based on ring tiers if desired)
+          rewardAmount = 1.0; 
+          break;
+        }
+      }
+    }
+
     userData.balance += rewardAmount;
     userData.lastDaily = now;
     saveData();
 
     const embed = new EmbedBuilder()
       .setTitle("🎁 Daily Reward Claimed!")
-      .setDescription(`You successfully collected your daily reward of **${rewardAmount} coins**!`)
+      .setDescription(`You successfully collected your daily reward of **${rewardAmount} don**!${isMarried ? `\n💍 *Marriage Bonus Active* (Ring: **${ringType}**) ✨` : ""}`)
       .setColor(0x57F287)
       .setTimestamp();
 
