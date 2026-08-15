@@ -1662,36 +1662,79 @@ function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-  // ================= INTERACTION LISTENER =================
-  client.on("interactionCreate", async (interaction) => {
-    if (interaction.isChatInputCommand()) {
+// ================= INTERACTION LISTENER =================
+client.on("interactionCreate", async (interaction) => {
+  if (interaction.isChatInputCommand()) {
 
-      if (interaction.commandName === 'ship') {
-        const user1 = interaction.options.getUser('first') || interaction.user;
-        const user2 = interaction.options.getUser('second') || interaction.user;
+    if (interaction.commandName === 'ship') {
+      const user1 = interaction.options.getUser('first') || interaction.user;
+      const user2 = interaction.options.getUser('second');
 
-        if (user1.id === user2.id) {
-          return await interaction.reply({ 
-            content: "❌ You cannot ship yourself with yourself!", 
-            ephemeral: true 
-          });
-        }
-
-        const id1 = BigInt(user1.id);
-        const id2 = BigInt(user2.id);
-        const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
-        const shipPercentage = Number(combinedIds % 101n);
-
-        let resultMsg = `💖 **Ship Match**: ${user1.username} x ${user2.username}\n`;
-        resultMsg += `**Score**: ${shipPercentage}%\n`;
-
-        if (shipPercentage > 85) resultMsg += "✨ Perfect match! You two should get married! 💍";
-        else if (shipPercentage > 50) resultMsg += "👍 Looking pretty good!";
-        else resultMsg += "😬 Maybe stick to being friends.";
-
-        return await interaction.reply({ content: resultMsg });
+      if (!user2) {
+        return await interaction.reply({
+          content: "❌ Mention someone to ship! Select a target user in the command options.",
+          ephemeral: true
+        });
       }
 
+      if (user1.id === user2.id) {
+        return await interaction.reply({ 
+          content: "❌ You can't ship someone with themselves!", 
+          ephemeral: true 
+        });
+      }
+
+      // Deterministic 0-100% score calculation
+      const id1 = BigInt(user1.id);
+      const id2 = BigInt(user2.id);
+      const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
+      const percentage = Number(combinedIds % 101n);
+
+      // Compact 6-block bar
+      const totalBlocks = 6;
+      const filled = Math.round((percentage / 100) * totalBlocks);
+      const bar = "💖".repeat(filled) + "🖤".repeat(totalBlocks - filled);
+
+      // Dynamic content & gifs/images per tier
+      let comment = "";
+      let color = 0xff69b4;
+      let imgUrl = "";
+
+      if (percentage >= 85) {
+        comment = "✨ **Soulmates!** Get married already! 💍";
+        color = 0xff1493;
+        imgUrl = "https://media.giphy.com/media/26hpKMT7M4iOtdaSc/giphy.gif";
+      } else if (percentage >= 50) {
+        comment = "👀 **Cute combo!** There's definitely a spark here.";
+        color = 0xff69b4;
+        imgUrl = "https://media.giphy.com/media/l41Jw7AedR39y4S40/giphy.gif";
+      } else if (percentage >= 25) {
+        comment = "😬 **Awkward...** Stick to sending memes in chat.";
+        color = 0xffa500;
+        imgUrl = "https://media.giphy.com/media/H5C8CevNMbpBqNqFjl/giphy.gif";
+      } else {
+        comment = "💀 **0% Chemistry.** Stay at least 50 feet apart!";
+        color = 0x2f3136;
+        imgUrl = "https://media.giphy.com/media/e2wFI0JGg6Tcg/giphy.gif";
+      }
+
+      const shipEmbed = new EmbedBuilder()
+        .setColor(color)
+        .setAuthor({ name: "💘 Compatibility Check" })
+        .setDescription(
+          `**${user1.username}**  ×  **${user2.username}**\n` +
+          `**${percentage}%** \`${bar}\`\n\n` +
+          `${comment}`
+        )
+        .setThumbnail(imgUrl)
+        .setFooter({ 
+          text: `Shipped by ${interaction.user.username}`, 
+          iconURL: interaction.user.displayAvatarURL({ dynamic: true }) 
+        });
+
+      return await interaction.reply({ embeds: [shipEmbed] });
+    }
+    
       await interaction.deferReply({ ephemeral: true }).catch(() => null);
 
       const targetUser = 
