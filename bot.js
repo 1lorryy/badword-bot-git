@@ -1806,7 +1806,7 @@ function startBot() {
   client.on("interactionCreate", async (interaction) => {
     if (interaction.isChatInputCommand()) {
       // Enforce channel restrictions for slash fun commands if not staff
-      const funSlashCommands = ['8ball', 'coinflip', 'roll', 'rps', 'ship', 'shop', 'marry', 'divorce', 'marriages', 'adopt'];
+      const funSlashCommands = ['8ball', 'coinflip', 'roll', 'rps', 'ship', 'shop', 'marry', 'divorce', 'marriages', 'adopt', 'daily'];
       if (funSlashCommands.includes(interaction.commandName)) {
         const isStaff = isStaffMember(interaction.member) || interaction.member?.permissions.has(PermissionsBitField.Flags.Administrator);
         if (!isStaff && interaction.channelId !== BDAY_COMMAND_CHANNEL_ID) {
@@ -1926,6 +1926,38 @@ function startBot() {
         return await interaction.reply({ embeds: [shipEmbed] });
       }
 
+      if (interaction.commandName === 'daily') {
+        const userId = interaction.user.id;
+        const cooldownTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        const now = Date.now();
+
+        const data = getGuildData(interaction.guild.id);
+        if (!data.economy) data.economy = {};
+        if (!data.economy[userId]) data.economy[userId] = { balance: 0, lastDaily: 0 };
+
+        const userData = data.economy[userId];
+
+        if (now - userData.lastDaily < cooldownTime) {
+          const timeLeft = cooldownTime - (now - userData.lastDaily);
+          const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
+          const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+          
+          return await interaction.reply({ 
+            content: `⏳ You have already claimed your daily reward! Please wait another **${hoursLeft}h ${minutesLeft}m**.`, 
+            ephemeral: true 
+          });
+        }
+
+        userData.balance += 1; // Adjust reward amount if needed
+        userData.lastDaily = now;
+
+        saveData();
+
+        return await interaction.reply({
+          content: `🎉 You successfully claimed your daily reward and received **1 DON**! Your new balance is **${userData.balance} DON**.`
+        });
+      }
+      
       if (interaction.commandName === 'shop') {
         const fakeMessage = {
           author: interaction.user,
