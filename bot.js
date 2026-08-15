@@ -1286,7 +1286,7 @@ async function handleCommands(message, getGuildData) {
     return message.reply({ embeds: [embed] });
   }
   
-  // ================= HELP (INTERACTIVE BUTTON MENU) =================
+// ================= HELP (5-PAGE INTERACTIVE BUTTON MENU) =================
   if (command === "help") {
     const totalCustomCmds = data.customCommands ? Object.keys(data.customCommands).length : 0;
 
@@ -1301,9 +1301,10 @@ async function handleCommands(message, getGuildData) {
       .addFields(
         { name: "🛡️ Moderation & AutoMod", value: "Warnings, mutes, kicks, bans, blacklists, and staff guides.", inline: true },
         { name: "🔒 Advanced Security", value: "Verification settings, member scans, and trust filters.", inline: true },
-        { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, custom colors, AFK, timezone, and analytics.", inline: true }
+        { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, AFK, and analytics.", inline: true },
+        { name: "🎮 Fun & Games", value: "Marriage, adoption, ships, auctions, custom colors, and timezones.", inline: true }
       )
-      .setFooter({ text: "Page 1/4 • Don Don Operations" })
+      .setFooter({ text: "Page 1/5 • Don Don Operations" })
       .setTimestamp();
 
     const pageMod = new EmbedBuilder()
@@ -1335,7 +1336,7 @@ async function handleCommands(message, getGuildData) {
             `• \`${prefix}staffguide\` / \`${prefix}staffguidedit\` — Usage guide setup`
         }
       )
-      .setFooter({ text: "Page 2/4 • Moderation" })
+      .setFooter({ text: "Page 2/5 • Moderation" })
       .setTimestamp();
 
     const pageSecurity = new EmbedBuilder()
@@ -1354,18 +1355,17 @@ async function handleCommands(message, getGuildData) {
           `• \`${prefix}verify autoban [on/off]\` — Toggle auto-ban on join\n` +
           `• \`${prefix}verify autokick [on/off]\` — Toggle auto-kick on join`
       })
-      .setFooter({ text: "Page 3/4 • Security" })
+      .setFooter({ text: "Page 3/5 • Security" })
       .setTimestamp();
 
     const pageUtility = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setTitle("⚙️ Utility, Roles & Tools")
-      .setDescription(`General tools, customization, and member commands. Prefix: \`${prefix}\``)
+      .setDescription(`General tools, administration, and member commands. Prefix: \`${prefix}\``)
       .addFields(
         {
           name: "👤 Role & Channel Management",
           value:
-            `• \`${prefix}customcolor\` / \`${prefix}color\` — Change role hex color\n` +
             `• \`${prefix}role @user [role]\` — Toggle user role\n` +
             `• \`${prefix}temprole @user [time] [role]\` — Give temporary role\n` +
             `• \`${prefix}rolecreate [name] [hex]\` — Create a new role\n` +
@@ -1374,22 +1374,19 @@ async function handleCommands(message, getGuildData) {
             `• \`${prefix}setnick @user [nick]\` — Change server nickname`
         },
         {
-          name: "🌐 Tools & Community",
+          name: "🌐 Tools & System",
           value:
             `• \`${prefix}joininfo [@user]\` — View join rank & milestone analytics\n` +
-            `• \`${prefix}tz [zone]\` — Set/view personal timezone\n` +
             `• \`${prefix}afk [reason]\` / \`${prefix}afk global\` — Set AFK status\n` +
             `• \`${prefix}translate [lang] [text]\` — Translate message\n` +
             `• \`${prefix}timer [time] [label]\` — Set countdown timer\n` +
             `• \`${prefix}birthday\` / \`${prefix}bday\` — Set birthday (\`#commands\` only)\n` +
-            `• \`${prefix}marry / divorce / family\` — Social relationship management\n` +
             `• \`${prefix}snipe\` / \`${prefix}snipes\` — View deleted messages\n` +
             `• \`${prefix}slowmode [time]\` — Channel slowmode control\n` +
-            `• \`${prefix}auction\` / \`${prefix}bid\` — Server auction system\n` +
             `• \`${prefix}status\` / \`${prefix}ping\` — System health & latency`
         }
       )
-      .setFooter({ text: "Page 4/4 • Utility & Tools" })
+      .setFooter({ text: "Page 4/5 • Utility & Tools" })
       .setTimestamp();
 
     if (totalCustomCmds > 0) {
@@ -1399,7 +1396,34 @@ async function handleCommands(message, getGuildData) {
       });
     }
 
-    const pages = [pageOverview, pageMod, pageSecurity, pageUtility];
+    const pageFun = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("🎮 Fun, Social & Games")
+      .setDescription(`Interactive family systems, games, and personal customization. Prefix: \`${prefix}\``)
+      .addFields(
+        {
+          name: "💍 Family & Relationships",
+          value:
+            `• \`${prefix}marry @user\` — Propose to a server member\n` +
+            `• \`${prefix}divorce [@user]\` — End a marriage\n` +
+            `• \`${prefix}marriages\` — View server marriages\n` +
+            `• \`${prefix}ship @user1 [@user2]\` — Calculate love compatibility\n` +
+            `• \`${prefix}adopt @user\` — Adopt a child into your family\n` +
+            `• \`${prefix}disown @user\` — Disown a child\n` +
+            `• \`${prefix}family [@user]\` — View family tree`
+        },
+        {
+          name: "🎨 Games & Personalization",
+          value:
+            `• \`${prefix}customcolor\` / \`${prefix}color\` — Personal role color studio\n` +
+            `• \`${prefix}tz [zone]\` — Set or check personal timezone\n` +
+            `• \`${prefix}auction\` / \`${prefix}bid\` — Server auction & bidding engine`
+        }
+      )
+      .setFooter({ text: "Page 5/5 • Fun & Games" })
+      .setTimestamp();
+
+    const pages = [pageOverview, pageMod, pageSecurity, pageUtility, pageFun];
     let currentPage = 0;
 
     const generateButtons = (page) => {
@@ -1407,7 +1431,8 @@ async function handleCommands(message, getGuildData) {
         new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
         new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(page === 1),
         new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(page === 2),
-        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(page === 3)
+        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(page === 3),
+        new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun & Games").setStyle(ButtonStyle.Primary).setDisabled(page === 4)
       );
     };
 
@@ -1426,6 +1451,7 @@ async function handleCommands(message, getGuildData) {
       else if (interaction.customId === "help_mod") currentPage = 1;
       else if (interaction.customId === "help_security") currentPage = 2;
       else if (interaction.customId === "help_utility") currentPage = 3;
+      else if (interaction.customId === "help_fun") currentPage = 4;
 
       await interaction.update({
         embeds: [pages[currentPage]],
@@ -1438,16 +1464,14 @@ async function handleCommands(message, getGuildData) {
         new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(true),
         new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(true),
         new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(true),
-        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(true)
+        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(true),
+        new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun & Games").setStyle(ButtonStyle.Primary).setDisabled(true)
       );
       helpMsg.edit({ components: [disabledRow] }).catch(() => null);
     });
 
     return true;
   }
-
-  return false;
-}
 
 // ================= TEMPORARY ROLE EXPIRATION ENGINE =================
 async function processExpiredTempRoles(client) {
