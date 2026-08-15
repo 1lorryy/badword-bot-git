@@ -407,6 +407,42 @@ async function registerSlashCommands() {
       .addUserOption(opt => opt.setName("first").setDescription("First user").setRequired(true))
       .addUserOption(opt => opt.setName("second").setDescription("Second user").setRequired(false))
       .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
+      .setName("8ball")
+      .setDescription("Ask the magic 8-ball a question")
+      .addStringOption(opt => opt.setName("question").setDescription("Your question").setRequired(true))
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
+      .setName("coinflip")
+      .setDescription("Flip a coin (Heads or Tails)")
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
+      .setName("roll")
+      .setDescription("Roll a random number (1-100 or custom max)")
+      .addIntegerOption(opt => opt.setName("max").setDescription("Maximum number").setRequired(false))
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
+      .setName("rps")
+      .setDescription("Play Rock, Paper, Scissors")
+      .addStringOption(opt =>
+        opt.setName("choice")
+          .setDescription("Your choice")
+          .setRequired(true)
+          .addChoices(
+            { name: "🪨 Rock", value: "rock" },
+            { name: "📄 Paper", value: "paper" },
+            { name: "✂️ Scissors", value: "scissors" }
+          )
+      )
+      .setContexts(globalContexts)
       .setIntegrationTypes(globalIntegrationTypes)
   ].map(command => command.toJSON());
 
@@ -496,19 +532,19 @@ async function handleShipCommand(message, args) {
   if (percentage >= 85) {
     comment = "✨ **Soulmates!** Get married already! 💍";
     color = 0xff1493;
-    imgUrl = "https://media.giphy.com/media/26hpKMT7M4iOtdaSc/giphy.gif"; // Cute heart seal / hug gif
+    imgUrl = "https://media.giphy.com/media/26hpKMT7M4iOtdaSc/giphy.gif";
   } else if (percentage >= 50) {
     comment = "👀 **Cute combo!** There's definitely a spark here.";
     color = 0xff69b4;
-    imgUrl = "https://media.giphy.com/media/l41Jw7AedR39y4S40/giphy.gif"; // Subtle sweet reaction
+    imgUrl = "https://media.giphy.com/media/l41Jw7AedR39y4S40/giphy.gif";
   } else if (percentage >= 25) {
     comment = "😬 **Awkward...** Stick to sending memes in chat.";
     color = 0xffa500;
-    imgUrl = "https://media.giphy.com/media/H5C8CevNMbpBqNqFjl/giphy.gif"; // Side eye meme gif
+    imgUrl = "https://media.giphy.com/media/H5C8CevNMbpBqNqFjl/giphy.gif";
   } else {
     comment = "💀 **0% Chemistry.** Stay at least 50 feet apart!";
     color = 0x2f3136;
-    imgUrl = "https://media.giphy.com/media/e2wFI0JGg6Tcg/giphy.gif"; // Funny cat crying / facepalm
+    imgUrl = "https://media.giphy.com/media/e2wFI0JGg6Tcg/giphy.gif";
   }
 
   const shipEmbed = new EmbedBuilder()
@@ -519,7 +555,7 @@ async function handleShipCommand(message, args) {
       `**${percentage}%** \`${bar}\`\n\n` +
       `${comment}`
     )
-    .setThumbnail(imgUrl) // Small image/GIF on the side so it's not floody!
+    .setThumbnail(imgUrl)
     .setFooter({ 
       text: `Shipped by ${message.author.username}`, 
       iconURL: message.author.displayAvatarURL({ dynamic: true }) 
@@ -540,6 +576,53 @@ async function handleCommands(message, getGuildData) {
 
   if (command === "ship") {
     return handleShipCommand(message, args);
+  }
+
+  if (command === "8ball") {
+    const question = args.join(" ");
+    if (!question) return message.reply("🔮 Please ask a question! Example: `?8ball Will today be a great day?`");
+    const answers = [
+      "🎱 It is certain.", "🎱 It is decidedly so.", "🎱 Without a doubt.",
+      "🎱 Yes - definitely.", "🎱 You may rely on it.", "🎱 As I see it, yes.",
+      "🎱 Most likely.", "🎱 Outlook good.", "🎱 Yes.", "🎱 Signs point to yes.",
+      "🎱 Reply hazy, try again.", "🎱 Ask again later.", "🎱 Better not tell you now.",
+      "🎱 Cannot predict now.", "🎱 Concentrate and ask again.",
+      "🎱 Don't count on it.", "🎱 My reply is no.", "🎱 My sources say no.",
+      "🎱 Outlook not so good.", "🎱 Very doubtful."
+    ];
+    const answer = answers[Math.floor(Math.random() * answers.length)];
+    return message.reply(`🔮 **Question:** ${question}\n${answer}`);
+  }
+
+  if (command === "coinflip" || command === "flip") {
+    const result = Math.random() < 0.5 ? "🪙 Heads!" : "🪙 Tails!";
+    return message.reply(`The coin landed on **${result}**`);
+  }
+
+  if (command === "roll") {
+    let max = parseInt(args[0], 10) || 100;
+    if (max < 1) max = 100;
+    const rolled = Math.floor(Math.random() * max) + 1;
+    return message.reply(`🎲 You rolled a **${rolled}** (1-${max})`);
+  }
+
+  if (command === "rps") {
+    const choices = ["rock", "paper", "scissors"];
+    const userChoice = args[0]?.toLowerCase();
+    if (!choices.includes(userChoice)) {
+      return message.reply("✂️ Please choose: `rock`, `paper`, or `scissors`. Example: `?rps rock`");
+    }
+    const botChoice = choices[Math.floor(Math.random() * choices.length)];
+    let outcome = "";
+    if (userChoice === botChoice) outcome = "It's a tie! 🤝";
+    else if (
+      (userChoice === "rock" && botChoice === "scissors") ||
+      (userChoice === "paper" && botChoice === "rock") ||
+      (userChoice === "scissors" && botChoice === "paper")
+    ) outcome = "You win! 🎉";
+    else outcome = "I win! 😈";
+
+    return message.reply(`🎮 You chose **${userChoice}**, I chose **${botChoice}**. ${outcome}`);
   }
 
   if (
@@ -660,7 +743,7 @@ async function handleCommands(message, getGuildData) {
     return handleAfkCommand(message, args, prefix, getGuildData, saveData);
   }
   if (command === "auction") return handleAuctionCommand(message, args, prefix);
-  if (command === "bid") return handleAuctionCommand(message, ["bid", ...args], prefix);
+  if (command === "bid") return handleAuctionCommand(["bid", ...args], prefix);
   
   if (command === "modlogs") {
     return handleModLogsCommand(message, args, prefix, getGuildData);
@@ -1411,7 +1494,7 @@ async function handleCommands(message, getGuildData) {
         { name: "🛡️ Moderation & AutoMod", value: "Warnings, mutes, kicks, bans, blacklists, and staff guides.", inline: true },
         { name: "🔒 Advanced Security", value: "Verification settings, member scans, and trust filters.", inline: true },
         { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, AFK, and analytics.", inline: true },
-        { name: "🎮 Fun & Games", value: "Marriage, adoption, ships, auctions, custom colors, and timezones.", inline: true }
+        { name: "🎮 Fun & Games", value: "Marriage, adoption, ships, mini-games, AI, and personalization.", inline: true }
       )
       .setFooter({ text: "Page 1/5 • Don Don Operations" })
       .setTimestamp();
@@ -1508,7 +1591,7 @@ async function handleCommands(message, getGuildData) {
     const pageFun = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setTitle("🎮 Fun, Social & Games")
-      .setDescription(`Interactive family systems, games, and personal customization. Prefix: \`${prefix}\``)
+      .setDescription(`Interactive family systems, mini-games, AI, and personal customization. Prefix: \`${prefix}\``)
       .addFields(
         {
           name: "💍 Family & Relationships",
@@ -1522,11 +1605,20 @@ async function handleCommands(message, getGuildData) {
             `• \`${prefix}family [@user]\` — View family tree`
         },
         {
-          name: "🎨 Games & Personalization",
+          name: "🎲 Games & Mini-Games",
           value:
-            `• \`${prefix}customcolor\` / \`${prefix}color\` — Personal role color studio\n` +
-            `• \`${prefix}tz [zone]\` — Set or check personal timezone\n` +
+            `• \`${prefix}8ball [question]\` — Ask the magic 8-ball\n` +
+            `• \`${prefix}coinflip\` — Flip a coin (Heads or Tails)\n` +
+            `• \`${prefix}roll [max]\` — Roll a random number (1-100)\n` +
+            `• \`${prefix}rps [rock/paper/scissors]\` — Play Rock Paper Scissors\n` +
             `• \`${prefix}auction\` / \`${prefix}bid\` — Server auction & bidding engine`
+        },
+        {
+          name: "🎨 AI & Personalization",
+          value:
+            `• \`${prefix}ai [prompt]\` — Chat with the OpenAI bot engine\n` +
+            `• \`${prefix}customcolor\` / \`${prefix}color\` — Personal role color studio\n` +
+            `• \`${prefix}tz [zone]\` — Set or check personal timezone`
         }
       )
       .setFooter({ text: "Page 5/5 • Fun & Games" })
@@ -1665,6 +1757,49 @@ function startBot() {
 // ================= INTERACTION LISTENER =================
 client.on("interactionCreate", async (interaction) => {
   if (interaction.isChatInputCommand()) {
+
+    if (interaction.commandName === '8ball') {
+      const q = interaction.options.getString('question');
+      const answers = [
+        "🎱 It is certain.", "🎱 It is decidedly so.", "🎱 Without a doubt.",
+        "🎱 Yes - definitely.", "🎱 You may rely on it.", "🎱 As I see it, yes.",
+        "🎱 Most likely.", "🎱 Outlook good.", "🎱 Yes.", "🎱 Signs point to yes.",
+        "🎱 Reply hazy, try again.", "🎱 Ask again later.", "🎱 Better not tell you now.",
+        "🎱 Cannot predict now.", "🎱 Concentrate and ask again.",
+        "🎱 Don't count on it.", "🎱 My reply is no.", "🎱 My sources say no.",
+        "🎱 Outlook not so good.", "🎱 Very doubtful."
+      ];
+      const answer = answers[Math.floor(Math.random() * answers.length)];
+      return await interaction.reply({ content: `🔮 **Question:** ${q}\n${answer}` });
+    }
+
+    if (interaction.commandName === 'coinflip') {
+      const result = Math.random() < 0.5 ? "🪙 Heads!" : "🪙 Tails!";
+      return await interaction.reply({ content: `The coin landed on **${result}**` });
+    }
+
+    if (interaction.commandName === 'roll') {
+      let max = interaction.options.getInteger('max') || 100;
+      if (max < 1) max = 100;
+      const rolled = Math.floor(Math.random() * max) + 1;
+      return await interaction.reply({ content: `🎲 You rolled a **${rolled}** (1-${max})` });
+    }
+
+    if (interaction.commandName === 'rps') {
+      const choices = ["rock", "paper", "scissors"];
+      const userChoice = interaction.options.getString('choice');
+      const botChoice = choices[Math.floor(Math.random() * choices.length)];
+      let outcome = "";
+      if (userChoice === botChoice) outcome = "It's a tie! 🤝";
+      else if (
+        (userChoice === "rock" && botChoice === "scissors") ||
+        (userChoice === "paper" && botChoice === "rock") ||
+        (userChoice === "scissors" && botChoice === "paper")
+      ) outcome = "You win! 🎉";
+      else outcome = "I win! 😈";
+
+      return await interaction.reply({ content: `🎮 You chose **${userChoice}**, I chose **${botChoice}**. ${outcome}` });
+    }
 
     if (interaction.commandName === 'ship') {
       const user1 = interaction.options.getUser('first') || interaction.user;
