@@ -24,7 +24,7 @@ module.exports = {
     if (subcommand === 'ring') {
       if (userData.don < RING_COST) {
         return interaction.reply({
-          content: `❌ You don't have enough currency! A ring costs **${RING_COST} don**, but you only have **${userData.don} don**.",
+          content: `❌ You don't have enough currency! A ring costs **${RING_COST} don**, but you only have **${userData.don} don**.`,
           ephemeral: true
         });
       }
