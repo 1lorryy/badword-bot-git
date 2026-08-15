@@ -1494,18 +1494,21 @@ if (command === "help") {
     });
   });
 
-  collector.on("end", async () => {
-    const disabledRow = new ActionRowBuilder().addComponents(
-      generateButtons(currentPage).components.map(button =>
-        ButtonBuilder.from(button).setDisabled(true)
-      )
-    );
+collector.on("end", async () => {
+      const disabledRow = new ActionRowBuilder().addComponents(
+        generateButtons(currentPage).components.map(button =>
+          ButtonBuilder.from(button).setDisabled(true)
+        )
+      );
 
-    await helpMsg.edit({ components: [disabledRow] }).catch(() => null);
-  });
+      await helpMsg.edit({ components: [disabledRow] }).catch(() => null);
+    });
 
-  return true;
-}
+    return true;
+  } // Closes: if (command === "help")
+
+  return false;
+}); // Closes: client.on("messageCreate", async (message) => { ... })
 
 // ================= TEMPORARY ROLE EXPIRATION ENGINE =================
 async function processExpiredTempRoles(client) {
