@@ -12,6 +12,7 @@ const renameCommand = require("./commands/rename.js");
 const roleIconCommand = require("./commands/roleicon.js");
 const roleCreateCommand = require("./commands/rolecreate.js");
 const customColorCommand = require("./commands/customcolor.js");
+const shopCommand = require("./commands/shop.js");
 
 // NEW COMMAND IMPORTS
 const marriageCommand = require("./commands/marriage.js");
@@ -376,6 +377,12 @@ async function registerSlashCommands() {
       .setIntegrationTypes(ApplicationIntegrationType.GuildInstall),
 
     new SlashCommandBuilder()
+      .setName("shop")
+      .setDescription("Browse the ring shop and view item details")
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
       .setName("marry")
       .setDescription("Propose to a user")
       .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(true))
@@ -576,6 +583,12 @@ async function handleCommands(message, getGuildData) {
 
   if (command === "ship") {
     return handleShipCommand(message, args);
+  }
+
+  if (command === "shop" || command === "store" || command === "marketplace") {
+    if (shopCommand && typeof shopCommand.execute === "function") {
+      return shopCommand.execute(message, args, prefix, getGuildData, saveData);
+    }
   }
 
   if (command === "8ball") {
@@ -1868,6 +1881,21 @@ client.on("interactionCreate", async (interaction) => {
         });
 
       return await interaction.reply({ embeds: [shipEmbed] });
+    }
+
+    if (interaction.commandName === 'shop') {
+      const fakeMessage = {
+        author: interaction.user,
+        member: interaction.member,
+        guild: interaction.guild,
+        channel: interaction.channel,
+        reply: async (payload) => {
+          return await interaction.reply(payload);
+        }
+      };
+      const data = getGuildData(interaction.guild.id);
+      const prefix = data.prefix || DEFAULT_PREFIX;
+      return shopCommand.execute(fakeMessage, [], prefix, getGuildData, saveData, interaction);
     }
     
       await interaction.deferReply({ ephemeral: true }).catch(() => null);
