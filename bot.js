@@ -135,7 +135,6 @@ function saveData() {
 }
 
 function getGuildData(guildId) {
-  // Ensure guild entry exists in memory
   if (!store[guildId]) {
     store[guildId] = {
       prefix: DEFAULT_PREFIX,
@@ -152,8 +151,8 @@ function getGuildData(guildId) {
         extras: []
       },
       birthdays: {},
-      afkUsers: {},          // Persistent AFK store
-      channelCounters: {},     // Chat entries
+      afkUsers: {},
+      channelCounters: {},
       snipeEnabled: true,
       snipes: {}
     };
@@ -162,7 +161,6 @@ function getGuildData(guildId) {
 
   const guild = store[guildId];
 
-  // Safeguard all nested object & array references
   if (!Array.isArray(guild.words)) guild.words = [];
   if (!Array.isArray(guild.blockedLinks)) guild.blockedLinks = [];
   if (!guild.customCommands || typeof guild.customCommands !== "object") guild.customCommands = {};
@@ -345,7 +343,6 @@ async function sendModLog(embed) {
   await log.send({ embeds: [embed] }).catch(() => null);
 }
 
-// Helper config to allow commands in Guilds, Bot DMs, and User-to-User DMs
 const globalContexts = [
   InteractionContextType.Guild,
   InteractionContextType.BotDM,
@@ -375,13 +372,25 @@ async function registerSlashCommands() {
     new SlashCommandBuilder()
       .setName("snipe")
       .setDescription("View deleted messages")
-      .setContexts(InteractionContextType.Guild) // Snipe generally only works inside guild text channels
+      .setContexts(InteractionContextType.Guild)
       .setIntegrationTypes(ApplicationIntegrationType.GuildInstall),
 
     new SlashCommandBuilder()
       .setName("marry")
-      .setDescription("Propose to or check marriage status with a user")
-      .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(false))
+      .setDescription("Propose to a user")
+      .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(true))
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
+      .setName("divorce")
+      .setDescription("Divorce your current spouse")
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
+
+    new SlashCommandBuilder()
+      .setName("marriages")
+      .setDescription("View all active marriages in the server")
       .setContexts(globalContexts)
       .setIntegrationTypes(globalIntegrationTypes),
 
@@ -392,7 +401,6 @@ async function registerSlashCommands() {
       .setContexts(globalContexts)
       .setIntegrationTypes(globalIntegrationTypes),
 
-    // NEW SHIP COMMAND
     new SlashCommandBuilder()
       .setName("ship")
       .setDescription("Calculate compatibility between two users")
@@ -439,6 +447,51 @@ function saveSnipe(message) {
   saveData();
 }
 
+// ================= STANDALONE PREFIX SHIP HANDLER =================
+async function handleShipCommand(message, args) {
+  let user1, user2;
+  const mentions = message.mentions.users.first(2);
+
+  if (mentions.length >= 2) {
+    user1 = mentions[0];
+    user2 = mentions[1];
+  } else if (mentions.length === 1) {
+    user1 = message.author;
+    user2 = mentions[0];
+  } else if (args.length >= 2) {
+    const m1 = await findTargetMember(message, [args[0]]);
+    const m2 = await findTargetMember(message, [args[1]]);
+    user1 = m1 ? m1.user : message.author;
+    user2 = m2 ? m2.user : null;
+  } else if (args.length === 1) {
+    const m1 = await findTargetMember(message, [args[0]]);
+    user1 = message.author;
+    user2 = m1 ? m1.user : null;
+  }
+
+  if (!user1 || !user2) {
+    return message.reply("❌ Please mention a user to ship with! Example: `?ship @user` or `?ship @user1 @user2` prompt");
+  }
+
+  if (user1.id === user2.id) {
+    return message.reply("❌ You cannot ship someone with themselves!");
+  }
+
+  const id1 = BigInt(user1.id);
+  const id2 = BigInt(user2.id);
+  const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
+  const shipPercentage = Number(combinedIds % 101n);
+
+  let resultMsg = `💖 **Ship Match**: **${user1.username}** x **${user2.username}**\n`;
+  resultMsg += `**Score**: \`${shipPercentage}%\`\n`;
+
+  if (shipPercentage > 85) resultMsg += "✨ Perfect match! You two should get married! 💍";
+  else if (shipPercentage > 50) resultMsg += "👍 Looking pretty good!";
+  else resultMsg += "😬 Maybe stick to being friends.";
+
+  return message.channel.send(resultMsg);
+}
+
 // ================= COMMANDS =================
 async function handleCommands(message, getGuildData) {
   const data = getGuildData(message.guild.id);
@@ -446,17 +499,13 @@ async function handleCommands(message, getGuildData) {
   if (!message.content.startsWith(prefix)) return false;
 
   const args = message.content.slice(prefix.length).trim().split(/\s+/);
-  
-  // ✅ Extract command FIRST
   const command = (args.shift() || "").toLowerCase();
   if (!command) return true;
 
-  // ================= SHIP COMMAND ROUTING =================
   if (command === "ship") {
     return handleShipCommand(message, args);
   }
 
-  // ================= MARRIAGE COMMAND ROUTING =================
   if (
     command === "marry" ||
     command === "divorce" ||
@@ -468,7 +517,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= ADOPTION COMMAND ROUTING =================
   if (
     command === "adopt" ||
     command === "disown" ||
@@ -480,25 +528,20 @@ async function handleCommands(message, getGuildData) {
       return adoptionCommand.execute(message, [command, ...args], prefix, getGuildData, saveData);
     }
   }
-}
 
-  // ================= CUSTOM COMMANDS & EMBEDS =================
   if (data.customCommands?.[command]) {
     const custom = data.customCommands[command];
 
-    // 1. AI Trigger
     if (typeof custom === "object" && custom.ai === true) {
       let aiReply = await generateAiReply(message, message.content).catch(() => null);
       if (!aiReply) return message.reply("AI unavailable.");
       return message.channel.send(aiReply);
     }
 
-    // 2. Dashboard Custom Embed Triggers
     if (typeof custom === "object" && custom.embeds && custom.embeds.length > 0) {
       return message.channel.send({ embeds: custom.embeds });
     }
 
-    // 3. Legacy Embed Format
     if (typeof custom === "object" && custom.type === "embed") {
       const embed = new EmbedBuilder()
         .setTitle(custom.title || "Embed")
@@ -509,7 +552,6 @@ async function handleCommands(message, getGuildData) {
       return message.channel.send({ embeds: [embed] });
     }
 
-    // 4. Plain Text Trigger
     const response = typeof custom === "string" ? custom : custom.response || "No response set.";
     return message.channel.send({
       content: response,
@@ -517,7 +559,6 @@ async function handleCommands(message, getGuildData) {
     });
   }
 
-  // 🌐 UNRESTRICTED: ROLEICON & ROLECREATE
   if (command === "roleicon") {
     return roleIconCommand.execute(message, args);
   }
@@ -526,7 +567,6 @@ async function handleCommands(message, getGuildData) {
     return roleCreateCommand.execute(message, args);
   }
 
-  // 🔒 RESTRICTED: RENAME (Support Ticket, Purchases, Claim Categories) + AUTO-DELETE (5s)
   if (command === "rename") {
     if (!ALLOWED_RENAME_CATEGORIES.includes(message.channel.parentId)) {
       const reply = await message.reply("❌ The rename command can only be used inside Support, Purchases, or Claim ticket categories.");
@@ -543,7 +583,6 @@ async function handleCommands(message, getGuildData) {
     return true;
   }
 
-  // 🔒 RESTRICTED: BDAY / BIRTHDAY (#commands channel for non-staff)
   if (command === "bday" || command === "birthday") {
     if (message.channel.id !== BDAY_COMMAND_CHANNEL_ID && !canManageGuild(message)) {
       const reply = await message.reply(`❌ You can only use birthday commands inside <#${BDAY_COMMAND_CHANNEL_ID}>!`);
@@ -559,7 +598,6 @@ async function handleCommands(message, getGuildData) {
     return statusCmd.execute(message, args, client, getGuildData);
   }
 
-  // ================= JOININFO & TIMEZONE =================
   if (command === "joininfo") {
     const joinInfoCmd = require("./commands/joininfo.js");
     return joinInfoCmd.execute(message, args, client, getGuildData);
@@ -631,12 +669,10 @@ async function handleCommands(message, getGuildData) {
     return staffGuideCmd.execute(message, args);
   }
   
-  // 🎨 CUSTOM COLOR STUDIO
   if (command === "customcolor" || command === "color") {
     return customColorCommand.execute(message);
   }
 
-  // ================= WARN =================
   if (command === "warn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const member = await findTargetMember(message, args);
@@ -684,7 +720,6 @@ async function handleCommands(message, getGuildData) {
     return message.reply(`✅ Warned ${member.user.tag}\nWarn ID: \`${warnId}\``);
   }
 
-  // ================= WARNINGS =================
   if (command === "warnings") {
     const member = await findTargetMember(message, args) || message.member;
     const warnings = data.warnings[member.id] || [];
@@ -758,7 +793,6 @@ async function handleCommands(message, getGuildData) {
     return true;
   }
 
-  // ================= UNWARN =================
   if (command === "unwarn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const member = await findTargetMember(message, args);
@@ -774,7 +808,6 @@ async function handleCommands(message, getGuildData) {
     return message.reply(`✅ Removed warning \`${warnId}\` from ${member.user.tag}`);
   }
 
-  // ================= SETNICK =================
   if (command === "setnick") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames)) {
@@ -807,7 +840,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= MUTE / TIMEOUT =================
   if (command === "mute" || command === "timeout") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
@@ -850,7 +882,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= UNMUTE =================
   if (command === "unmute") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const member = await findTargetMember(message, args);
@@ -869,7 +900,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= KICK =================
   if (command === "kick") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.KickMembers)) {
@@ -912,7 +942,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= BAN =================
   if (command === "ban") {
     const { PermissionFlagsBits } = require("discord.js");
     
@@ -960,7 +989,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= SOFTBAN =================
   if (command === "softban") {
     if (!canBanUsers(message)) return message.reply("❌ Only admin+ can softban.");
     const member = await findTargetMember(message, args);
@@ -1001,7 +1029,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= UNBAN =================
   if (command === "unban") {
     if (!canBanUsers(message)) return message.reply("❌ Only admin+ can unban.");
     const userId = args[0];
@@ -1017,7 +1044,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= PURGE =================
   if (command === "purge") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
@@ -1095,7 +1121,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= ROLE COMMAND =================
   if (command === "role") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
@@ -1132,7 +1157,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= TEMPORARY ROLE COMMAND =================
   if (command === "temprole") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
@@ -1180,7 +1204,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // ================= BLACKLIST ADD =================
   if (command === "bl" || command === "blacklist") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const word = args.join(" ").trim().toLowerCase();
@@ -1203,7 +1226,6 @@ async function handleCommands(message, getGuildData) {
     });
   }
 
-  // ================= BLACKLIST REMOVE =================
   if (command === "unbl" || command === "unblacklist") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const word = args.join(" ").trim().toLowerCase();
@@ -1232,7 +1254,6 @@ async function handleCommands(message, getGuildData) {
     });
   }
 
-  // ================= BLACKLIST WORDS =================
   if (command === "words") {
     const allWords = [...new Set([...CORE_BLACKLIST, ...data.words])];
     return message.reply({
@@ -1246,7 +1267,6 @@ async function handleCommands(message, getGuildData) {
     });
   }
 
-  // ================= MOD STATS =================
   if (command === "modstats") {
     const member = (await findTargetMember(message, args)) || message.member;
     const stats = data.modStats[member.id] || { warns: 0, mutes: 0, kicks: 0, bans: 0 };
@@ -1263,7 +1283,6 @@ async function handleCommands(message, getGuildData) {
     return message.reply({ embeds: [embed] });
   }
 
-  // ================= SNIPE =================
   if (command === "snipe") {
     if (args[0]?.toLowerCase() === "on") {
       if (!canManageGuild(message)) return message.reply("❌ No permission.");
@@ -1309,7 +1328,6 @@ async function handleCommands(message, getGuildData) {
     return message.reply({ embeds: [embed] });
   }
 
-  // ================= SNIPES (LIST ALL FOR CURRENT CHANNEL) =================
   if (command === "snipes") {
     if (!data.snipeEnabled) {
       return message.reply("❌ Snipe is currently disabled.");
@@ -1335,7 +1353,6 @@ async function handleCommands(message, getGuildData) {
     return message.reply({ embeds: [embed] });
   }
 
-  // ================= HELP (STAFF ONLY PREFIX COMMAND) =================
   if (command === "help") {
     if (!canManageGuild(message)) {
       const reply = await message.reply("❌ The help command is restricted to server staff.");
@@ -1609,247 +1626,102 @@ function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-// ================= REGISTER SLASH COMMANDS =================
-async function registerSlashCommands() {
-  const commands = [
-    new SlashCommandBuilder()
-      .setName("ping")
-      .setDescription("Check latency")
-      .setContexts(globalContexts)
-      .setIntegrationTypes(globalIntegrationTypes),
+  // ================= INTERACTION LISTENER =================
+  client.on("interactionCreate", async (interaction) => {
+    if (interaction.isChatInputCommand()) {
 
-    new SlashCommandBuilder()
-      .setName("status")
-      .setDescription("Check system health")
-      .setContexts(globalContexts)
-      .setIntegrationTypes(globalIntegrationTypes),
+      if (interaction.commandName === 'ship') {
+        const user1 = interaction.options.getUser('first') || interaction.user;
+        const user2 = interaction.options.getUser('second') || interaction.user;
 
-    new SlashCommandBuilder()
-      .setName("snipe")
-      .setDescription("View deleted messages")
-      .setContexts(InteractionContextType.Guild)
-      .setIntegrationTypes(ApplicationIntegrationType.GuildInstall),
+        if (user1.id === user2.id) {
+          return await interaction.reply({ 
+            content: "❌ You cannot ship yourself with yourself!", 
+            ephemeral: true 
+          });
+        }
 
-    new SlashCommandBuilder()
-      .setName("marry")
-      .setDescription("Propose to a user")
-      .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(true))
-      .setContexts(globalContexts)
-      .setIntegrationTypes(globalIntegrationTypes),
+        const id1 = BigInt(user1.id);
+        const id2 = BigInt(user2.id);
+        const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
+        const shipPercentage = Number(combinedIds % 101n);
 
-    new SlashCommandBuilder()
-      .setName("divorce")
-      .setDescription("Divorce your current spouse")
-      .setContexts(globalContexts)
-      .setIntegrationTypes(globalIntegrationTypes),
+        let resultMsg = `💖 **Ship Match**: ${user1.username} x ${user2.username}\n`;
+        resultMsg += `**Score**: ${shipPercentage}%\n`;
 
-    new SlashCommandBuilder()
-      .setName("marriages")
-      .setDescription("View all active marriages in the server")
-      .setContexts(globalContexts)
-      .setIntegrationTypes(globalIntegrationTypes),
+        if (shipPercentage > 85) resultMsg += "✨ Perfect match! You two should get married! 💍";
+        else if (shipPercentage > 50) resultMsg += "👍 Looking pretty good!";
+        else resultMsg += "😬 Maybe stick to being friends.";
 
-    new SlashCommandBuilder()
-      .setName("adopt")
-      .setDescription("Adopt or manage family members")
-      .addUserOption(opt => opt.setName("child").setDescription("User to adopt").setRequired(false))
-      .setContexts(globalContexts)
-      .setIntegrationTypes(globalIntegrationTypes),
-
-    new SlashCommandBuilder()
-      .setName("ship")
-      .setDescription("Calculate compatibility between two users")
-      .addUserOption(opt => opt.setName("first").setDescription("First user").setRequired(true))
-      .addUserOption(opt => opt.setName("second").setDescription("Second user").setRequired(false))
-      .setContexts(globalContexts)
-      .setIntegrationTypes(globalIntegrationTypes)
-  ].map(command => command.toJSON());
-
-  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-
-  try {
-    console.log("🔄 Registering slash commands...");
-    await rest.put(
-      Routes.applicationCommands(client.user.id),
-      { body: commands }
-    );
-    console.log("✅ Slash commands successfully registered.");
-  } catch (error) {
-    console.error("❌ Failed to register slash commands:", error);
-  }
-}
-  
-// ================= STANDALONE PREFIX SHIP HANDLER =================
-async function handleShipCommand(message, args) {
-  let user1, user2;
-  const mentions = message.mentions.users.first(2);
-
-  if (mentions.length >= 2) {
-    user1 = mentions[0];
-    user2 = mentions[1];
-  } else if (mentions.length === 1) {
-    user1 = message.author;
-    user2 = mentions[0];
-  } else if (args.length >= 2) {
-    const m1 = await findTargetMember(message, [args[0]]);
-    const m2 = await findTargetMember(message, [args[1]]);
-    user1 = m1 ? m1.user : message.author;
-    user2 = m2 ? m2.user : null;
-  } else if (args.length === 1) {
-    const m1 = await findTargetMember(message, [args[0]]);
-    user1 = message.author;
-    user2 = m1 ? m1.user : null;
-  }
-
-  if (!user1 || !user2) {
-    return message.reply("❌ Please mention a user to ship with! Example: `?ship @user` or `?ship @user1 @user2`");
-  }
-
-  if (user1.id === user2.id) {
-    return message.reply("❌ You cannot ship someone with themselves!");
-  }
-
-  const id1 = BigInt(user1.id);
-  const id2 = BigInt(user2.id);
-  const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
-  const shipPercentage = Number(combinedIds % 101n);
-
-  let resultMsg = `💖 **Ship Match**: **${user1.username}** x **${user2.username}**\n`;
-  resultMsg += `**Score**: \`${shipPercentage}%\`\n`;
-
-  if (shipPercentage > 85) resultMsg += "✨ Perfect match! You two should get married! 💍";
-  else if (shipPercentage > 50) resultMsg += "👍 Looking pretty good!";
-  else resultMsg += "😬 Maybe stick to being friends.";
-
-  return message.channel.send(resultMsg);
-}
-  
-// ================= PREFIX ROUTING IN HANDLECOMMANDS =================
-if (command === "ship") {
-  return handleShipCommand(message, args);
-}
-
-if (
-  command === "marry" ||
-  command === "divorce" ||
-  command === "marriage" ||
-  command === "marriages"
-) {
-  if (marriageCommand && typeof marriageCommand.execute === "function") {
-    return marriageCommand.execute(message, [command, ...args], prefix, getGuildData, saveData);
-  }
-}
-
-if (
-  command === "adopt" ||
-  command === "disown" ||
-  command === "family" ||
-  command === "children" ||
-  command === "parents"
-) {
-  if (adoptionCommand && typeof adoptionCommand.execute === "function") {
-    return adoptionCommand.execute(message, [command, ...args], prefix, getGuildData, saveData);
-  }
-}
-
-// ================= INTERACTION LISTENER =================
-client.on("interactionCreate", async (interaction) => {
-  if (interaction.isChatInputCommand()) {
-
-    // Handled purely via interaction (RETURN early so fakeMessage doesn't run!)
-    if (interaction.commandName === 'ship') {
-      const user1 = interaction.options.getUser('first') || interaction.user;
-      const user2 = interaction.options.getUser('second') || interaction.user;
-
-      if (user1.id === user2.id) {
-        return await interaction.reply({ 
-          content: "❌ You cannot ship yourself with yourself!", 
-          ephemeral: true 
-        });
+        return await interaction.reply({ content: resultMsg });
       }
 
-      const id1 = BigInt(user1.id);
-      const id2 = BigInt(user2.id);
-      const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
-      const shipPercentage = Number(combinedIds % 101n);
+      await interaction.deferReply({ ephemeral: true }).catch(() => null);
 
-      let resultMsg = `💖 **Ship Match**: ${user1.username} x ${user2.username}\n`;
-      resultMsg += `**Score**: ${shipPercentage}%\n`;
+      const targetUser = 
+        interaction.options.getUser("user") || 
+        interaction.options.getUser("first") || 
+        interaction.options.getUser("second") || 
+        interaction.options.getUser("target") || 
+        interaction.options.getUser("spouse") || 
+        interaction.options.getUser("child");
 
-      if (shipPercentage > 85) resultMsg += "✨ Perfect match! You two should get married! 💍";
-      else if (shipPercentage > 50) resultMsg += "👍 Looking pretty good!";
-      else resultMsg += "😬 Maybe stick to being friends.";
+      const args = targetUser ? [targetUser.id] : [];
 
-      return await interaction.reply({ content: resultMsg });
-    }
-
-    // Fallback adapter for hybrid prefix commands
-    await interaction.deferReply({ ephemeral: true }).catch(() => null);
-
-    const targetUser = 
-      interaction.options.getUser("user") || 
-      interaction.options.getUser("first") || 
-      interaction.options.getUser("second") || 
-      interaction.options.getUser("target") || 
-      interaction.options.getUser("spouse") || 
-      interaction.options.getUser("child");
-
-    const args = targetUser ? [targetUser.id] : [];
-
-    const fakeMessage = {
-      content: `${DEFAULT_PREFIX}${interaction.commandName} ${args.join(" ")}`.trim(),
-      author: interaction.user,
-      member: interaction.member || { id: interaction.user.id, user: interaction.user, roles: { cache: new Map() }, permissions: { has: () => false } },
-      guild: interaction.guild,
-      channel: interaction.channel,
-      mentions: { 
-        members: { 
-          first: () => targetUser ? interaction.guild?.members.cache.get(targetUser.id) : null 
+      const fakeMessage = {
+        content: `${DEFAULT_PREFIX}${interaction.commandName} ${args.join(" ")}`.trim(),
+        author: interaction.user,
+        member: interaction.member || { id: interaction.user.id, user: interaction.user, roles: { cache: new Map() }, permissions: { has: () => false } },
+        guild: interaction.guild,
+        channel: interaction.channel,
+        mentions: { 
+          members: { 
+            first: () => targetUser ? interaction.guild?.members.cache.get(targetUser.id) : null 
+          },
+          users: {
+            first: () => targetUser || null
+          }
         },
-        users: {
-          first: () => targetUser || null
-        }
-      },
-      reply: async (payload) => {
-        const data = typeof payload === "string" ? { content: payload } : payload;
-        if (interaction.deferred || interaction.replied) {
-          return await interaction.followUp({ ...data, ephemeral: true });
-        }
-        return await interaction.reply({ ...data, ephemeral: true });
-      },
-      delete: async () => null
-    };
+        reply: async (payload) => {
+          const data = typeof payload === "string" ? { content: payload } : payload;
+          if (interaction.deferred || interaction.replied) {
+            return await interaction.followUp({ ...data, ephemeral: true });
+          }
+          return await interaction.reply({ ...data, ephemeral: true });
+        },
+        delete: async () => null
+      };
 
-    await handleCommands(fakeMessage, getGuildData);
-    return;
-  }
-
-  if (interaction.isButton() || interaction.isModalSubmit()) {
-    if (
-      interaction.customId === "open_hex_modal" ||
-      interaction.customId === "hex_color_modal" ||
-      interaction.customId === "clear_hex_color"
-    ) {
-      return customColorCommand.handleInteraction(interaction);
+      await handleCommands(fakeMessage, getGuildData);
+      return;
     }
 
-    if (
-      interaction.customId.startsWith("marriage_") &&
-      marriageCommand &&
-      typeof marriageCommand.handleInteraction === "function"
-    ) {
-      return marriageCommand.handleInteraction(interaction, getGuildData, saveData);
-    }
+    if (interaction.isButton() || interaction.isModalSubmit()) {
+      if (
+        interaction.customId === "open_hex_modal" ||
+        interaction.customId === "hex_color_modal" ||
+        interaction.customId === "clear_hex_color"
+      ) {
+        return customColorCommand.handleInteraction(interaction);
+      }
 
-    if (
-      interaction.customId.startsWith("adoption_") &&
-      adoptionCommand &&
-      typeof adoptionCommand.handleInteraction === "function"
-    ) {
-      return adoptionCommand.handleInteraction(interaction, getGuildData, saveData);
+      if (
+        interaction.customId.startsWith("marriage_") &&
+        marriageCommand &&
+        typeof marriageCommand.handleInteraction === "function"
+      ) {
+        return marriageCommand.handleInteraction(interaction, getGuildData, saveData);
+      }
+
+      if (
+        interaction.customId.startsWith("adoption_") &&
+        adoptionCommand &&
+        typeof adoptionCommand.handleInteraction === "function"
+      ) {
+        return adoptionCommand.handleInteraction(interaction, getGuildData, saveData);
+      }
     }
-  }
-});
+  });
 
   // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
@@ -1861,11 +1733,9 @@ client.on("interactionCreate", async (interaction) => {
       const data = getGuildData(message.guild.id);
       const prefix = data.prefix || DEFAULT_PREFIX;
 
-      // 1. Check if user is returning from AFK state
       const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
       if (userReturned) return;
 
-      // 2. Automod Filter Core Evaluation
       const bypassRoleId = "1492630307650666546";
       const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
       const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
@@ -1888,7 +1758,6 @@ client.on("interactionCreate", async (interaction) => {
         }
       }
 
-      // 3. INITIALIZE COUNTER FIELDS SECURITY
       if (!data.channelCounters) data.channelCounters = {};
       if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
       if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
@@ -1904,7 +1773,6 @@ client.on("interactionCreate", async (interaction) => {
         }
       }
 
-      // 4. INCREMENT CHAT ENTRIES
       if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
         data.channelCounters[message.channel.id]++;
         
@@ -1917,11 +1785,9 @@ client.on("interactionCreate", async (interaction) => {
         saveData();
       }
 
-      // 5. Process Standard Commands
       const wasCommand = await handleCommands(message, getGuildData);
       if (wasCommand) return;
 
-      // 6. ================= AI TRIGGER ENGINE RESPONSES =================
       const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
 
       if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
