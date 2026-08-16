@@ -1884,7 +1884,7 @@ function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-  // ================= INTERACTION LISTENER =================
+// ================= INTERACTION LISTENER =================
   client.on("interactionCreate", async (interaction) => {
     if (interaction.isChatInputCommand()) {
       // Enforce channel restrictions for slash fun commands if not staff
