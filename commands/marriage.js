@@ -40,13 +40,14 @@ module.exports = {
         .setDescription("Propose to another user with a ring")
         .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(true))
         .addStringOption(opt =>
+          .addStringOption(opt =>
           opt.setName("ring")
             .setDescription("Ring type to offer")
             .setRequired(false)
             .addChoices(
               { name: "🪵 Wooden Ring (5 DON)", value: "wood" },
               { name: "🍟 Plastic Onion Ring (150 DON)", value: "onion" },
-              { name: "💻 Binary Code Band (Free for Unc / 5,000 DON)", value: "code" },
+              { name: "💻 Binary Code Band (Exclusive - Unc)", value: "code" },
               { name: "🚽 Skibidi Ring (10 DON)", value: "skibidi" },
               { name: "✨ Glow-in-the-Dark Ring (50,000 DON)", value: "glow" },
               { name: "🌌 Supernova Diamond Ring (1,000,000 DON)", value: "supernova" }
