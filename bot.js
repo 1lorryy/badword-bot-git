@@ -1464,10 +1464,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  // If no commands matched, return false so the message listener knows to check for other things (like AI or auto-responses)
-  return false;
-}
-
   if (command === "words") {
     const allWords = [...new Set([...CORE_BLACKLIST, ...data.words])];
     return message.reply({
