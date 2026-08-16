@@ -265,3 +265,7 @@ module.exports = {
   }
 };
 ```[cite: 5]
+collector.stop();
+    });
+  } // Closes async execute
+}; // Closes module.exports
