@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentTyp
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
-// Ring Catalog Definition (Updated prices, exclusive settings, and requirements)
+// Ring Catalog Definition
 const RINGS = {
   wood: { name: "🪵 Wooden Ring", price: 5, img: "https://cdn-icons-png.flaticon.com/512/3504/3504381.png" },
   onion: { name: "🍟 Plastic Onion Ring", price: 150, img: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png" },
@@ -26,7 +26,7 @@ function formatDuration(ms) {
 module.exports = {
   name: "marry",
   aliases: ["marriage", "married", "divorce", "spouse"],
-  description: "Marry another user with custom rings, check status, or request a divorce.",
+  description: "Marry another user with custom rings from your inventory, check status, or request a divorce.",
   data: new SlashCommandBuilder()
     .setName("marry")
     .setDescription("Marriage management system")
@@ -37,19 +37,19 @@ module.exports = {
     )
     .addSubcommand(sub =>
       sub.setName("propose")
-        .setDescription("Propose to another user with a ring")
+        .setDescription("Propose to another user with a ring from your inventory")
         .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(true))
         .addStringOption(opt =>
           opt.setName("ring")
-            .setDescription("Ring type to offer")
+            .setDescription("Ring type from your inventory")
             .setRequired(false)
             .addChoices(
-              { name: "🪵 Wooden Ring (5 DON)", value: "wood" },
-              { name: "🍟 Plastic Onion Ring (150 DON)", value: "onion" },
-              { name: "💻 Binary Code Band (Exclusive - Free for Unc)", value: "code" },
-              { name: "🚽 Skibidi Ring (10 DON)", value: "skibidi" },
-              { name: "✨ Glow-in-the-Dark Ring (50,000 DON)", value: "glow" },
-              { name: "🌌 Supernova Diamond Ring (1,000,000 DON)", value: "supernova" }
+              { name: "🪵 Wooden Ring", value: "wood" },
+              { name: "🍟 Plastic Onion Ring", value: "onion" },
+              { name: "💻 Binary Code Band", value: "code" },
+              { name: "🚽 Skibidi Ring", value: "skibidi" },
+              { name: "✨ Glow-in-the-Dark Ring", value: "glow" },
+              { name: "🌌 Supernova Diamond Ring", value: "supernova" }
             )
         )
     )
@@ -68,7 +68,8 @@ module.exports = {
     if (!data.marriages) data.marriages = {};
     if (!data.marriageCooldowns) data.marriageCooldowns = {};
     if (!data.economy) data.economy = {};
-    if (!data.economy[user.id]) data.economy[user.id] = { coins: 0 };
+    if (!data.economy[user.id]) data.economy[user.id] = { coins: 0, inventory: [] };
+    if (!data.economy[user.id].inventory) data.economy[user.id].inventory = [];
 
     const userId = user.id;
     const userMarriage = data.marriages[userId];
@@ -122,7 +123,7 @@ module.exports = {
 
       data.marriageCooldowns[userId] = Date.now() + THIRTY_DAYS_MS;
       data.marriageCooldowns[partnerId] = Date.now() + THIRTY_DAYS_MS;
-      saveData();
+      saveData(guild ? guild.id : "global_dm", data);
 
       const divorcePayload = {
         embeds: [
@@ -171,20 +172,18 @@ module.exports = {
       
     const ring = RINGS[chosenRingKey];
 
-    // Check Exclusive Ring Restrictions (Binary Code Band is strictly for Unc ID: 1221773740434653299)
+    // Check Exclusive Ring Restrictions
     if (ring.exclusive && userId !== ring.exclusive) {
       const replyText = `❌ The **${ring.name}** is exclusively restricted and can only be used by <@${ring.exclusive}>!`;
       return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
     }
 
-    // Check if it's FREE for Unc (Binary Code Band costs 0 for him)
-    const isFreeForUnc = (chosenRingKey === "code" && userId === "1221773740434653299");
-    const ringPrice = isFreeForUnc ? 0 : ring.price;
+    // Check if the user has bought the ring in their inventory (Unc gets binary code band free/bypass check if intended)
+    const userInventory = data.economy[userId].inventory;
+    const hasRing = userInventory.includes(chosenRingKey) || (chosenRingKey === "code" && userId === "1221773740434653299");
 
-    // Check user balance for ring purchase
-    const userCoins = data.economy[userId].coins;
-    if (userCoins < ringPrice) {
-      const replyText = `❌ You need **${ringPrice.toLocaleString()} DON** to buy the ${ring.name}, but you only have **${userCoins.toLocaleString()} DON**!`;
+    if (!hasRing) {
+      const replyText = `❌ You don't own the **${ring.name}**! Go to the shop (\`${prefix}shop\`) and buy it first before proposing with it.`;
       return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
     }
 
@@ -202,9 +201,7 @@ module.exports = {
           .setDescription(
             `**${user.username}** has proposed to **${target.username}**!\n\n` +
             `**Offered Ring:** ${ring.name}\n` +
-            `**Price:** \`${ringPrice === 0 ? "FREE" : ringPrice.toLocaleString() + " DON"}\`` +
-            (isFreeForUnc ? `\n🎁 *Special Perk: Completely FREE for Unc!*` : "") +
-            (chosenRingKey === "skibidi" ? `\n\n⚠️ *Note: Wearing the Skibidi Ring automatically taxes 10% of job earnings to mochi!*` : "")
+            (chosenRingKey === "skibidi" ? `⚠️ *Note: Wearing the Skibidi Ring automatically taxes 10% of job earnings to mochi!*` : "")
           )
           .setThumbnail(ring.img)
       ],
@@ -222,23 +219,11 @@ module.exports = {
       }
 
       if (i.customId === "accept_marry") {
-        // Re-verify balance upon acceptance to prevent exploits
-        const currentCheckPrice = (chosenRingKey === "code" && userId === "1221773740434653299") ? 0 : ring.price;
-        if (!data.economy[userId] || data.economy[userId].coins < currentCheckPrice) {
-          return i.update({
-            content: `❌ **${user.username}** no longer has enough DON coins to buy the ${ring.name}!`,
-            embeds: [],
-            components: []
-          });
-        }
-
-        // Deduct ring price from proposer (0 if free for Unc)
-        data.economy[userId].coins -= currentCheckPrice;
-
+        // Optional: Remove ring from inventory upon use, or let them keep it. (Currently keeps it in inventory)
         const now = Date.now();
         data.marriages[userId] = { partnerId: target.id, partnerTag: target.username, since: now, ring: chosenRingKey };
         data.marriages[target.id] = { partnerId: userId, partnerTag: user.username, since: now, ring: chosenRingKey };
-        saveData();
+        saveData(guild ? guild.id : "global_dm", data);
 
         await i.update({
           content: null,
