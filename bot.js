@@ -2229,7 +2229,7 @@ client.on("messageCreate", async (message) => {
       });
     }
 
-  } catch (err) {
+} catch (err) {
     console.error("Error running inside messageCreate pipeline:", err);
   }
 });
