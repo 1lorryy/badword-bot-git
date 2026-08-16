@@ -1298,19 +1298,35 @@ if (command === "purge") {
     // Delete the command invocation message right away
     await message.delete().catch(() => null);
 
-    let targetMember = await findTargetMember(message, args).catch(() => null);
+    let targetMember = null;
     let targetType = "all";
-    let amountInput = args[0];
+    let amountInput = null;
 
-    if (targetMember) {
-      targetType = "user";
-      amountInput = args[1];
-    } else if (["bot", "bots"].includes(args[0].toLowerCase())) {
+    // Check if args[0] is simply a number (e.g. "?purge 5")
+    if (!isNaN(args[0])) {
+      amountInput = args[0];
+      targetType = "all";
+    } 
+    // Check if args[0] is a keyword (bots or links)
+    else if (["bot", "bots"].includes(args[0].toLowerCase())) {
       targetType = "bots";
       amountInput = args[1];
-    } else if (["link", "links", "url"].includes(args[0].toLowerCase())) {
+    } 
+    else if (["link", "links", "url"].includes(args[0].toLowerCase())) {
       targetType = "links";
       amountInput = args[1];
+    } 
+    // Otherwise, check if args[0] is a user target
+    else {
+      targetMember = await findTargetMember(message, args).catch(() => null);
+      if (targetMember) {
+        targetType = "user";
+        amountInput = args[1];
+      } else {
+        // Fallback if it text-matched nothing valid
+        const errReply = await message.channel.send(`❌ Invalid usage! Please provide a valid number, user, or filter.`);
+        return deleteAfter(errReply, 5000);
+      }
     }
 
     const amount = parseInt(amountInput, 10);
@@ -1320,7 +1336,7 @@ if (command === "purge") {
     }
 
     try {
-      // Fetch a larger pool of messages to filter through safely
+      // Fetch a larger pool of messages to filter through safely (fetching +1 to account for bot command cleanup if needed)
       const fetched = await message.channel.messages.fetch({ limit: 100 });
 
       let messagesToDelete = [];
@@ -1355,7 +1371,7 @@ if (command === "purge") {
       }
 
       let label = "**all** messages";
-      if (targetType === "user") label = `messages from ${targetMember.user.tag}`;
+      if (targetType === "user" && targetMember) label = `messages from ${targetMember.user.tag}`;
       if (targetType === "bots") label = "bot messages";
       if (targetType === "links") label = "messages containing links";
 
@@ -1369,43 +1385,7 @@ if (command === "purge") {
       return deleteAfter(errReply, 5000);
     }
   }
-
-  if (command === "role") {
-    if (!canManageGuild(message)) return message.reply("❌ No permission.");
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return message.reply("❌ I need Manage Roles permission.");
-    }
-
-    const member = await findTargetMember(message, args);
-    if (!member) return message.reply(`Usage: \`${prefix}role @user [role name or ID]\``);
-
-    const roleQuery = args.slice(1).join(" ").trim();
-    if (!roleQuery) return message.reply("❌ Please provide a role name or ID.");
-
-    const role = message.guild.roles.cache.find(r => r.id === roleQuery || r.name.toLowerCase() === roleQuery.toLowerCase());
-    if (!role) return message.reply(`❌ Could not find a role matching \`${roleQuery}\`.`);
-    if (role.managed) return message.reply("❌ I cannot manage an integration role.");
-    if (role.position >= message.guild.members.me.roles.highest.position) {
-      return message.reply("❌ That role is higher than or equal to my highest role.");
-    }
-    if (role.position >= message.member.roles.highest.position) {
-      return message.reply("❌ You cannot give/remove a role equal to or higher than your highest role.");
-    }
-
-    try {
-      if (member.roles.cache.has(role.id)) {
-        await member.roles.remove(role, `Toggled by ${message.author.tag}`);
-        return message.reply(`✅ Removed role **${role.name}** from ${member.user.tag} (No Pings).`);
-      } else {
-        await member.roles.add(role, `Toggled by ${message.author.tag}`);
-        return message.reply(`✅ Added role **${role.name}** to ${member.user.tag} (No Pings).`);
-      }
-    } catch (err) {
-      console.error(err);
-      return message.reply("❌ Unable to modify user roles.");
-    }
-  }
-
+  
   if (command === "temprole") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
