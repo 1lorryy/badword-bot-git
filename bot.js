@@ -2088,6 +2088,7 @@ function startBot() {
     }
   });
 
+async function startBot() {
   // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
     try {
@@ -2200,7 +2201,7 @@ function startBot() {
     }
   });
 
-  client.login(process.env.DISCORD_TOKEN);
+  await client.login(process.env.DISCORD_TOKEN);
 }
 
 startBot();
