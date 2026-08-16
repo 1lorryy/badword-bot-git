@@ -6,7 +6,8 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const RINGS = {
   wood: { name: "🪵 Wooden Ring", price: 5, img: "https://cdn-icons-png.flaticon.com/512/3504/3504381.png" },
   onion: { name: "🍟 Plastic Onion Ring", price: 150, img: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png" },
-  code: { name: "💻 Binary Code Band", price: 5000, img: "https://cdn-icons-png.flaticon.com/512/2103/2103633.png" },
+  code: { name: "💻 Binary Code Band", price: 5000, img: "https://cdn-icons-png.flaticon.com/512/2103/2103633.png", exclusive: "1221773740434653299" },
+  skibidi: { name: "🚽 Skibidi Ring", price: 10, img: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png" },
   glow: { name: "✨ Glow-in-the-Dark Ring", price: 50000, img: "https://cdn-icons-png.flaticon.com/512/2904/2904838.png" },
   supernova: { name: "🌌 Supernova Diamond Ring", price: 1000000, img: "https://cdn-icons-png.flaticon.com/512/1086/1086741.png" }
 };
@@ -45,7 +46,8 @@ module.exports = {
             .addChoices(
               { name: "🪵 Wooden Ring (5 DON)", value: "wood" },
               { name: "🍟 Plastic Onion Ring (150 DON)", value: "onion" },
-              { name: "💻 Binary Code Band (5,000 DON)", value: "code" },
+              { name: "💻 Binary Code Band (5,000 DON - Exclusive)", value: "code" },
+              { name: "🚽 Skibidi Ring (10 DON)", value: "skibidi" },
               { name: "✨ Glow-in-the-Dark Ring (50,000 DON)", value: "glow" },
               { name: "🌌 Supernova Diamond Ring (1,000,000 DON)", value: "supernova" }
             )
@@ -136,7 +138,7 @@ module.exports = {
     // PROPOSE
     const target = isSlash ? interaction.options.getUser("user") : message.mentions.users.first();
     if (!target) {
-      const replyText = "❌ Mention a user to propose to! Usage: `?marry propose @user [wood|onion|code|glow|supernova]`";
+      const replyText = "❌ Mention a user to propose to! Usage: `?marry propose @user [wood|onion|code|skibidi|glow|supernova]`";
       return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
     }
 
@@ -169,6 +171,12 @@ module.exports = {
       
     const ring = RINGS[chosenRingKey];
 
+    // Check Exclusive Ring Restrictions
+    if (ring.exclusive && userId !== ring.exclusive) {
+      const replyText = `❌ The **${ring.name}** is exclusively restricted and can only be used by <@${ring.exclusive}>!`;
+      return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
+    }
+
     // Check user balance for ring purchase
     const userCoins = data.economy[userId].coins;
     if (userCoins < ring.price) {
@@ -190,7 +198,8 @@ module.exports = {
           .setDescription(
             `**${user.username}** has proposed to **${target.username}**!\n\n` +
             `**Offered Ring:** ${ring.name}\n` +
-            `**Price:** \`${ring.price.toLocaleString()} DON\``
+            `**Price:** \`${ring.price.toLocaleString()} DON\`` +
+            (chosenRingKey === "skibidi" ? `\n\n⚠️ *Note: Wearing the Skibidi Ring automatically taxes 10% of job earnings to mochi!*` : "")
           )
           .setThumbnail(ring.img)
       ],
