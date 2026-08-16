@@ -62,7 +62,19 @@ module.exports = {
     const isSlash = !!interaction;
     const guild = isSlash ? interaction.guild : message.guild;
     const user = isSlash ? interaction.user : message.author;
-    const sub = isSlash ? interaction.options.getSubcommand() : args[0]?.toLowerCase();
+    
+    // Parse subcommand for both slash and prefix (?marry propose @user ring)
+    let sub = isSlash ? interaction.options.getSubcommand() : null;
+    if (!isSlash && args[0]) {
+      const firstArg = args[0].toLowerCase();
+      if (["status", "propose", "divorce"].includes(firstArg)) {
+        sub = firstArg;
+      } else if (message.mentions.users.size > 0 || firstArg) {
+        // Default prefix usage like ?marry @user [ring] becomes a proposal
+        sub = "propose";
+      }
+    }
+    if (!sub) sub = "status";
 
     const data = getGuildData(guild ? guild.id : "global_dm");
     if (!data.marriages) data.marriages = {};
@@ -75,8 +87,11 @@ module.exports = {
     const userMarriage = data.marriages[userId];
 
     // VIEW STATUS
-    if (!sub || sub === "status" || (!isSlash && message.content.toLowerCase().includes("married"))) {
-      const targetUser = isSlash ? (interaction.options.getUser("user") || user) : (message.mentions.users.first() || message.author);
+    if (sub === "status") {
+      const targetUser = isSlash 
+        ? (interaction.options.getUser("user") || user) 
+        : (message.mentions.users.first() || user);
+      
       const targetData = data.marriages[targetUser.id];
       const ring = targetData ? (RINGS[targetData.ring] || RINGS.wood) : null;
 
@@ -137,9 +152,21 @@ module.exports = {
     }
 
     // PROPOSE
-    const target = isSlash ? interaction.options.getUser("user") : message.mentions.users.first();
+    let target = isSlash ? interaction.options.getUser("user") : message.mentions.users.first();
+    
+    // Handle prefix fallback parsing if target wasn't explicitly captured via subcommand keyword
+    if (!isSlash && !target && args.length > 0) {
+      const possibleUserArg = args[args[0].toLowerCase() === "propose" ? 1 : 0];
+      if (possibleUserArg) {
+        const cleanedId = possibleUserArg.replace(/<@!?(\d+)>/, "$1");
+        try {
+          target = await client.users.fetch(cleanedId);
+        } catch (e) {}
+      }
+    }
+
     if (!target) {
-      const replyText = "❌ Mention a user to propose to! Usage: `?marry propose @user [wood|onion|code|skibidi|glow|supernova]`";
+      const replyText = `❌ Mention a user to propose to! Usage: \`${prefix}marry propose @user [ring]\``;
       return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
     }
 
@@ -165,11 +192,25 @@ module.exports = {
       return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
     }
 
-    // Ring Selection Logic (Defaults to wood if not specified)
-    const chosenRingKey = isSlash 
-      ? (interaction.options.getString("ring") || "wood")
-      : ((args[1] && RINGS[args[1].toLowerCase()]) ? args[1].toLowerCase() : "wood");
-      
+    const userInventory = data.economy[userId].inventory;
+
+    // Ring Selection Logic for both Slash & Prefix
+    let chosenRingKey = null;
+    if (isSlash) {
+      chosenRingKey = interaction.options.getString("ring");
+    } else {
+      // Look through arguments for a ring key match (e.g., supernova, glow, code, etc.)
+      const ringArg = args.find(arg => RINGS[arg.toLowerCase()]);
+      if (ringArg) chosenRingKey = ringArg.toLowerCase();
+    }
+
+    if (!chosenRingKey) {
+      // Smart fallback: pick highest value ring owned, else default to wood[cite: 7]
+      const priorityOrder = ["supernova", "glow", "code", "onion", "skibidi", "wood"];
+      const foundRing = priorityOrder.find(r => userInventory.includes(r) || (r === "code" && userId === "1221773740434653299"));
+      chosenRingKey = foundRing || "wood";
+    }
+
     const ring = RINGS[chosenRingKey];
 
     // Check Exclusive Ring Restrictions
@@ -179,7 +220,6 @@ module.exports = {
     }
 
     // Check inventory validation
-    const userInventory = data.economy[userId].inventory;
     const hasRing = userInventory.includes(chosenRingKey) || (chosenRingKey === "code" && userId === "1221773740434653299");
 
     if (!hasRing) {
