@@ -13,8 +13,7 @@ const roleIconCommand = require("./commands/roleicon.js");
 const roleCreateCommand = require("./commands/rolecreate.js");
 const customColorCommand = require("./commands/customcolor.js");
 const shopCommand = require("./commands/shop.js");
-
-// NEW COMMAND IMPORTS
+const arCommand = require('./commands/ar.js');
 const marriageCommand = require("./commands/marriage.js");
 const adoptionCommand = require("./commands/adoption.js");
 
@@ -1457,6 +1456,18 @@ async function handleCommands(message, getGuildData) {
     });
   }
 
+  // ================= AUTORESPONDER INTEGRATION =================
+  if (command === "ar" || command === "autoresponder" || command === "autoresp") {
+    const arCommand = require("./commands/ar.js"); // Make sure this path matches where you saved ar.js
+    if (arCommand && typeof arCommand.execute === "function") {
+      return arCommand.execute(message, args, prefix, getGuildData, saveData);
+    }
+  }
+
+  // If no commands matched, return false so the message listener knows to check for other things (like AI or auto-responses)
+  return false;
+}
+
   if (command === "words") {
     const allWords = [...new Set([...CORE_BLACKLIST, ...data.words])];
     return message.reply({
@@ -1583,7 +1594,7 @@ async function handleCommands(message, getGuildData) {
       .setFooter({ text: "Page 1/6 • Don Don Operations" })
       .setTimestamp();
 
-    const pageMod = new EmbedBuilder()
+ const pageMod = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setTitle("🛡️ Moderation & AutoMod Commands")
       .setDescription(`Commands reserved for staff and moderators. Prefix: \`${prefix}\``)
@@ -1612,7 +1623,7 @@ async function handleCommands(message, getGuildData) {
             `• \`${prefix}staffguide\` / \`${prefix}staffguidedit\` — Usage guide setup`
         }
       )
-      .setFooter({ text: "Page 2/6 • Moderation" })
+      .setFooter({ text: "Page 2/5 • Moderation" })
       .setTimestamp();
 
     const pageSecurity = new EmbedBuilder()
@@ -1631,7 +1642,7 @@ async function handleCommands(message, getGuildData) {
           `• \`${prefix}verify autoban [on/off]\` — Toggle auto-ban on join\n` +
           `• \`${prefix}verify autokick [on/off]\` — Toggle auto-kick on join`
       })
-      .setFooter({ text: "Page 3/6 • Security" })
+      .setFooter({ text: "Page 3/5 • Security" })
       .setTimestamp();
 
     const pageUtility = new EmbedBuilder()
@@ -1652,7 +1663,7 @@ async function handleCommands(message, getGuildData) {
         {
           name: "🤖 Autoresponders & Triggers",
           value:
-            `• \`${prefix}ar add [trigger] [response] + [image]\` — Create auto-response\n` +
+            `• \`${prefix}ar add "trigger phrase" [response]\` — Add response (supports emojis/GIFs!)\n` +
             `• \`${prefix}ar remove [trigger]\` — Delete an auto-response\n` +
             `• \`${prefix}ar list\` — View all server auto-responses`
         },
@@ -1669,7 +1680,7 @@ async function handleCommands(message, getGuildData) {
             `• \`${prefix}status\` / \`${prefix}ping\` — System health & latency`
         }
       )
-      .setFooter({ text: "Page 4/6 • Utility & Tools" })
+      .setFooter({ text: "Page 4/5 • Utility & Tools" })
       .setTimestamp();
 
     if (totalCustomCmds > 0) {
@@ -1712,7 +1723,7 @@ async function handleCommands(message, getGuildData) {
             `• \`${prefix}tz [zone]\` — Set or check personal timezone`
         }
       )
-      .setFooter({ text: "Page 5/6 • Fun & Games" })
+      .setFooter({ text: "Page 5/5 • Fun & Games" })
       .setTimestamp();
 
     const pages = [pageOverview, pageMod, pageSecurity, pageUtility, pageFun];
@@ -1727,7 +1738,7 @@ async function handleCommands(message, getGuildData) {
         new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun & Games").setStyle(ButtonStyle.Primary).setDisabled(page === 4)
       );
     };
-
+    
     const helpMsg = await message.reply({
       embeds: [pages[currentPage]],
       components: [generateButtons(currentPage)]
