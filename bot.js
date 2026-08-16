@@ -2089,6 +2089,7 @@ function startBot() {
   });
 
 async function startBot() {
+  
   // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
     try {
@@ -2196,12 +2197,12 @@ async function startBot() {
           allowedMentions: { parse: [], repliedUser: true }
         });
       }
-    } catch (err) {
+} catch (err) {
       console.error("Error running inside messageCreate pipeline:", err);
     }
   });
 
   await client.login(process.env.DISCORD_TOKEN);
-}
+} // <-- This closes async function startBot()
 
-startBot();
+startBot(); // <-- This executes it
