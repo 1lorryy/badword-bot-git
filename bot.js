@@ -2221,15 +2221,14 @@ client.on("messageCreate", async (message) => {
 
     await message.channel.sendTyping().catch(() => null);
 
-    const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
+const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
     if (aiReply) {
       return message.reply({ 
         content: aiReply, 
         allowedMentions: { parse: [], repliedUser: true }
       });
     }
-
-} catch (err) {
+  } catch (err) {
     console.error("Error running inside messageCreate pipeline:", err);
   }
 });
