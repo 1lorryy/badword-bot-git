@@ -12,7 +12,7 @@ const RINGS = [
 module.exports = {
   name: "shop",
   aliases: ["store", "marketplace"],
-  description: "Browse the ring shop and view item details.",
+  description: "Browse the interactive ring shop boutique with dropdown menus.",
   data: new SlashCommandBuilder()
     .setName("shop")
     .setDescription("Browse marriage rings and server shop items"),
@@ -28,36 +28,25 @@ module.exports = {
     
     const userCoins = data.economy[user.id].coins;
 
-    const catalogDescription = RINGS.map(r => {
-      let suffix = "";
-      if (r.exclusive) {
-        // Only show if the current browsing user is *not* unc, or phrase it for him specifically
-        if (user.id === r.exclusive) {
-          suffix = " *(Exclusive: Unlocked for you!)*";
-        } else {
-          suffix = " *(Exclusive to <@${r.exclusive}>)*";
-        }
-      }
-      return `**${r.name}** — \`${r.price.toLocaleString()} DON\`${suffix}\n*${r.desc}*`;
-    }).join("\n\n");
-
-    const shopEmbed = new EmbedBuilder()
+    // Clean, non-floody main boutique overview embed
+    const mainEmbed = new EmbedBuilder()
       .setColor(0xff69b4)
-      .setTitle("💍 Marriage Ring Boutique")
+      .setTitle("💍 donQuixoted Lounge • Ring Boutique")
       .setDescription(
-        "Welcome to the ring shop! Select a ring from the dropdown menu below to view details or select how to proceed.\n\n" +
-        catalogDescription
+        "Welcome to the interactive ring shop! Use the dropdown menu below to seamlessly inspect individual rings, view prices, and check descriptions without flooding chat.\n\n" +
+        "✨ **Available Inventory:**\n" +
+        RINGS.map(r => `• **${r.name}** — \`${r.price.toLocaleString()} DON\``).join("\n")
       )
       .addFields(
         { name: "💰 Your Balance", value: `\`${userCoins.toLocaleString()} DON\``, inline: true },
-        { name: "📌 Tip", value: `You can also buy & propose using \`${prefix}marry propose @user [ring]\``, inline: false }
+        { name: "📌 Quick Propose Tip", value: `\`${prefix}marry propose @user [ring]\``, inline: true }
       )
       .setThumbnail(RINGS[0].img)
-      .setFooter({ text: "donQuixoted lounge • Shop System" });
+      .setFooter({ text: "Select an option from the menu below • donQuixoted lounge" });
 
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId("shop_ring_select")
-      .setPlaceholder("🔍 Select a ring to inspect...")
+      .setPlaceholder("🛍️ Choose a ring to inspect...")
       .addOptions(
         RINGS.map(r => ({
           label: r.name,
@@ -69,14 +58,14 @@ module.exports = {
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
 
-    const replyPayload = { embeds: [shopEmbed], components: [row], fetchReply: true };
+    const replyPayload = { embeds: [mainEmbed], components: [row], fetchReply: true };
     const sentMsg = isSlash ? await interaction.reply(replyPayload) : await message.reply(replyPayload);
 
-    const collector = sentMsg.createMessageComponentCollector({ componentType: ComponentType.StringSelect, time: 60000 });
+    const collector = sentMsg.createMessageComponentCollector({ componentType: ComponentType.StringSelect, time: 120000 });
 
     collector.on("collect", async (i) => {
       if (i.user.id !== user.id) {
-        return i.reply({ content: "❌ This shop menu is not for you!", ephemeral: true });
+        return i.reply({ content: "❌ This shop menu belongs to someone else!", ephemeral: true });
       }
 
       const selectedKey = i.values[0];
@@ -85,15 +74,17 @@ module.exports = {
       let exclusiveText = "";
       if (ring.exclusive) {
         if (i.user.id === ring.exclusive) {
-          exclusiveText = `✨ *Exclusive Ring: This legendary ring is fully unlocked for you, unc!*\n\n`;
+          exclusiveText = `✨ *Exclusive Ring: Unlocked especially for you, Unc!* (1 DON perk available)\n\n`;
         } else {
-          exclusiveText = `🔒 *Exclusive Ring: Only <@${ring.exclusive}> can purchase and wear this item!*\n\n`;
+          exclusiveText = `🔒 *Exclusive Ring: This item is exclusively reserved for <@${ring.exclusive}>.*\n\n`;
         }
       }
 
+      const updatedCoins = data.economy[user.id] ? data.economy[user.id].coins : 0;
+
       const updatedEmbed = new EmbedBuilder()
         .setColor(0xff69b4)
-        .setTitle(`💍 ${ring.name}`)
+        .setTitle(`💍 Boutique Item: ${ring.name}`)
         .setDescription(
           `**Price:** \`${ring.price.toLocaleString()} DON\`\n` +
           `**Description:** ${ring.desc}\n\n` +
@@ -101,10 +92,11 @@ module.exports = {
           `*To propose with this ring, use:*\n\`${prefix}marry propose @user ${ring.key}\``
         )
         .setThumbnail(ring.img)
-        .addFields({ name: "💰 Your Balance", value: `\`${data.economy[user.id].coins.toLocaleString()} DON\``, inline: true })
+        .addFields({ name: "💰 Your Balance", value: `\`${updatedCoins.toLocaleString()} DON\``, inline: true })
         .setFooter({ text: "donQuixoted lounge • Shop System" });
 
       await i.update({ embeds: [updatedEmbed], components: [row] });
     });
   }
 };
+```[cite: 5]
