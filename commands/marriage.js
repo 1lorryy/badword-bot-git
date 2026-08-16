@@ -166,7 +166,7 @@ module.exports = {
 
     // Ring Selection Logic (Defaults to wood if not specified)
     const chosenRingKey = isSlash 
-      ? (interaction.options.getString("ring") || "wood")
+      ? (interaction.options.getString("ring")  || "wood")
       : ((args[1] && RINGS[args[1].toLowerCase()]) ? args[1].toLowerCase() : "wood");
       
     const ring = RINGS[chosenRingKey];
@@ -177,9 +177,9 @@ module.exports = {
       return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
     }
 
-    // Check if it's free for Unc
+    // Check if it's free/1 DON for Unc
     const isFreeForUnc = (chosenRingKey === "code" && userId === "1221773740434653299");
-    const ringPrice = isFreeForUnc ? 0 : ring.price;
+    const ringPrice = isFreeForUnc ? 1 : ring.price;
 
     // Check user balance for ring purchase
     const userCoins = data.economy[userId].coins;
@@ -203,7 +203,7 @@ module.exports = {
             `**${user.username}** has proposed to **${target.username}**!\n\n` +
             `**Offered Ring:** ${ring.name}\n` +
             `**Price:** \`${ringPrice.toLocaleString()} DON\`` +
-            (isFreeForUnc ? `\n🎁 *Special Perk: Free for Unc!*` : "") +
+            (isFreeForUnc ? `\n🎁 *Special Perk: 1 DON for Unc!*` : "") +
             (chosenRingKey === "skibidi" ? `\n\n⚠️ *Note: Wearing the Skibidi Ring automatically taxes 10% of job earnings to mochi!*` : "")
           )
           .setThumbnail(ring.img)
@@ -223,7 +223,7 @@ module.exports = {
 
       if (i.customId === "accept_marry") {
         // Re-verify balance upon acceptance to prevent exploits
-        const currentCheckPrice = (chosenRingKey === "code" && userId === "1221773740434653299") ? 0 : ring.price;
+        const currentCheckPrice = (chosenRingKey === "code" && userId === "1221773740434653299") ? 1 : ring.price;
         if (!data.economy[userId] || data.economy[userId].coins < currentCheckPrice) {
           return i.update({
             content: `❌ **${user.username}** no longer has enough DON coins to buy the ${ring.name}!`,
@@ -232,17 +232,15 @@ module.exports = {
           });
         }
 
-        // Deduct ring price from proposer (skips deduction if it's free for Unc)
-        if (!isFreeForUnc) {
-          data.economy[userId].coins -= ring.price;
-        }
+        // Deduct ring price from proposer
+        data.economy[userId].coins -= currentCheckPrice;
 
         const now = Date.now();
         data.marriages[userId] = { partnerId: target.id, partnerTag: target.username, since: now, ring: chosenRingKey };
         data.marriages[target.id] = { partnerId: userId, partnerTag: user.username, since: now, ring: chosenRingKey };
         saveData();
 
-await i.update({
+        await i.update({
           content: null,
           embeds: [
             new EmbedBuilder()
@@ -262,6 +260,6 @@ await i.update({
       }
       collector.stop();
     });
-  } // Closes async execute
-}; // Closes module.exports
-```[cite: 5]
+  }
+};
+```[cite: 5, 6]
