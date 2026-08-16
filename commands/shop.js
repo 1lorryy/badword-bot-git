@@ -3,7 +3,8 @@ const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType, 
 const RINGS = [
   { key: "wood", name: "🪵 Wooden Ring", price: 5, desc: "A rough, handmade wooden band. Perfect for a budget start.", img: "https://cdn-icons-png.flaticon.com/512/3504/3504381.png" },
   { key: "onion", name: "🍟 Plastic Onion Ring", price: 150, desc: "Smells like fast food, surprisingly durable.", img: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png" },
-  { key: "code", name: "💻 Binary Code Band", price: 5000, desc: "Engraved with endless lines of code for tech lovers.", img: "https://cdn-icons-png.flaticon.com/512/2103/2103633.png" },
+  { key: "code", name: "💻 Binary Code Band", price: 5000, desc: "Engraved with endless lines of code for tech lovers.", img: "https://cdn-icons-png.flaticon.com/512/2103/2103633.png", exclusive: "1221773740434653299" },
+  { key: "skibidi", name: "🚽 Skibidi Ring", price: 10, desc: "Taxes 10% of you and your partner's job earnings to mochi.", img: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png" },
   { key: "glow", name: "✨ Glow-in-the-Dark Ring", price: 50000, desc: "Illuminates brightly during late-night gaming sessions.", img: "https://cdn-icons-png.flaticon.com/512/2904/2904838.png" },
   { key: "supernova", name: "🌌 Supernova Diamond Ring", price: 1000000, desc: "A legendary cosmic gemstone worth an absolute fortune.", img: "https://cdn-icons-png.flaticon.com/512/1086/1086741.png" }
 ];
@@ -27,9 +28,18 @@ module.exports = {
     
     const userCoins = data.economy[user.id].coins;
 
-    const catalogDescription = RINGS.map(r => 
-      `**${r.name}** — \`${r.price.toLocaleString()} DON\`\n*${r.desc}*`
-    ).join("\n\n");
+    const catalogDescription = RINGS.map(r => {
+      let suffix = "";
+      if (r.exclusive) {
+        // Only show if the current browsing user is *not* unc, or phrase it for him specifically
+        if (user.id === r.exclusive) {
+          suffix = " *(Exclusive: Unlocked for you!)*";
+        } else {
+          suffix = " *(Exclusive to <@${r.exclusive}>)*";
+        }
+      }
+      return `**${r.name}** — \`${r.price.toLocaleString()} DON\`${suffix}\n*${r.desc}*`;
+    }).join("\n\n");
 
     const shopEmbed = new EmbedBuilder()
       .setColor(0xff69b4)
@@ -51,7 +61,7 @@ module.exports = {
       .addOptions(
         RINGS.map(r => ({
           label: r.name,
-          description: `Price: ${r.price.toLocaleString()} DON`,
+          description: `Price: ${r.price.toLocaleString()} DON${r.exclusive && user.id !== r.exclusive ? " (Locked)" : ""}`,
           value: r.key,
           emoji: r.name.split(" ")[0]
         }))
@@ -72,12 +82,22 @@ module.exports = {
       const selectedKey = i.values[0];
       const ring = RINGS.find(r => r.key === selectedKey);
 
+      let exclusiveText = "";
+      if (ring.exclusive) {
+        if (i.user.id === ring.exclusive) {
+          exclusiveText = `✨ *Exclusive Ring: This legendary ring is fully unlocked for you, unc!*\n\n`;
+        } else {
+          exclusiveText = `🔒 *Exclusive Ring: Only <@${ring.exclusive}> can purchase and wear this item!*\n\n`;
+        }
+      }
+
       const updatedEmbed = new EmbedBuilder()
         .setColor(0xff69b4)
         .setTitle(`💍 ${ring.name}`)
         .setDescription(
           `**Price:** \`${ring.price.toLocaleString()} DON\`\n` +
           `**Description:** ${ring.desc}\n\n` +
+          exclusiveText +
           `*To propose with this ring, use:*\n\`${prefix}marry propose @user ${ring.key}\``
         )
         .setThumbnail(ring.img)
