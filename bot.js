@@ -1275,21 +1275,27 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  if (command === "purge") {
+if (command === "purge") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
       return message.reply("❌ I need Manage Messages permission.");
     }
 
     if (!args[0]) {
-      return message.reply(
+      const helpReply = await message.reply(
         `💡 **Usage:**\n` +
         `• \`${prefix}purge [1-100]\` — Delete recent messages\n` +
         `• \`${prefix}purge @user [1-100]\` — Delete messages from a specific user\n` +
         `• \`${prefix}purge bots [1-100]\` — Delete messages sent by bots\n` +
         `• \`${prefix}purge links [1-100]\` — Delete messages containing links`
       );
+      deleteAfter(message, 5000);
+      deleteAfter(helpReply, 5000);
+      return true;
     }
+
+    // Delete the command invocation message right away
+    await message.delete().catch(() => null);
 
     let targetMember = await findTargetMember(message, args).catch(() => null);
     let targetType = "all";
@@ -1308,31 +1314,42 @@ async function handleCommands(message, getGuildData) {
 
     const amount = parseInt(amountInput, 10);
     if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
-      return message.reply(`❌ Please specify a valid number between 1 and 100.`);
+      const errReply = await message.channel.send(`❌ Please specify a valid number between 1 and 100.`);
+      return deleteAfter(errReply, 5000);
     }
 
-    await message.delete().catch(() => null);
-
     try {
-      const fetched = await message.channel.messages.fetch({ limit: Math.min(amount * 2, 100) });
+      // Fetch a larger pool of messages to filter through safely
+      const fetched = await message.channel.messages.fetch({ limit: 100 });
 
-      let toDelete = fetched;
+      let messagesToDelete = [];
 
       if (targetType === "user" && targetMember) {
-        toDelete = fetched.filter(m => m.author.id === targetMember.id).first(amount);
+        messagesToDelete = fetched.filter(m => m.author.id === targetMember.id).first(amount);
       } else if (targetType === "bots") {
-        toDelete = fetched.filter(m => m.author.bot).first(amount);
+        messagesToDelete = fetched.filter(m => m.author.bot).first(amount);
       } else if (targetType === "links") {
         const linkRegex = /(https?:\/\/[^\s]+)/gi;
-        toDelete = fetched.filter(m => linkRegex.test(m.content)).first(amount);
+        messagesToDelete = fetched.filter(m => linkRegex.test(m.content)).first(amount);
       } else {
-        toDelete = fetched.first(amount);
+        messagesToDelete = fetched.first(amount);
       }
 
-      const deleted = await message.channel.bulkDelete(toDelete, true).catch(() => null);
+      // Ensure we have messages to delete and convert to an array or collection format bulkDelete accepts
+      const targetArray = Array.from(messagesToDelete.values ? messagesToDelete.values() : messagesToDelete);
+
+      if (!targetArray || targetArray.length === 0) {
+        const errReply = await message.channel.send("❌ No matching messages found or they are older than 14 days.");
+        return deleteAfter(errReply, 5000);
+      }
+
+      const deleted = await message.channel.bulkDelete(targetArray, true).catch((err) => {
+        console.error("Bulk delete execution error:", err);
+        return null;
+      });
 
       if (!deleted || deleted.size === 0) {
-        const errReply = await message.channel.send("❌ No matching messages found or they are older than 14 days.");
+        const errReply = await message.channel.send("❌ Could not delete messages. They might be older than 14 days.");
         return deleteAfter(errReply, 5000);
       }
 
