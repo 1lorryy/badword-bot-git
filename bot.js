@@ -407,7 +407,9 @@ async function registerSlashCommands() {
             { name: "🍟 Plastic Onion Ring (150 DON)", value: "onion" },
             { name: "💻 Binary Code Band (5,000 DON)", value: "code" },
             { name: "✨ Glow-in-the-Dark Ring (50,000 DON)", value: "glow" },
-            { name: "🌌 Supernova Diamond Ring (1,000,000 DON)", value: "supernova" }
+            { name: "🌌 Supernova Diamond Ring (1,000,000 DON)", value: "supernova" }.
+            { name: "💻 Binary Code Band (Exclusive - Unc)", value: "code" },
+            { name: "🚽 Skibidi Ring (10 DON)", value: "skibidi" }
           )
       )
       .setContexts(globalContexts)
