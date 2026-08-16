@@ -28,7 +28,6 @@ module.exports = {
     
     const userCoins = data.economy[user.id].coins;
 
-    // Clean, non-floody main boutique overview embed
     const mainEmbed = new EmbedBuilder()
       .setColor(0xff69b4)
       .setTitle("💍 donQuixoted Lounge • Ring Boutique")
@@ -99,4 +98,3 @@ module.exports = {
     });
   }
 };
-```[cite: 5]
