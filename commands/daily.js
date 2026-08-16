@@ -1,81 +1,75 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const fs = require('node:fs');
-const path = require('node:path');
-
-// Path to store economy data locally (creates an 'economy.json' file automatically)
-const dbPath = path.join(__dirname, '../../data/economy.json');
-
-function loadDatabase() {
-  try {
-    if (!fs.existsSync(dbPath)) {
-      const dir = path.dirname(dbPath);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(dbPath, JSON.stringify({}, null, 2));
-    }
-    return JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-  } catch (e) {
-    return {};
-  }
-}
-
-function saveDatabase(data) {
-  try {
-    fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
-  } catch (e) {
-    console.error("Failed to save economy database:", e);
-  }
-}
+const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('daily')
-    .setDescription('Claim your daily 1 don currency!'),
-  
-  category: 'fun',
+  name: "daily",
+  aliases: ["claim"],
+  description: "Claim your daily DON coins reward with a 7-day streak bonus system!",
+  data: {
+    name: "daily",
+    description: "Claim your daily DON coins reward"
+  },
 
-  async execute(interaction) {
-    const userId = interaction.user.id;
-    const cooldownTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  async execute(message, args, prefix, getGuildData, saveData, interaction = null) {
+    const isSlash = !!interaction;
+    const guild = isSlash ? interaction.guild : message.guild;
+    const user = isSlash ? interaction.user : message.author;
+    const userId = user.id;
+
+    const data = getGuildData(guild ? guild.id : "global_dm");
+    if (!data.economy) data.economy = {};
+    if (!data.economy[userId]) data.economy[userId] = { coins: 0 };
+    if (!data.dailies) data.dailies = {};
+
+    const userDaily = data.dailies[userId] || { streak: 0, lastClaim: 0 };
     const now = Date.now();
+    const cooldownTime = 24 * 60 * 60 * 1000; // 24 hours
+    const streakExpiryTime = cooldownTime * 2; // 48 hours to keep streak
 
-    // Load database and safely initialize user if they don't exist yet
-    const db = loadDatabase();
-    if (!db[userId]) {
-      db[userId] = { don: 0, lastDaily: 0 };
-    }
-
-    let userData = db[userId];
-    const lastDaily = userData.lastDaily || 0;
-    const timeLeft = cooldownTime - (now - lastDaily);
-
-    // Check if cooldown is still active
-    if (timeLeft > 0 && lastDaily > 0) {
+    // Check Cooldown
+    if (now - userDaily.lastClaim < cooldownTime) {
+      const timeLeft = cooldownTime - (now - userDaily.lastClaim);
       const hours = Math.floor(timeLeft / (1000 * 60 * 60));
       const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-
-      return interaction.reply({
-        content: `⏳ You have already claimed your daily reward! Come back in **${hours}h ${minutes}m**.`,
-        ephemeral: true
-      });
+      
+      const replyText = `⏳ You have already claimed your daily reward! Come back in **${hours}h ${minutes}m**.`;
+      return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
     }
 
-    // Update user data: add 1 don and update timestamp
-    userData.don = (userData.don || 0) + 1;
-    userData.lastDaily = now;
-    
-    db[userId] = userData;
-    saveDatabase(db);
+    // Check if streak is lost (> 48 hours since last claim)
+    if (userDaily.lastClaim > 0 && (now - userDaily.lastClaim > streakExpiryTime)) {
+      userDaily.streak = 0;
+    }
 
-    const embed = new EmbedBuilder()
-      .setColor('#00FF00')
-      .setTitle('🎁 Daily Reward Claimed!')
-      .setDescription('You successfully claimed your daily reward!')
-      .addFields(
-        { name: 'Reward', value: '`1 don`', inline: true },
-        { name: 'New Balance', value: `\`${userData.don} don\``, inline: true }
+    // Increment streak and update timestamp
+    userDaily.streak += 1;
+    userDaily.lastClaim = now;
+
+    // Base daily reward
+    let reward = 100;
+    let bonusText = "";
+
+    // Every 7 days randomized bonus (5 to 50 DON extra)
+    if (userDaily.streak % 7 === 0) {
+      const randomBonus = Math.floor(Math.random() * 46) + 5; // Random number between 5 and 50
+      reward += randomBonus;
+      bonusText = `\n🎁 **7-Day Streak Milestone!** You received an extra **${randomBonus} DON** randomized bonus!`;
+    }
+
+    data.economy[userId].coins += reward;
+    data.dailies[userId] = userDaily;
+    saveData();
+
+    const dailyEmbed = new EmbedBuilder()
+      .setColor(0x57f287)
+      .setTitle("🎁 Daily Reward Claimed!")
+      .setDescription(
+        `✅ You successfully claimed your daily reward and received **${reward.toLocaleString()} DON**!\n\n` +
+        `🔥 **Streak:** \`${userDaily.streak} day${userDaily.streak === 1 ? "" : "s"}\` in a row!` +
+        bonusText
       )
-      .setTimestamp();
+      .setFooter({ text: "donQuixoted lounge • Economy System" });
 
-    await interaction.reply({ embeds: [embed] });
-  },
+    const replyPayload = { embeds: [dailyEmbed] };
+    return isSlash ? await interaction.reply(replyPayload) : await message.reply(replyPayload);
+  }
 };
