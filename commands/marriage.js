@@ -178,7 +178,7 @@ module.exports = {
       return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
     }
 
-    // Check if the user has bought the ring in their inventory (Unc gets binary code band free/bypass check if intended)
+    // Check inventory validation
     const userInventory = data.economy[userId].inventory;
     const hasRing = userInventory.includes(chosenRingKey) || (chosenRingKey === "code" && userId === "1221773740434653299");
 
@@ -205,11 +205,10 @@ module.exports = {
           )
           .setThumbnail(ring.img)
       ],
-      components: [row],
-      fetchReply: true
+      components: [row]
     };
 
-    const proposalMsg = isSlash ? await interaction.reply(proposalPayload) : await message.reply(proposalPayload);
+    const proposalMsg = isSlash ? await interaction.reply({ ...proposalPayload, fetchReply: true }) : await message.reply(proposalPayload);
 
     const collector = proposalMsg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 60000 });
 
@@ -219,7 +218,6 @@ module.exports = {
       }
 
       if (i.customId === "accept_marry") {
-        // Optional: Remove ring from inventory upon use, or let them keep it. (Currently keeps it in inventory)
         const now = Date.now();
         data.marriages[userId] = { partnerId: target.id, partnerTag: target.username, since: now, ring: chosenRingKey };
         data.marriages[target.id] = { partnerId: userId, partnerTag: user.username, since: now, ring: chosenRingKey };
