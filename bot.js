@@ -1807,7 +1807,7 @@ async function processExpiredTempRoles(client) {
 }
 
 // ================= BOT START =================
-function startBot() {
+async function startBot() {
   client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
@@ -2087,8 +2087,6 @@ function startBot() {
       }
     }
   });
-
-async function startBot() {
   
   // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
