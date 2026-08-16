@@ -2231,4 +2231,4 @@ const aiReply = await generateAiReply(message, triggerText, [], data.currentPers
   } catch (err) {
     console.error("Error running inside messageCreate pipeline:", err);
   }
-});
+}); // <-- This closing brace and parenthesis completes client.on("messageCreate", async (message) => { ... })
