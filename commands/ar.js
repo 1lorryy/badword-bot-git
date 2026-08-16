@@ -3,7 +3,7 @@ const { EmbedBuilder } = require("discord.js");
 module.exports = {
   name: "ar",
   aliases: ["autoresponder", "autoresp"],
-  description: "Manage auto-responses with text, emojis from any server, images, GIFs, and stickers.",
+  description: "Manage auto-responses with cross-server text, emojis, images, GIFs, and stickers.",
   
   async execute(message, args, prefix, getGuildData, saveData) {
     // Permission check + Owner Bypass
@@ -46,6 +46,13 @@ module.exports = {
         trigger = queryParts[0].toLowerCase().trim();
         responseText = queryParts.slice(1).join(" ").trim();
       }
+
+      // Automatically convert custom emojis from other servers into direct image URLs so they never fail
+      // Matches standard/animated custom emojis: <:name:id> or <a:name:id>
+      responseText = responseText.replace(/<a?:([a-zA-Z0-9_]+):(\d+)>/g, (match, name, id) => {
+        const isAnimated = match.startsWith("<a:");
+        return `https://cdn.discordapp.com/emojis/${id}.${isAnimated ? "gif" : "png"}?v=1`;
+      });
 
       // Grab the first attachment (Image/GIF) or sticker URL
       const mediaUrl = message.attachments.first()?.url || message.stickers.first()?.url || null;
@@ -119,7 +126,7 @@ module.exports = {
         `• \`${prefix}ar remove [trigger]\`\n` +
         `• \`${prefix}ar list\``
       )
-      .setFooter({ text: "Pro tip: You can use cross-server emojis and stickers!" });
+      .setFooter({ text: "Pro tip: Cross-server emojis and stickers are fully supported!" });
       
     return message.reply({ embeds: [helpEmbed] });
   }
