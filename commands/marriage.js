@@ -262,4 +262,3 @@ module.exports = {
     });
   }
 };
-```[cite: 5, 6]
