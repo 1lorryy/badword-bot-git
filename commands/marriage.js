@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentTyp
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
-// Ring Catalog Definition (Updated prices and DON currency alignment)
+// Ring Catalog Definition (Updated prices, exclusive settings, and requirements)
 const RINGS = {
   wood: { name: "🪵 Wooden Ring", price: 5, img: "https://cdn-icons-png.flaticon.com/512/3504/3504381.png" },
   onion: { name: "🍟 Plastic Onion Ring", price: 150, img: "https://cdn-icons-png.flaticon.com/512/2553/2553691.png" },
@@ -46,7 +46,7 @@ module.exports = {
             .addChoices(
               { name: "🪵 Wooden Ring (5 DON)", value: "wood" },
               { name: "🍟 Plastic Onion Ring (150 DON)", value: "onion" },
-              { name: "💻 Binary Code Band (Exclusive - Unc)", value: "code" },
+              { name: "💻 Binary Code Band (Exclusive - Free for Unc)", value: "code" },
               { name: "🚽 Skibidi Ring (10 DON)", value: "skibidi" },
               { name: "✨ Glow-in-the-Dark Ring (50,000 DON)", value: "glow" },
               { name: "🌌 Supernova Diamond Ring (1,000,000 DON)", value: "supernova" }
@@ -171,15 +171,15 @@ module.exports = {
       
     const ring = RINGS[chosenRingKey];
 
-    // Check Exclusive Ring Restrictions
+    // Check Exclusive Ring Restrictions (Binary Code Band is strictly for Unc ID: 1221773740434653299)
     if (ring.exclusive && userId !== ring.exclusive) {
       const replyText = `❌ The **${ring.name}** is exclusively restricted and can only be used by <@${ring.exclusive}>!`;
       return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
     }
 
-    // Check if it's free/1 DON for Unc
+    // Check if it's FREE for Unc (Binary Code Band costs 0 for him)
     const isFreeForUnc = (chosenRingKey === "code" && userId === "1221773740434653299");
-    const ringPrice = isFreeForUnc ? 1 : ring.price;
+    const ringPrice = isFreeForUnc ? 0 : ring.price;
 
     // Check user balance for ring purchase
     const userCoins = data.economy[userId].coins;
@@ -202,8 +202,8 @@ module.exports = {
           .setDescription(
             `**${user.username}** has proposed to **${target.username}**!\n\n` +
             `**Offered Ring:** ${ring.name}\n` +
-            `**Price:** \`${ringPrice.toLocaleString()} DON\`` +
-            (isFreeForUnc ? `\n🎁 *Special Perk: 1 DON for Unc!*` : "") +
+            `**Price:** \`${ringPrice === 0 ? "FREE" : ringPrice.toLocaleString() + " DON"}\`` +
+            (isFreeForUnc ? `\n🎁 *Special Perk: Completely FREE for Unc!*` : "") +
             (chosenRingKey === "skibidi" ? `\n\n⚠️ *Note: Wearing the Skibidi Ring automatically taxes 10% of job earnings to mochi!*` : "")
           )
           .setThumbnail(ring.img)
@@ -223,7 +223,7 @@ module.exports = {
 
       if (i.customId === "accept_marry") {
         // Re-verify balance upon acceptance to prevent exploits
-        const currentCheckPrice = (chosenRingKey === "code" && userId === "1221773740434653299") ? 1 : ring.price;
+        const currentCheckPrice = (chosenRingKey === "code" && userId === "1221773740434653299") ? 0 : ring.price;
         if (!data.economy[userId] || data.economy[userId].coins < currentCheckPrice) {
           return i.update({
             content: `❌ **${user.username}** no longer has enough DON coins to buy the ${ring.name}!`,
@@ -232,7 +232,7 @@ module.exports = {
           });
         }
 
-        // Deduct ring price from proposer
+        // Deduct ring price from proposer (0 if free for Unc)
         data.economy[userId].coins -= currentCheckPrice;
 
         const now = Date.now();
