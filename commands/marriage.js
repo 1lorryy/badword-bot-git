@@ -88,7 +88,7 @@ module.exports = {
             ? `💍 **${targetUser.username}** is happily married to **${targetData.partnerTag}**!`
             : `💔 **${targetUser.username}** is currently single.`
         )
-        .setFooter({ text: "donQuixoted lounge • Marriage System" });
+        .setFooter({ text: "DonQuixotes lounge • Marriage System" });
 
       if (targetData) {
         statusEmbed.setThumbnail(ring.img);
