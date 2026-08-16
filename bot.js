@@ -399,7 +399,6 @@ async function registerSlashCommands() {
       .setDescription("Propose to another user with a ring")
       .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(true))
       .addStringOption(opt =>
-       .addStringOption(opt =>
   opt.setName("ring")
     .setDescription("Ring type to offer")
     .setRequired(false)
