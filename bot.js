@@ -241,7 +241,6 @@ function hasBypassRole(message) {
   );
 }
 
-// Helper to check if user can execute fun commands (Staff or in #commands channel)
 function canUseFunCommand(message) {
   if (isStaffMember(message.member) || canManageGuild(message)) return true;
   return message.channel.id === BDAY_COMMAND_CHANNEL_ID;
@@ -371,10 +370,10 @@ async function registerSlashCommands() {
       .setIntegrationTypes(globalIntegrationTypes),
 
     new SlashCommandBuilder()
-  .setName("daily")
-  .setDescription("Claim your daily reward")
-  .setContexts(globalContexts)
-  .setIntegrationTypes(globalIntegrationTypes),
+      .setName("daily")
+      .setDescription("Claim your daily reward")
+      .setContexts(globalContexts)
+      .setIntegrationTypes(globalIntegrationTypes),
 
     new SlashCommandBuilder()
       .setName("status")
@@ -399,17 +398,17 @@ async function registerSlashCommands() {
       .setDescription("Propose to another user with a ring")
       .addUserOption(opt => opt.setName("user").setDescription("User to marry").setRequired(true))
       .addStringOption(opt =>
-  opt.setName("ring")
-    .setDescription("Ring type to offer")
-    .setRequired(false)
-    .addChoices(
-      { name: "🪵 Wooden Ring (5 DON)", value: "wood" },
-      { name: "🍟 Plastic Onion Ring (150 DON)", value: "onion" },
-      { name: "💻 Binary Code Band (Exclusive - Unc)", value: "code" },
-      { name: "🚽 Skibidi Ring (10 DON)", value: "skibidi" },
-      { name: "✨ Glow-in-the-Dark Ring (50,000 DON)", value: "glow" },
-      { name: "🌌 Supernova Diamond Ring (1,000,000 DON)", value: "supernova" }
-    )
+        opt.setName("ring")
+          .setDescription("Ring type to offer")
+          .setRequired(false)
+          .addChoices(
+            { name: "🪵 Wooden Ring (5 DON)", value: "wood" },
+            { name: "🍟 Plastic Onion Ring (150 DON)", value: "onion" },
+            { name: "💻 Binary Code Band (Exclusive - Unc)", value: "code" },
+            { name: "🚽 Skibidi Ring (10 DON)", value: "skibidi" },
+            { name: "✨ Glow-in-the-Dark Ring (50,000 DON)", value: "glow" },
+            { name: "🌌 Supernova Diamond Ring (1,000,000 DON)", value: "supernova" }
+          )
       )
       .setContexts(globalContexts)
       .setIntegrationTypes(globalIntegrationTypes),
@@ -546,18 +545,15 @@ async function handleShipCommand(message, args) {
     return message.reply("❌ You can't ship someone with themselves!");
   }
 
-  // Deterministic 0-100% score calculation
   const id1 = BigInt(user1.id);
   const id2 = BigInt(user2.id);
   const combinedIds = id1 > id2 ? id1 + id2 : id2 + id1;
   const percentage = Number(combinedIds % 101n);
 
-  // Compact 6-block bar
   const totalBlocks = 6;
   const filled = Math.round((percentage / 100) * totalBlocks);
   const bar = "💖".repeat(filled) + "🖤".repeat(totalBlocks - filled);
 
-  // Dynamic content & gifs/images per tier
   let comment = "";
   let color = 0xff69b4;
   let imgUrl = "";
@@ -607,7 +603,6 @@ async function handleCommands(message, getGuildData) {
   const command = (args.shift() || "").toLowerCase();
   if (!command) return true;
 
-  // Fun & Subcategory Channel Restriction Check
   const funCommandsList = [
     "ship", "shop", "store", "marketplace", "8ball", "coinflip", "flip", 
     "roll", "rps", "marry", "divorce", "marriage", "marriages", 
@@ -626,14 +621,13 @@ async function handleCommands(message, getGuildData) {
   if (command === "daily") {
     const userId = message.author.id;
     
-    // Ensure economy / user data structures exist
     if (!data.economy) data.economy = {};
     if (!data.economy[userId]) {
       data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0 };
     }
 
     const userData = data.economy[userId];
-    const cooldownTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    const cooldownTime = 24 * 60 * 60 * 1000;
     const now = Date.now();
     const timeLeft = cooldownTime - (now - userData.lastDaily);
 
@@ -643,18 +637,15 @@ async function handleCommands(message, getGuildData) {
       return message.reply(`⏱️ You have already claimed your daily reward! Come back in **${hours}h ${minutes}m**.`);
     }
 
-    // Check if user is married to determine the daily currency reward
     let isMarried = false;
     let ringType = "None";
-    let rewardAmount = 0.5; // Base reward for unmarried users
+    let rewardAmount = 0.5;
 
     if (data.marriages) {
       for (const marriage of Object.values(data.marriages)) {
         if (marriage.partners && marriage.partners.includes(userId)) {
           isMarried = true;
           ringType = marriage.ring || "Standard Ring";
-          
-          // Reward increases to 1.0 DON if married
           rewardAmount = 1.0; 
           break;
         }
@@ -683,12 +674,6 @@ async function handleCommands(message, getGuildData) {
 
   if (command === "ship") {
     return handleShipCommand(message, args);
-  }
-
-  if (command === "shop" || command === "store" || command === "marketplace") {
-    if (shopCommand && typeof shopCommand.execute === "function") {
-      return shopCommand.execute(message, args, prefix, getGuildData, saveData);
-    }
   }
 
   if (command === "8ball") {
@@ -1276,7 +1261,7 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-if (command === "purge") {
+  if (command === "purge") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
       return message.reply("❌ I need Manage Messages permission.");
@@ -1295,35 +1280,27 @@ if (command === "purge") {
       return true;
     }
 
-    // Delete the command invocation message right away
     await message.delete().catch(() => null);
 
     let targetMember = null;
     let targetType = "all";
     let amountInput = null;
 
-    // Check if args[0] is simply a number (e.g. "?purge 5")
     if (!isNaN(args[0])) {
       amountInput = args[0];
       targetType = "all";
-    } 
-    // Check if args[0] is a keyword (bots or links)
-    else if (["bot", "bots"].includes(args[0].toLowerCase())) {
+    } else if (["bot", "bots"].includes(args[0].toLowerCase())) {
       targetType = "bots";
       amountInput = args[1];
-    } 
-    else if (["link", "links", "url"].includes(args[0].toLowerCase())) {
+    } else if (["link", "links", "url"].includes(args[0].toLowerCase())) {
       targetType = "links";
       amountInput = args[1];
-    } 
-    // Otherwise, check if args[0] is a user target
-    else {
+    } else {
       targetMember = await findTargetMember(message, args).catch(() => null);
       if (targetMember) {
         targetType = "user";
         amountInput = args[1];
       } else {
-        // Fallback if it text-matched nothing valid
         const errReply = await message.channel.send(`❌ Invalid usage! Please provide a valid number, user, or filter.`);
         return deleteAfter(errReply, 5000);
       }
@@ -1336,9 +1313,7 @@ if (command === "purge") {
     }
 
     try {
-      // Fetch a larger pool of messages to filter through safely (fetching +1 to account for bot command cleanup if needed)
       const fetched = await message.channel.messages.fetch({ limit: 100 });
-
       let messagesToDelete = [];
 
       if (targetType === "user" && targetMember) {
@@ -1352,7 +1327,6 @@ if (command === "purge") {
         messagesToDelete = fetched.first(amount);
       }
 
-      // Ensure we have messages to delete and convert to an array or collection format bulkDelete accepts
       const targetArray = Array.from(messagesToDelete.values ? messagesToDelete.values() : messagesToDelete);
 
       if (!targetArray || targetArray.length === 0) {
@@ -1592,205 +1566,205 @@ if (command === "purge") {
 
     const totalCustomCmds = data.customCommands ? Object.keys(data.customCommands).length : 0;
 
-  const pageOverview = new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle("🔥 Don Don Command Center")
-    .setDescription(
-      `Welcome to the **Don Don** server management bot!\n` +
-      `Current Prefix: \`${prefix}\`\n\n` +
-      `Use the buttons below to browse commands by category:`
-    )
-    .addFields(
-      { name: "🛡️ Moderation & AutoMod", value: "Warnings, mutes, kicks, bans, blacklists, and staff guides.", inline: true },
-      { name: "🔒 Advanced Security", value: "Verification settings, member scans, and trust filters.", inline: true },
-      { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, auto-responders, AFK, and analytics.", inline: true },
-      { name: "🎮 Fun & Games", value: "Marriage, adoption, ships, mini-games, AI, and personalization.", inline: true }
-    )
-    .setFooter({ text: "Page 1/6 • Don Don Operations" })
-    .setTimestamp();
+    const pageOverview = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("🔥 Don Don Command Center")
+      .setDescription(
+        `Welcome to the **Don Don** server management bot!\n` +
+        `Current Prefix: \`${prefix}\`\n\n` +
+        `Use the buttons below to browse commands by category:`
+      )
+      .addFields(
+        { name: "🛡️ Moderation & AutoMod", value: "Warnings, mutes, kicks, bans, blacklists, and staff guides.", inline: true },
+        { name: "🔒 Advanced Security", value: "Verification settings, member scans, and trust filters.", inline: true },
+        { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, auto-responders, AFK, and analytics.", inline: true },
+        { name: "🎮 Fun & Games", value: "Marriage, adoption, ships, mini-games, AI, and personalization.", inline: true }
+      )
+      .setFooter({ text: "Page 1/6 • Don Don Operations" })
+      .setTimestamp();
 
-  const pageMod = new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle("🛡️ Moderation & AutoMod Commands")
-    .setDescription(`Commands reserved for staff and moderators. Prefix: \`${prefix}\``)
-    .addFields(
-      {
-        name: "🔨 Punishments & Logs",
+    const pageMod = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("🛡️ Moderation & AutoMod Commands")
+      .setDescription(`Commands reserved for staff and moderators. Prefix: \`${prefix}\``)
+      .addFields(
+        {
+          name: "🔨 Punishments & Logs",
+          value:
+            `• \`${prefix}warn @user [reason]\` — Issue a warning\n` +
+            `• \`${prefix}warnings [@user]\` — View warn history\n` +
+            `• \`${prefix}unwarn @user [id]\` — Clear warning\n` +
+            `• \`${prefix}mute @user [time] [reason]\` — Timeout user\n` +
+            `• \`${prefix}unmute @user\` — Remove timeout\n` +
+            `• \`${prefix}kick @user [reason]\` — Kick member\n` +
+            `• \`${prefix}ban @user [reason]\` — Ban member & purge msgs\n` +
+            `• \`${prefix}softban @user [reason]\` — Kick & wipe 7d msgs\n` +
+            `• \`${prefix}unban [user_id]\` — Unban user ID`
+        },
+        {
+          name: "🚫 Chat & Blacklist",
+          value:
+            `• \`${prefix}purge [1-100]\` — Bulk delete (supports \`@user\`, \`bots\`, \`links\`)\n` +
+            `• \`${prefix}bl [word]\` / \`${prefix}unbl [word]\` — Manage blacklist\n` +
+            `• \`${prefix}words\` — List blacklisted words\n` +
+            `• \`${prefix}modstats [@staff]\` — View moderator activity\n` +
+            `• \`${prefix}modlogs [@user]\` — Check recent moderation entries\n` +
+            `• \`${prefix}staffguide\` / \`${prefix}staffguidedit\` — Usage guide setup`
+        }
+      )
+      .setFooter({ text: "Page 2/6 • Moderation" })
+      .setTimestamp();
+
+    const pageSecurity = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("🔒 Advanced Verification & Security")
+      .setDescription(`Configure server verification and anti-raid parameters. Prefix: \`${prefix}\``)
+      .addFields({
+        name: "🛡️ Verification Controls",
         value:
-          `• \`${prefix}warn @user [reason]\` — Issue a warning\n` +
-          `• \`${prefix}warnings [@user]\` — View warn history\n` +
-          `• \`${prefix}unwarn @user [id]\` — Clear warning\n` +
-          `• \`${prefix}mute @user [time] [reason]\` — Timeout user\n` +
-          `• \`${prefix}unmute @user\` — Remove timeout\n` +
-          `• \`${prefix}kick @user [reason]\` — Kick member\n` +
-          `• \`${prefix}ban @user [reason]\` — Ban member & purge msgs\n` +
-          `• \`${prefix}softban @user [reason]\` — Kick & wipe 7d msgs\n` +
-          `• \`${prefix}unban [user_id]\` — Unban user ID`
-      },
-      {
-        name: "🚫 Chat & Blacklist",
-        value:
-          `• \`${prefix}purge [1-100]\` — Bulk delete (supports \`@user\`, \`bots\`, \`links\`)\n` +
-          `• \`${prefix}bl [word]\` / \`${prefix}unbl [word]\` — Manage blacklist\n` +
-          `• \`${prefix}words\` — List blacklisted words\n` +
-          `• \`${prefix}modstats [@staff]\` — View moderator activity\n` +
-          `• \`${prefix}modlogs [@user]\` — Check recent moderation entries\n` +
-          `• \`${prefix}staffguide\` / \`${prefix}staffguidedit\` — Usage guide setup`
-      }
-    )
-    .setFooter({ text: "Page 2/6 • Moderation" })
-    .setTimestamp();
+          `• \`${prefix}verify settings\` — Check current security setup\n` +
+          `• \`${prefix}verify scan @user\` — Scan account risk score\n` +
+          `• \`${prefix}verify massscan\` — Scan all unverified members\n` +
+          `• \`${prefix}verify verifiedrole [role]\` — Set verified role\n` +
+          `• \`${prefix}verify unverifiedrole [role]\` — Set unverified role\n` +
+          `• \`${prefix}verify trusteddays [days]\` — Set minimum account age threshold\n` +
+          `• \`${prefix}verify autoban [on/off]\` — Toggle auto-ban on join\n` +
+          `• \`${prefix}verify autokick [on/off]\` — Toggle auto-kick on join`
+      })
+      .setFooter({ text: "Page 3/6 • Security" })
+      .setTimestamp();
 
-  const pageSecurity = new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle("🔒 Advanced Verification & Security")
-    .setDescription(`Configure server verification and anti-raid parameters. Prefix: \`${prefix}\``)
-    .addFields({
-      name: "🛡️ Verification Controls",
-      value:
-        `• \`${prefix}verify settings\` — Check current security setup\n` +
-        `• \`${prefix}verify scan @user\` — Scan account risk score\n` +
-        `• \`${prefix}verify massscan\` — Scan all unverified members\n` +
-        `• \`${prefix}verify verifiedrole [role]\` — Set verified role\n` +
-        `• \`${prefix}verify unverifiedrole [role]\` — Set unverified role\n` +
-        `• \`${prefix}verify trusteddays [days]\` — Set minimum account age threshold\n` +
-        `• \`${prefix}verify autoban [on/off]\` — Toggle auto-ban on join\n` +
-        `• \`${prefix}verify autokick [on/off]\` — Toggle auto-kick on join`
-    })
-    .setFooter({ text: "Page 3/6 • Security" })
-    .setTimestamp();
+    const pageUtility = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("⚙️ Utility, Roles & Tools")
+      .setDescription(`General tools, administration, and member commands. Prefix: \`${prefix}\``)
+      .addFields(
+        {
+          name: "👤 Role & Channel Management",
+          value:
+            `• \`${prefix}role @user [role]\` — Toggle user role\n` +
+            `• \`${prefix}temprole @user [time] [role]\` — Give temporary role\n` +
+            `• \`${prefix}rolecreate [name] [hex]\` — Create a new role\n` +
+            `• \`${prefix}roleicon @role [icon]\` — Set custom role icon\n` +
+            `• \`${prefix}rename [new-name]\` — Rename ticket channels\n` +
+            `• \`${prefix}setnick @user [nick]\` — Change server nickname`
+        },
+        {
+          name: "🤖 Autoresponders & Triggers",
+          value:
+            `• \`${prefix}ar add [trigger] [response] + [image]\` — Create auto-response\n` +
+            `• \`${prefix}ar remove [trigger]\` — Delete an auto-response\n` +
+            `• \`${prefix}ar list\` — View all server auto-responses`
+        },
+        {
+          name: "🌐 Tools & System",
+          value:
+            `• \`${prefix}joininfo [@user]\` — View join rank & milestone analytics\n` +
+            `• \`${prefix}afk [reason]\` / \`${prefix}afk global\` — Set AFK status\n` +
+            `• \`${prefix}translate [lang] [text]\` — Translate message\n` +
+            `• \`${prefix}timer [time] [label]\` — Set countdown timer\n` +
+            `• \`${prefix}birthday\` / \`${prefix}bday\` — Set birthday (\`#commands\` only)\n` +
+            `• \`${prefix}snipe\` / \`${prefix}snipes\` — View deleted messages\n` +
+            `• \`${prefix}slowmode [time]\` — Channel slowmode control\n` +
+            `• \`${prefix}status\` / \`${prefix}ping\` — System health & latency`
+        }
+      )
+      .setFooter({ text: "Page 4/6 • Utility & Tools" })
+      .setTimestamp();
 
-  const pageUtility = new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle("⚙️ Utility, Roles & Tools")
-    .setDescription(`General tools, administration, and member commands. Prefix: \`${prefix}\``)
-    .addFields(
-      {
-        name: "👤 Role & Channel Management",
-        value:
-          `• \`${prefix}role @user [role]\` — Toggle user role\n` +
-          `• \`${prefix}temprole @user [time] [role]\` — Give temporary role\n` +
-          `• \`${prefix}rolecreate [name] [hex]\` — Create a new role\n` +
-          `• \`${prefix}roleicon @role [icon]\` — Set custom role icon\n` +
-          `• \`${prefix}rename [new-name]\` — Rename ticket channels\n` +
-          `• \`${prefix}setnick @user [nick]\` — Change server nickname`
-      },
-      {
-        name: "🤖 Autoresponders & Triggers",
-        value:
-          `• \`${prefix}ar add [trigger] [response] + [image]\` — Create auto-response\n` +
-          `• \`${prefix}ar remove [trigger]\` — Delete an auto-response\n` +
-          `• \`${prefix}ar list\` — View all server auto-responses`
-      },
-      {
-        name: "🌐 Tools & System",
-        value:
-          `• \`${prefix}joininfo [@user]\` — View join rank & milestone analytics\n` +
-          `• \`${prefix}afk [reason]\` / \`${prefix}afk global\` — Set AFK status\n` +
-          `• \`${prefix}translate [lang] [text]\` — Translate message\n` +
-          `• \`${prefix}timer [time] [label]\` — Set countdown timer\n` +
-          `• \`${prefix}birthday\` / \`${prefix}bday\` — Set birthday (\`#commands\` only)\n` +
-          `• \`${prefix}snipe\` / \`${prefix}snipes\` — View deleted messages\n` +
-          `• \`${prefix}slowmode [time]\` — Channel slowmode control\n` +
-          `• \`${prefix}status\` / \`${prefix}ping\` — System health & latency`
-      }
-    )
-    .setFooter({ text: "Page 4/6 • Utility & Tools" })
-    .setTimestamp();
+    if (totalCustomCmds > 0) {
+      pageUtility.addFields({
+        name: "💬 Custom Commands",
+        value: Object.keys(data.customCommands).map(c => `\`${prefix}${c}\``).join(" ").slice(0, 1024)
+      });
+    }
 
-  if (totalCustomCmds > 0) {
-    pageUtility.addFields({
-      name: "💬 Custom Commands",
-      value: Object.keys(data.customCommands).map(c => `\`${prefix}${c}\``).join(" ").slice(0, 1024)
-    });
-  }
+    const pageFun = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("🎮 Fun, Social & Games")
+      .setDescription(`Interactive family systems, mini-games, AI, and personal customization. Prefix: \`${prefix}\``)
+      .addFields(
+        {
+          name: "💍 Family & Relationships",
+          value:
+            `• \`${prefix}marry @user [ring]\` — Propose to a server member\n` +
+            `• \`${prefix}divorce [@user]\` — End a marriage\n` +
+            `• \`${prefix}marriages\` — View server marriages\n` +
+            `• \`${prefix}ship @user1 [@user2]\` — Calculate love compatibility\n` +
+            `• \`${prefix}adopt @user\` — Adopt a child into your family\n` +
+            `• \`${prefix}disown @user\` — Disown a child\n` +
+            `• \`${prefix}family [@user]\` — View family tree`
+        },
+        {
+          name: "🎲 Games & Mini-Games",
+          value:
+            `• \`${prefix}8ball [question]\` — Ask the magic 8-ball\n` +
+            `• \`${prefix}coinflip\` — Flip a coin (Heads or Tails)\n` +
+            `• \`${prefix}roll [max]\` — Roll a random number (1-100)\n` +
+            `• \`${prefix}rps [rock/paper/scissors]\` — Play Rock Paper Scissors\n` +
+            `• \`${prefix}auction\` / \`${prefix}bid\` — Server auction & bidding engine`
+        },
+        {
+          name: "🎨 AI & Personalization",
+          value:
+            `• \`${prefix}ai [prompt]\` — Chat with the OpenAI bot engine\n` +
+            `• \`${prefix}customcolor\` / \`${prefix}color\` — Personal role color studio\n` +
+            `• \`${prefix}tz [zone]\` — Set or check personal timezone`
+        }
+      )
+      .setFooter({ text: "Page 5/6 • Fun & Games" })
+      .setTimestamp();
 
-  const pageFun = new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle("🎮 Fun, Social & Games")
-    .setDescription(`Interactive family systems, mini-games, AI, and personal customization. Prefix: \`${prefix}\``)
-    .addFields(
-      {
-        name: "💍 Family & Relationships",
-        value:
-          `• \`${prefix}marry @user [ring]\` — Propose to a server member\n` +
-          `• \`${prefix}divorce [@user]\` — End a marriage\n` +
-          `• \`${prefix}marriages\` — View server marriages\n` +
-          `• \`${prefix}ship @user1 [@user2]\` — Calculate love compatibility\n` +
-          `• \`${prefix}adopt @user\` — Adopt a child into your family\n` +
-          `• \`${prefix}disown @user\` — Disown a child\n` +
-          `• \`${prefix}family [@user]\` — View family tree`
-      },
-      {
-        name: "🎲 Games & Mini-Games",
-        value:
-          `• \`${prefix}8ball [question]\` — Ask the magic 8-ball\n` +
-          `• \`${prefix}coinflip\` — Flip a coin (Heads or Tails)\n` +
-          `• \`${prefix}roll [max]\` — Roll a random number (1-100)\n` +
-          `• \`${prefix}rps [rock/paper/scissors]\` — Play Rock Paper Scissors\n` +
-          `• \`${prefix}auction\` / \`${prefix}bid\` — Server auction & bidding engine`
-      },
-      {
-        name: "🎨 AI & Personalization",
-        value:
-          `• \`${prefix}ai [prompt]\` — Chat with the OpenAI bot engine\n` +
-          `• \`${prefix}customcolor\` / \`${prefix}color\` — Personal role color studio\n` +
-          `• \`${prefix}tz [zone]\` — Set or check personal timezone`
-      }
-    )
-    .setFooter({ text: "Page 5/6 • Fun & Games" })
-    .setTimestamp();
+    const pages = [pageOverview, pageMod, pageSecurity, pageUtility, pageFun];
+    let currentPage = 0;
 
-  const pages = [pageOverview, pageMod, pageSecurity, pageUtility, pageFun];
-  let currentPage = 0;
+    const generateButtons = (page) => {
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(page === 1),
+        new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(page === 2),
+        new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(page === 3),
+        new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun & Games").setStyle(ButtonStyle.Primary).setDisabled(page === 4)
+      );
+    };
 
-  const generateButtons = (page) => {
-    return new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("help_home").setLabel("🏠 Overview").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
-      new ButtonBuilder().setCustomId("help_mod").setLabel("🛡️ Moderation").setStyle(ButtonStyle.Danger).setDisabled(page === 1),
-      new ButtonBuilder().setCustomId("help_security").setLabel("🔒 Security").setStyle(ButtonStyle.Primary).setDisabled(page === 2),
-      new ButtonBuilder().setCustomId("help_utility").setLabel("⚙️ Utility").setStyle(ButtonStyle.Success).setDisabled(page === 3),
-      new ButtonBuilder().setCustomId("help_fun").setLabel("🎮 Fun & Games").setStyle(ButtonStyle.Primary).setDisabled(page === 4)
-    );
-  };
-
-  const helpMsg = await message.reply({
-    embeds: [pages[currentPage]],
-    components: [generateButtons(currentPage)]
-  });
-
-  const collector = helpMsg.createMessageComponentCollector({
-    filter: (i) => i.user.id === message.author.id,
-    time: 90000
-  });
-
-  collector.on("collect", async (interaction) => {
-    if (interaction.customId === "help_home") currentPage = 0;
-    else if (interaction.customId === "help_mod") currentPage = 1;
-    else if (interaction.customId === "help_security") currentPage = 2;
-    else if (interaction.customId === "help_utility") currentPage = 3;
-    else if (interaction.customId === "help_fun") currentPage = 4;
-
-    await interaction.update({
+    const helpMsg = await message.reply({
       embeds: [pages[currentPage]],
       components: [generateButtons(currentPage)]
     });
-  });
 
-  collector.on("end", async () => {
-    const disabledRow = new ActionRowBuilder().addComponents(
-      generateButtons(currentPage).components.map(button =>
-        ButtonBuilder.from(button).setDisabled(true)
-      )
-    );
+    const collector = helpMsg.createMessageComponentCollector({
+      filter: (i) => i.user.id === message.author.id,
+      time: 90000
+    });
 
-    await helpMsg.edit({ components: [disabledRow] }).catch(() => null);
-  });
+    collector.on("collect", async (interaction) => {
+      if (interaction.customId === "help_home") currentPage = 0;
+      else if (interaction.customId === "help_mod") currentPage = 1;
+      else if (interaction.customId === "help_security") currentPage = 2;
+      else if (interaction.customId === "help_utility") currentPage = 3;
+      else if (interaction.customId === "help_fun") currentPage = 4;
 
-  return true;
-}
+      await interaction.update({
+        embeds: [pages[currentPage]],
+        components: [generateButtons(currentPage)]
+      });
+    });
 
-return false;
+    collector.on("end", async () => {
+      const disabledRow = new ActionRowBuilder().addComponents(
+        generateButtons(currentPage).components.map(button =>
+          ButtonBuilder.from(button).setDisabled(true)
+        )
+      );
+
+      await helpMsg.edit({ components: [disabledRow] }).catch(() => null);
+    });
+
+    return true;
+  }
+
+  return false;
 }
 
 // ================= TEMPORARY ROLE EXPIRATION ENGINE =================
@@ -1871,10 +1845,9 @@ function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-// ================= INTERACTION LISTENER =================
+  // ================= INTERACTION LISTENER =================
   client.on("interactionCreate", async (interaction) => {
     if (interaction.isChatInputCommand()) {
-      // Enforce channel restrictions for slash fun commands if not staff
       const funSlashCommands = ['8ball', 'coinflip', 'roll', 'rps', 'ship', 'shop', 'marry', 'divorce', 'marriages', 'adopt', 'daily'];
       if (funSlashCommands.includes(interaction.commandName)) {
         const isStaff = isStaffMember(interaction.member) || interaction.member?.permissions.has(PermissionsBitField.Flags.Administrator);
@@ -1997,7 +1970,7 @@ function startBot() {
 
       if (interaction.commandName === 'daily') {
         const userId = interaction.user.id;
-        const cooldownTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        const cooldownTime = 24 * 60 * 60 * 1000;
         const now = Date.now();
 
         const data = getGuildData(interaction.guild.id);
@@ -2017,7 +1990,7 @@ function startBot() {
           });
         }
 
-        userData.balance += 1; // Adjust reward amount if needed
+        userData.balance += 1;
         userData.lastDaily = now;
 
         saveData();
@@ -2042,11 +2015,9 @@ function startBot() {
         return shopCommand.execute(fakeMessage, [], prefix, getGuildData, saveData, interaction);
       }
       
-      // Route marriage/adoption/other slash commands to text parser handlers via fakeMessage wrapper
-if (["marry", "divorce", "marriages", "adopt"].includes(interaction.commandName)) {
+      if (["marry", "divorce", "marriages", "adopt"].includes(interaction.commandName)) {
         await interaction.deferReply({ ephemeral: true }).catch(() => {});
 
-        // Safely extract target user based on available options
         const targetUser = 
           interaction.options.getUser("user") || 
           interaction.options.getUser("child") || 
@@ -2117,118 +2088,119 @@ if (["marry", "divorce", "marriages", "adopt"].includes(interaction.commandName)
     }
   });
 
-// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
-client.on("messageCreate", async (message) => {
-  try {
-    if (message.author.bot) return;
-    if (!message.guild) return;
-    if (!message.content) return;
+  // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+  client.on("messageCreate", async (message) => {
+    try {
+      if (message.author.bot) return;
+      if (!message.guild) return;
+      if (!message.content) return;
 
-    const data = getGuildData(message.guild.id);
-    const prefix = data.prefix || DEFAULT_PREFIX;
+      const data = getGuildData(message.guild.id);
+      const prefix = data.prefix || DEFAULT_PREFIX;
 
-    const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
-    if (userReturned) return;
+      const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
+      if (userReturned) return;
 
-    const bypassRoleId = "1492630307650666546";
-    const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
-    const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
-    const containsDiscordInvite = discordInviteRegex.test(message.content);
-    const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
+      const bypassRoleId = "1492630307650666546";
+      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
+      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
+      const containsDiscordInvite = discordInviteRegex.test(message.content);
+      const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
 
-    const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
-    if (protectedWord) {
-      await message.delete().catch(() => null);
-      await sendAutomodLog(message, protectedWord);
-      return;
-    }
-
-    if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
-      const word = containsBlacklistedWord(message.content, [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]);
-      if (word) {
+      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+      if (protectedWord) {
         await message.delete().catch(() => null);
-        await sendAutomodLog(message, word);
+        await sendAutomodLog(message, protectedWord);
         return;
       }
-    }
 
-    // ==========================================
-    // 👇 AUTO-RESPONDER LISTENER 👇
-    // ==========================================
-    if (data.autoResponses) {
-      const contentLower = message.content.toLowerCase();
-      for (const [trigger, arData] of Object.entries(data.autoResponses)) {
-        if (contentLower.includes(trigger)) {
-          let payload = {};
-          if (arData.text) payload.content = arData.text;
-          if (arData.image) {
-            payload.embeds = [new EmbedBuilder().setColor(0xff69b4).setImage(arData.image)];
-          }
-          if (payload.content || payload.embeds) {
-            await message.channel.send(payload).catch(() => {});
-          }
-          break; // Stop after matching the first triggered phrase
+      if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
+        const word = containsBlacklistedWord(message.content, [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]);
+        if (word) {
+          await message.delete().catch(() => null);
+          await sendAutomodLog(message, word);
+          return;
         }
       }
-    }
-    // ==========================================
 
-    if (!data.channelCounters) data.channelCounters = {};
-    if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
-    if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
-
-    const isAiCommand = message.content.startsWith(`${prefix}ai`);
-    const isStatusCommand = message.content.startsWith(`${prefix}status`);
-    
-    let isReplyToBot = false;
-    if (message.reference && message.reference.messageId) {
-      const repliedMsg = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
-      if (repliedMsg && repliedMsg.author.id === client.user.id) {
-        isReplyToBot = true;
+      if (data.autoResponses) {
+        const contentLower = message.content.toLowerCase();
+        for (const [trigger, arData] of Object.entries(data.autoResponses)) {
+          if (contentLower.includes(trigger)) {
+            let payload = {};
+            if (arData.text) payload.content = arData.text;
+            if (arData.image) {
+              payload.embeds = [new EmbedBuilder().setColor(0xff69b4).setImage(arData.image)];
+            }
+            if (payload.content || payload.embeds) {
+              await message.channel.send(payload).catch(() => {});
+            }
+            break;
+          }
+        }
       }
-    }
 
-    if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
-      data.channelCounters[message.channel.id]++;
+      if (!data.channelCounters) data.channelCounters = {};
+      if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
+      if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
+
+      const isAiCommand = message.content.startsWith(`${prefix}ai`);
+      const isStatusCommand = message.content.startsWith(`${prefix}status`);
       
-      if (data.channelCounters[message.channel.id] >= 50) {
-        data.channelCounters[message.channel.id] = 0; 
-        data.currentPersonaIndex += 1; 
+      let isReplyToBot = false;
+      if (message.reference && message.reference.messageId) {
+        const repliedMsg = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+        if (repliedMsg && repliedMsg.author.id === client.user.id) {
+          isReplyToBot = true;
+        }
       }
-      
-      store[message.guild.id] = data;
-      saveData();
-    }
 
-    const wasCommand = await handleCommands(message, getGuildData);
-    if (wasCommand) return;
-
-    const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
-
-    if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
-
-    let triggerText = message.content;
-
-    if (isAiCommand) {
-      triggerText = message.content.slice(`${prefix}ai`.length).trim();
-      if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
-    } else if (isBotMentioned) {
-      triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
-      if (!triggerText) {
-        return message.reply("Hey! How can I help you today?");
+      if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
+        data.channelCounters[message.channel.id]++;
+        
+        if (data.channelCounters[message.channel.id] >= 50) {
+          data.channelCounters[message.channel.id] = 0; 
+          data.currentPersonaIndex += 1; 
+        }
+        
+        store[message.guild.id] = data;
+        saveData();
       }
-    }
 
-    await message.channel.sendTyping().catch(() => null);
+      const wasCommand = await handleCommands(message, getGuildData);
+      if (wasCommand) return;
 
-const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
-    if (aiReply) {
-      return message.reply({ 
-        content: aiReply, 
-        allowedMentions: { parse: [], repliedUser: true }
-      });
+      const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
+
+      if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
+
+      let triggerText = message.content;
+
+      if (isAiCommand) {
+        triggerText = message.content.slice(`${prefix}ai`.length).trim();
+        if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
+      } else if (isBotMentioned) {
+        triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
+        if (!triggerText) {
+          return message.reply("Hey! How can I help you today?");
+        }
+      }
+
+      await message.channel.sendTyping().catch(() => null);
+
+      const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
+      if (aiReply) {
+        return message.reply({ 
+          content: aiReply, 
+          allowedMentions: { parse: [], repliedUser: true }
+        });
+      }
+    } catch (err) {
+      console.error("Error running inside messageCreate pipeline:", err);
     }
-  } catch (err) {
-    console.error("Error running inside messageCreate pipeline:", err);
-  }
-}); // <-- This closing brace and parenthesis completes client.on("messageCreate", async (message) => { ... })
+  });
+
+  client.login(process.env.DISCORD_TOKEN);
+}
+
+startBot();
