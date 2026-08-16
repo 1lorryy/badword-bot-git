@@ -242,7 +242,7 @@ module.exports = {
         data.marriages[target.id] = { partnerId: userId, partnerTag: user.username, since: now, ring: chosenRingKey };
         saveData();
 
-        await i.update({
+await i.update({
           content: null,
           embeds: [
             new EmbedBuilder()
@@ -262,10 +262,6 @@ module.exports = {
       }
       collector.stop();
     });
-  }
-};
-```[cite: 5]
-collector.stop();
-    });
   } // Closes async execute
 }; // Closes module.exports
+```[cite: 5]
