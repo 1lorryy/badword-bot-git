@@ -166,7 +166,7 @@ module.exports = {
 
     // Ring Selection Logic (Defaults to wood if not specified)
     const chosenRingKey = isSlash 
-      ? (interaction.options.getString("ring")  || "wood")
+      ? (interaction.options.getString("ring") || "wood")
       : ((args[1] && RINGS[args[1].toLowerCase()]) ? args[1].toLowerCase() : "wood");
       
     const ring = RINGS[chosenRingKey];
