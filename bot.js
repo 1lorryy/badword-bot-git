@@ -2203,4 +2203,4 @@ async function startBot() {
   await client.login(process.env.DISCORD_TOKEN);
 } // <-- This closes async function startBot()
 
-startBot(); // <-- This executes it
+module.exports = { startBot };
