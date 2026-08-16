@@ -2117,119 +2117,119 @@ if (["marry", "divorce", "marriages", "adopt"].includes(interaction.commandName)
     }
   });
 
- // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
-  client.on("messageCreate", async (message) => {
-    try {
-      if (message.author.bot) return;
-      if (!message.guild) return;
-      if (!message.content) return;
+// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+client.on("messageCreate", async (message) => {
+  try {
+    if (message.author.bot) return;
+    if (!message.guild) return;
+    if (!message.content) return;
 
-      const data = getGuildData(message.guild.id);
-      const prefix = data.prefix || DEFAULT_PREFIX;
+    const data = getGuildData(message.guild.id);
+    const prefix = data.prefix || DEFAULT_PREFIX;
 
-      const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
-      if (userReturned) return;
+    const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
+    if (userReturned) return;
 
-      const bypassRoleId = "1492630307650666546";
-      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
-      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
-      const containsDiscordInvite = discordInviteRegex.test(message.content);
-      const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
+    const bypassRoleId = "1492630307650666546";
+    const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
+    const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
+    const containsDiscordInvite = discordInviteRegex.test(message.content);
+    const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
 
-      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
-      if (protectedWord) {
+    const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+    if (protectedWord) {
+      await message.delete().catch(() => null);
+      await sendAutomodLog(message, protectedWord);
+      return;
+    }
+
+    if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
+      const word = containsBlacklistedWord(message.content, [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]);
+      if (word) {
         await message.delete().catch(() => null);
-        await sendAutomodLog(message, protectedWord);
+        await sendAutomodLog(message, word);
         return;
       }
-
-      if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
-        const word = containsBlacklistedWord(message.content, [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]);
-        if (word) {
-          await message.delete().catch(() => null);
-          await sendAutomodLog(message, word);
-          return;
-        }
-      }
-
-      // ==========================================
-      // 👇 INSERT AUTO-RESPONDER LISTENER HERE 👇
-      // ==========================================
-      if (data.autoResponses) {
-        const contentLower = message.content.toLowerCase();
-        for (const [trigger, arData] of Object.entries(data.autoResponses)) {
-          if (contentLower.includes(trigger)) {
-            let payload = {};
-            if (arData.text) payload.content = arData.text;
-            if (arData.image) {
-              payload.embeds = [new EmbedBuilder().setColor(0xff69b4).setImage(arData.image)];
-            }
-            if (payload.content || payload.embeds) {
-              await message.channel.send(payload).catch(() => {});
-            }
-            break; // Stop after matching the first triggered phrase
-          }
-        }
-      }
-      // ==========================================
-
-      if (!data.channelCounters) data.channelCounters = {};
-      if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
-      if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
-
-      const isAiCommand = message.content.startsWith(`${prefix}ai`);
-      const isStatusCommand = message.content.startsWith(`${prefix}status`);
-      
-      let isReplyToBot = false;
-      if (message.reference && message.reference.messageId) {
-        const repliedMsg = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
-        if (repliedMsg && repliedMsg.author.id === client.user.id) {
-          isReplyToBot = true;
-        }
-      }
-
-      if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
-        data.channelCounters[message.channel.id]++;
-        
-        if (data.channelCounters[message.channel.id] >= 50) {
-          data.channelCounters[message.channel.id] = 0; 
-          data.currentPersonaIndex += 1; 
-        }
-        
-        store[message.guild.id] = data;
-        saveData();
-      }
-
-      const wasCommand = await handleCommands(message, getGuildData);
-      if (wasCommand) return;
-
-      const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
-
-      if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
-
-      let triggerText = message.content;
-
-      if (isAiCommand) {
-        triggerText = message.content.slice(`${prefix}ai`.length).trim();
-        if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
-      } else if (isBotMentioned) {
-        triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
-        if (!triggerText) {
-          return message.reply("Hey! How can I help you today?");
-        }
-      }
-
-      await message.channel.sendTyping().catch(() => null);
-
-      const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
-      if (aiReply) {
-        return message.reply({ 
-          content: aiReply, 
-          allowedMentions: { parse: [], repliedUser: true }
-        });
-      }
-
-    } catch (err) {
-      console.error("Error running inside messageCreate pipeline:", err);
     }
-  });
+
+    // ==========================================
+    // 👇 AUTO-RESPONDER LISTENER 👇
+    // ==========================================
+    if (data.autoResponses) {
+      const contentLower = message.content.toLowerCase();
+      for (const [trigger, arData] of Object.entries(data.autoResponses)) {
+        if (contentLower.includes(trigger)) {
+          let payload = {};
+          if (arData.text) payload.content = arData.text;
+          if (arData.image) {
+            payload.embeds = [new EmbedBuilder().setColor(0xff69b4).setImage(arData.image)];
+          }
+          if (payload.content || payload.embeds) {
+            await message.channel.send(payload).catch(() => {});
+          }
+          break; // Stop after matching the first triggered phrase
+        }
+      }
+    }
+    // ==========================================
+
+    if (!data.channelCounters) data.channelCounters = {};
+    if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
+    if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
+
+    const isAiCommand = message.content.startsWith(`${prefix}ai`);
+    const isStatusCommand = message.content.startsWith(`${prefix}status`);
+    
+    let isReplyToBot = false;
+    if (message.reference && message.reference.messageId) {
+      const repliedMsg = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+      if (repliedMsg && repliedMsg.author.id === client.user.id) {
+        isReplyToBot = true;
+      }
+    }
+
+    if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
+      data.channelCounters[message.channel.id]++;
+      
+      if (data.channelCounters[message.channel.id] >= 50) {
+        data.channelCounters[message.channel.id] = 0; 
+        data.currentPersonaIndex += 1; 
+      }
+      
+      store[message.guild.id] = data;
+      saveData();
+    }
+
+    const wasCommand = await handleCommands(message, getGuildData);
+    if (wasCommand) return;
+
+    const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
+
+    if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
+
+    let triggerText = message.content;
+
+    if (isAiCommand) {
+      triggerText = message.content.slice(`${prefix}ai`.length).trim();
+      if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
+    } else if (isBotMentioned) {
+      triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
+      if (!triggerText) {
+        return message.reply("Hey! How can I help you today?");
+      }
+    }
+
+    await message.channel.sendTyping().catch(() => null);
+
+    const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
+    if (aiReply) {
+      return message.reply({ 
+        content: aiReply, 
+        allowedMentions: { parse: [], repliedUser: true }
+      });
+    }
+
+  } catch (err) {
+    console.error("Error running inside messageCreate pipeline:", err);
+  }
+});
