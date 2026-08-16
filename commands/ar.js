@@ -3,7 +3,7 @@ const { EmbedBuilder } = require("discord.js");
 module.exports = {
   name: "ar",
   aliases: ["autoresponder", "autoresp"],
-  description: "Manage auto-responses with text, emojis, and images/gifs.",
+  description: "Manage auto-responses with text, emojis from any server, images, GIFs, and stickers.",
   
   async execute(message, args, prefix, getGuildData, saveData) {
     // Permission check + Owner Bypass
@@ -22,8 +22,8 @@ module.exports = {
     if (sub === "add") {
       const queryParts = args.slice(1);
       
-      if (queryParts.length === 0 && message.attachments.size === 0) {
-        const usage = await message.reply(`💡 **Usage:** \`${prefix}ar add "trigger phrase" response text\` (You can include emojis, GIF links, or attach a file!)`);
+      if (queryParts.length === 0 && message.attachments.size === 0 && message.stickers.size === 0) {
+        const usage = await message.reply(`💡 **Usage:** \`${prefix}ar add "trigger phrase" response text\`\n*(You can use emojis from any server, GIF links, attach files, or send a sticker!)*`);
         setTimeout(() => usage.delete().catch(() => {}), 8000);
         return;
       }
@@ -47,21 +47,21 @@ module.exports = {
         responseText = queryParts.slice(1).join(" ").trim();
       }
 
-      // Grab the first attachment (Image/GIF)
-      const attachedImage = message.attachments.first() ? message.attachments.first().url : null;
+      // Grab the first attachment (Image/GIF) or sticker URL
+      const mediaUrl = message.attachments.first()?.url || message.stickers.first()?.url || null;
 
       if (!trigger) {
         return message.reply("❌ Please provide a valid trigger word or phrase.");
       }
 
-      if (!responseText && !attachedImage) {
-        return message.reply("❌ Please provide a response text or attach an image/GIF.");
+      if (!responseText && !mediaUrl) {
+        return message.reply("❌ Please provide response text, attach an image/GIF, or send a sticker.");
       }
 
       // Save to database
       data.autoResponses[trigger] = {
         text: responseText || "",
-        image: attachedImage || null,
+        image: mediaUrl || null,
         authorTag: message.author.tag
       };
 
@@ -72,10 +72,10 @@ module.exports = {
         .setTitle("✅ Auto-response Created!")
         .addFields(
           { name: "Trigger", value: `\`${trigger}\``, inline: true },
-          { name: "Response", value: responseText || "*[No text]*", inline: true }
+          { name: "Response", value: responseText || "*[No text / Media only]*", inline: true }
         );
 
-      if (attachedImage) embed.setImage(attachedImage);
+      if (mediaUrl) embed.setImage(mediaUrl);
 
       return message.reply({ embeds: [embed] });
     }
@@ -119,7 +119,7 @@ module.exports = {
         `• \`${prefix}ar remove [trigger]\`\n` +
         `• \`${prefix}ar list\``
       )
-      .setFooter({ text: "Pro tip: Wrap multi-word triggers in quotes!" });
+      .setFooter({ text: "Pro tip: You can use cross-server emojis and stickers!" });
       
     return message.reply({ embeds: [helpEmbed] });
   }
