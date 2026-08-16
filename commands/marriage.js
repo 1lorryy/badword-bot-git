@@ -46,7 +46,7 @@ module.exports = {
             .addChoices(
               { name: "🪵 Wooden Ring (5 DON)", value: "wood" },
               { name: "🍟 Plastic Onion Ring (150 DON)", value: "onion" },
-              { name: "💻 Binary Code Band (5,000 DON - Exclusive)", value: "code" },
+              { name: "💻 Binary Code Band (Free for Unc / 5,000 DON)", value: "code" },
               { name: "🚽 Skibidi Ring (10 DON)", value: "skibidi" },
               { name: "✨ Glow-in-the-Dark Ring (50,000 DON)", value: "glow" },
               { name: "🌌 Supernova Diamond Ring (1,000,000 DON)", value: "supernova" }
@@ -177,10 +177,14 @@ module.exports = {
       return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
     }
 
+    // Check if it's free for Unc
+    const isFreeForUnc = (chosenRingKey === "code" && userId === "1221773740434653299");
+    const ringPrice = isFreeForUnc ? 0 : ring.price;
+
     // Check user balance for ring purchase
     const userCoins = data.economy[userId].coins;
-    if (userCoins < ring.price) {
-      const replyText = `❌ You need **${ring.price.toLocaleString()} DON** to buy the ${ring.name}, but you only have **${userCoins.toLocaleString()} DON**!`;
+    if (userCoins < ringPrice) {
+      const replyText = `❌ You need **${ringPrice.toLocaleString()} DON** to buy the ${ring.name}, but you only have **${userCoins.toLocaleString()} DON**!`;
       return isSlash ? await interaction.reply({ content: replyText, ephemeral: true }) : await message.reply(replyText);
     }
 
@@ -198,7 +202,8 @@ module.exports = {
           .setDescription(
             `**${user.username}** has proposed to **${target.username}**!\n\n` +
             `**Offered Ring:** ${ring.name}\n` +
-            `**Price:** \`${ring.price.toLocaleString()} DON\`` +
+            `**Price:** \`${ringPrice.toLocaleString()} DON\`` +
+            (isFreeForUnc ? `\n🎁 *Special Perk: Free for Unc!*` : "") +
             (chosenRingKey === "skibidi" ? `\n\n⚠️ *Note: Wearing the Skibidi Ring automatically taxes 10% of job earnings to mochi!*` : "")
           )
           .setThumbnail(ring.img)
@@ -218,7 +223,8 @@ module.exports = {
 
       if (i.customId === "accept_marry") {
         // Re-verify balance upon acceptance to prevent exploits
-        if (!data.economy[userId] || data.economy[userId].coins < ring.price) {
+        const currentCheckPrice = (chosenRingKey === "code" && userId === "1221773740434653299") ? 0 : ring.price;
+        if (!data.economy[userId] || data.economy[userId].coins < currentCheckPrice) {
           return i.update({
             content: `❌ **${user.username}** no longer has enough DON coins to buy the ${ring.name}!`,
             embeds: [],
@@ -226,8 +232,10 @@ module.exports = {
           });
         }
 
-        // Deduct ring price from proposer
-        data.economy[userId].coins -= ring.price;
+        // Deduct ring price from proposer (skips deduction if it's free for Unc)
+        if (!isFreeForUnc) {
+          data.economy[userId].coins -= ring.price;
+        }
 
         const now = Date.now();
         data.marriages[userId] = { partnerId: target.id, partnerTag: target.username, since: now, ring: chosenRingKey };
