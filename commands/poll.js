@@ -20,24 +20,26 @@ module.exports = {
     let question = "";
     let rawOptions = [];
 
-    const matches = [...argsText.matchAll(/"([^"]+)"/g)].map(m => m[1]);
+    // Bulletproof parsing: Check if there's a question mark
+    const qIndex = argsText.indexOf("?");
+    if (qIndex !== -1) {
+      // Everything before and including the '?' is the question
+      let rawQ = argsText.substring(0, qIndex + 1).trim();
+      question = rawQ.replace(/(--multi|-m|--anon|-a|(--time|-t)\s+\d+)/g, "").trim();
 
-    if (matches.length >= 3) {
-      question = matches[0];
-      rawOptions = matches.slice(1);
+      // Everything after the '?' are the options, separated by commas
+      let remainder = argsText.substring(qIndex + 1).trim();
+      remainder = remainder.replace(/(--multi|-m|--anon|-a|(--time|-t)\s+\d+)/g, "").trim();
+
+      if (remainder.length > 0) {
+        rawOptions = remainder.split(",").map(opt => opt.trim()).filter(opt => opt.length > 0);
+      }
     } else {
-      const qIndex = argsText.indexOf("?");
-      if (qIndex !== -1) {
-        let rawQ = argsText.substring(0, qIndex + 1).trim();
-        rawQ = rawQ.replace(/(--multi|-m|--anon|-a|(--time|-t)\s+\d+)/g, "").trim();
-        question = rawQ;
-
-        let remainder = argsText.substring(qIndex + 1).trim();
-        remainder = remainder.replace(/(--multi|-m|--anon|-a|(--time|-t)\s+\d+)/g, "").trim();
-        
-        if (remainder.includes(",")) {
-          rawOptions = remainder.split(",").map(opt => opt.trim()).filter(opt => opt.length > 0);
-        }
+      // Fallback to quotes if they used quotes instead
+      const matches = [...argsText.matchAll(/"([^"]+)"/g)].map(m => m[1]);
+      if (matches.length >= 3) {
+        question = matches[0];
+        rawOptions = matches.slice(1);
       }
     }
 
@@ -48,7 +50,7 @@ module.exports = {
         .setDescription(
           `Make a poll instantly just by typing your question with a \`?\` and comma-separated options!\n\n` +
           `**Example:**\n` +
-          `\`${prefix}poll Best game? Roblox, Minecraft, Fortnite\`\n\n` +
+          `\`${prefix}poll Favorite game? Pet Simulator 99, Roblox, Minecraft\`\n\n` +
           `**Optional Flags:**\n` +
           `• \`--multi\` or \`-m\` — Pick multiple choices\n` +
           `• \`--anon\` or \`-a\` — Keep votes secret`
