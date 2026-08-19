@@ -16,6 +16,7 @@ const shopCommand = require("./commands/shop.js");
 const arCommand = require('./commands/ar.js');
 const marriageCommand = require("./commands/marriage.js");
 const adoptionCommand = require("./commands/adoption.js");
+const pollCommand = require("./commands/poll.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -605,7 +606,8 @@ async function handleCommands(message, getGuildData) {
   const funCommandsList = [
     "ship", "shop", "store", "marketplace", "8ball", "coinflip", "flip", 
     "roll", "rps", "marry", "divorce", "marriage", "marriages", 
-    "adopt", "disown", "family", "children", "parents", "daily"
+    "adopt", "disown", "family", "children", "parents", "daily",
+    "poll", "vote", "voting"
   ];
 
   if (funCommandsList.includes(command)) {
@@ -668,6 +670,12 @@ async function handleCommands(message, getGuildData) {
   if (command === "shop" || command === "store" || command === "marketplace") {
     if (shopCommand && typeof shopCommand.execute === "function") {
       return shopCommand.execute(message, args, prefix, getGuildData, saveData);
+    }
+  }
+
+  if (command === "poll" || command === "vote" || command === "voting") {
+    if (pollCommand && typeof pollCommand.execute === "function") {
+      return pollCommand.execute(message, args, prefix, getGuildData, saveData);
     }
   }
 
@@ -1458,7 +1466,7 @@ async function handleCommands(message, getGuildData) {
 
   // ================= AUTORESPONDER INTEGRATION =================
   if (command === "ar" || command === "autoresponder" || command === "autoresp") {
-    const arCommand = require("./commands/ar.js"); // Make sure this path matches where you saved ar.js
+    const arCommand = require("./commands/ar.js");
     if (arCommand && typeof arCommand.execute === "function") {
       return arCommand.execute(message, args, prefix, getGuildData, saveData);
     }
@@ -1585,12 +1593,12 @@ async function handleCommands(message, getGuildData) {
         { name: "🛡️ Moderation & AutoMod", value: "Warnings, mutes, kicks, bans, blacklists, and staff guides.", inline: true },
         { name: "🔒 Advanced Security", value: "Verification settings, member scans, and trust filters.", inline: true },
         { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, auto-responders, AFK, and analytics.", inline: true },
-        { name: "🎮 Fun & Games", value: "Marriage, adoption, ships, mini-games, AI, and personalization.", inline: true }
+        { name: "🎮 Fun & Games", value: "Marriage, adoption, polls, ships, mini-games, AI, and personalization.", inline: true }
       )
       .setFooter({ text: "Page 1/6 • Don Don Operations" })
       .setTimestamp();
 
- const pageMod = new EmbedBuilder()
+    const pageMod = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setTitle("🛡️ Moderation & AutoMod Commands")
       .setDescription(`Commands reserved for staff and moderators. Prefix: \`${prefix}\``)
@@ -1703,8 +1711,9 @@ async function handleCommands(message, getGuildData) {
             `• \`${prefix}family [@user]\` — View family tree`
         },
         {
-          name: "🎲 Games & Mini-Games",
+          name: "🎲 Games, Polls & Mini-Games",
           value:
+            `• \`${prefix}poll "Question?" "Opt1" "Opt2" [--multi]\` — Create an interactive poll\n` +
             `• \`${prefix}8ball [question]\` — Ask the magic 8-ball\n` +
             `• \`${prefix}coinflip\` — Flip a coin (Heads or Tails)\n` +
             `• \`${prefix}roll [max]\` — Roll a random number (1-100)\n` +
@@ -2208,6 +2217,6 @@ async function startBot() {
   });
 
   await client.login(process.env.DISCORD_TOKEN);
-} // <-- This closes async function startBot()
+}
 
 module.exports = { startBot };
