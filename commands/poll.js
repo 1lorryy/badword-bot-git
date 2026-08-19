@@ -3,7 +3,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 module.exports = {
   name: "poll",
   aliases: ["vote", "voting"],
-  description: "Create an instant, high-tech poll using either quotes or a simple comma-separated shorthand syntax.",
+  description: "Create an ultra-sleek, interactive poll using either quotes or comma shorthand.",
 
   async execute(message, args, prefix, getGuildData, saveData) {
     const argsText = args.join(" ");
@@ -44,19 +44,19 @@ module.exports = {
     if (!question || rawOptions.length < 2) {
       const usageEmbed = new EmbedBuilder()
         .setColor(0x2b2d31)
-        .setTitle("⚡ Lightning Poll Generator")
+        .setTitle("📊 Lightning Poll Suite")
         .setDescription(
-          `Deploy polls instantly using either quotes or comma shorthand!\n\n` +
-          `**Method 1 (Super Fast - Comma Separated):**\n` +
-          `\`${prefix}poll Favorite color? Red, Blue, Green, Yellow\`\n\n` +
-          `**Method 2 (Classic Quotes):**\n` +
+          `Deploy gorgeous interactive polls instantly!\n\n` +
+          `**Syntax (Comma-separated):**\n` +
+          `\`${prefix}poll Favorite game? Pet Simulator 99, Roblox, Minecraft\`\n\n` +
+          `**Syntax (Quotes):**\n` +
           `\`${prefix}poll "Question?" "Option 1" "Option 2"\`\n\n` +
-          `**Elite Flags (Optional):**\n` +
-          `• \`--multi\` or \`-m\` — Multiple choice mode\n` +
-          `• \`--anon\` or \`-a\` — Hide voter data\n` +
-          `• \`--time <hours>\` or \`-t <hours>\` — Custom expiration timer`
+          `**Flags:**\n` +
+          `• \`--multi\` or \`-m\` — Multiple choice\n` +
+          `• \`--anon\` or \`-a\` — Anonymous votes\n` +
+          `• \`--time <hours>\` — Custom timer`
         )
-        .setFooter({ text: "Tip: Add custom emojis like \"🔥: Fire\" right into your options!" });
+        .setFooter({ text: "Tip: Add custom emojis like \"🔥: Option\" for styled buttons!" });
 
       const reply = await message.reply({ embeds: [usageEmbed] });
       setTimeout(() => reply.delete().catch(() => {}), 20000);
@@ -64,7 +64,7 @@ module.exports = {
     }
 
     if (rawOptions.length > 10) {
-      return message.reply("❌ Maximum limit is 10 options per poll, operator.");
+      return message.reply("❌ Maximum limit is 10 options per poll.");
     }
 
     const options = [];
@@ -114,9 +114,11 @@ module.exports = {
         }
       }
 
-      let description = `**Question:** ${poll.question}\n\n`;
+      let description = `> ## 📌 ${poll.question}\n\n`;
       if (totalVotes === 0) {
-        description += `*No votes recorded yet. Secure your vote below!*\n\n`;
+        description += `*No votes recorded yet. Tap a button below to cast your vote!*\n\n`;
+      } else {
+        description += `────────────────────────\n\n`;
       }
 
       poll.options.forEach((opt, idx) => {
@@ -132,17 +134,19 @@ module.exports = {
         description += `${progressBar} \`${count} vote${count === 1 ? "" : "s"} (${percentage}%)\`\n\n`;
       });
 
-      const modeString = `${poll.isMulti ? "🔀 Multi-Choice" : "📌 Single-Choice"} | ${poll.isAnon ? "🕵️ Anonymous" : "👁️ Public"}`;
+      const modeTab = poll.isMulti ? "🔀 Multiple Choice" : "📌 Single Choice";
+      const privacyTab = poll.isAnon ? "🕵️ Anonymous" : "👁️ Public";
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setTitle(`⚡ Tactical Combat Poll`)
+        .setAuthor({ name: `Interactive Poll Hub`, iconURL: message.client.user.displayAvatarURL() })
         .setDescription(description)
         .addFields(
-          { name: "📋 Configuration", value: modeString, inline: true },
-          { name: "👥 Active Voters", value: `${totalVotes}`, inline: true }
+          { name: "🗳️ Voting Mode", value: `\` ${modeTab} \``, inline: true },
+          { name: "🔒 Privacy", value: `\` ${privacyTab} \``, inline: true },
+          { name: "👥 Total Turnout", value: `\` ${totalVotes} user${totalVotes === 1 ? "" : "s"} \``, inline: true }
         )
-        .setFooter({ text: `Poll ID: ${pollId} • Expires` })
+        .setFooter({ text: `Poll ID: ${pollId} • Created by ${poll.authorTag} • Closes` })
         .setTimestamp(poll.expiresAt);
 
       return embed;
@@ -201,7 +205,7 @@ module.exports = {
 
       const guildData = getGuildData(message.guild.id);
       if (!guildData.polls || !guildData.polls[pollId]) {
-        return interaction.reply({ content: "❌ This poll has been terminated or expired.", ephemeral: true });
+        return interaction.reply({ content: "❌ This poll has expired or been removed.", ephemeral: true });
       }
 
       const poll = guildData.polls[pollId];
