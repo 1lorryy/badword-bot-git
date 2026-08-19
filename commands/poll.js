@@ -3,7 +3,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 module.exports = {
   name: "poll",
   aliases: ["vote", "voting"],
-  description: "Create an ultra-sleek, interactive poll using either quotes or comma shorthand.",
+  description: "Create an instant, easy poll.",
 
   async execute(message, args, prefix, getGuildData, saveData) {
     const argsText = args.join(" ");
@@ -44,27 +44,23 @@ module.exports = {
     if (!question || rawOptions.length < 2) {
       const usageEmbed = new EmbedBuilder()
         .setColor(0x2b2d31)
-        .setTitle("📊 Lightning Poll Suite")
+        .setTitle("📊 Quick Poll Help")
         .setDescription(
-          `Deploy gorgeous interactive polls instantly!\n\n` +
-          `**Syntax (Comma-separated):**\n` +
-          `\`${prefix}poll Favorite game? Pet Simulator 99, Roblox, Minecraft\`\n\n` +
-          `**Syntax (Quotes):**\n` +
-          `\`${prefix}poll "Question?" "Option 1" "Option 2"\`\n\n` +
-          `**Flags:**\n` +
-          `• \`--multi\` or \`-m\` — Multiple choice\n` +
-          `• \`--anon\` or \`-a\` — Anonymous votes\n` +
-          `• \`--time <hours>\` — Custom timer`
-        )
-        .setFooter({ text: "Tip: Add custom emojis like \"🔥: Option\" for styled buttons!" });
+          `Make a poll instantly just by typing your question with a \`?\` and comma-separated options!\n\n` +
+          `**Example:**\n` +
+          `\`${prefix}poll Best game? Roblox, Minecraft, Fortnite\`\n\n` +
+          `**Optional Flags:**\n` +
+          `• \`--multi\` or \`-m\` — Pick multiple choices\n` +
+          `• \`--anon\` or \`-a\` — Keep votes secret`
+        );
 
       const reply = await message.reply({ embeds: [usageEmbed] });
-      setTimeout(() => reply.delete().catch(() => {}), 20000);
+      setTimeout(() => reply.delete().catch(() => {}), 15000);
       return;
     }
 
     if (rawOptions.length > 10) {
-      return message.reply("❌ Maximum limit is 10 options per poll.");
+      return message.reply("❌ Maximum limit is 10 options.");
     }
 
     const options = [];
@@ -116,7 +112,7 @@ module.exports = {
 
       let description = `> ## 📌 ${poll.question}\n\n`;
       if (totalVotes === 0) {
-        description += `*No votes recorded yet. Tap a button below to cast your vote!*\n\n`;
+        description += `*No votes yet. Tap a button below to vote!*\n\n`;
       } else {
         description += `────────────────────────\n\n`;
       }
@@ -139,14 +135,13 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setAuthor({ name: `Interactive Poll Hub`, iconURL: message.client.user.displayAvatarURL() })
         .setDescription(description)
         .addFields(
-          { name: "🗳️ Voting Mode", value: `\` ${modeTab} \``, inline: true },
+          { name: "🗳️ Mode", value: `\` ${modeTab} \``, inline: true },
           { name: "🔒 Privacy", value: `\` ${privacyTab} \``, inline: true },
-          { name: "👥 Total Turnout", value: `\` ${totalVotes} user${totalVotes === 1 ? "" : "s"} \``, inline: true }
+          { name: "👥 Votes", value: `\` ${totalVotes} \``, inline: true }
         )
-        .setFooter({ text: `Poll ID: ${pollId} • Created by ${poll.authorTag} • Closes` })
+        .setFooter({ text: `Poll ID: ${pollId} • Ends` })
         .setTimestamp(poll.expiresAt);
 
       return embed;
@@ -205,7 +200,7 @@ module.exports = {
 
       const guildData = getGuildData(message.guild.id);
       if (!guildData.polls || !guildData.polls[pollId]) {
-        return interaction.reply({ content: "❌ This poll has expired or been removed.", ephemeral: true });
+        return interaction.reply({ content: "❌ This poll has expired.", ephemeral: true });
       }
 
       const poll = guildData.polls[pollId];
