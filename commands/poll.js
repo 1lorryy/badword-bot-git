@@ -43,7 +43,7 @@ module.exports = {
         .setDescription(
           `Create a gorgeous interactive poll instantly!\n\n` +
           `**Super Easy (Comma Shorthand):**\n` +
-          `\`${prefix}poll Favorite game? Fortnite, Roblox, Minecraft\`\n\n` +
+          `\`${prefix}poll Favorite game? Pet Simulator 99, Roblox, Minecraft\`\n\n` +
           `**Classic Quotes Style:**\n` +
           `\`${prefix}poll "Question?" "Option 1" "Option 2" [--multi]\`\n\n` +
           `**Optional Flag:** \`--multi\` or \`-m\` for multiple choice`
@@ -58,6 +58,9 @@ module.exports = {
     if (options.length > 10) {
       return message.reply("❌ You can add a maximum of 10 options for a poll.");
     }
+
+    // Delete the user's command message instantly
+    await message.delete().catch(() => {});
 
     // Number emojis for options
     const numberEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
@@ -154,7 +157,8 @@ module.exports = {
       return rows;
     }
 
-    const pollMessage = await message.reply({
+    // Send the poll as a standard channel message (since command message is deleted)
+    const pollMessage = await message.channel.send({
       embeds: [generatePollEmbed()],
       components: generateComponents()
     });
