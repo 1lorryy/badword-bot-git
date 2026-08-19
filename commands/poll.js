@@ -3,84 +3,66 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 module.exports = {
   name: "poll",
   aliases: ["vote", "voting"],
-  description: "Create an instant, easy poll.",
+  description: "Create an interactive poll with single or multiple choice voting, live progress bars, and numbered options.",
 
   async execute(message, args, prefix, getGuildData, saveData) {
     const argsText = args.join(" ");
 
+    // Check for multi-choice flag
     const isMulti = argsText.includes("--multi") || argsText.includes("-m");
-    const isAnon = argsText.includes("--anon") || argsText.includes("-a");
-
-    let hours = 168;
-    const timeMatch = argsText.match(/(?:--time|-t)\s+(\d+)/);
-    if (timeMatch) hours = parseInt(timeMatch[1]);
-    const durationMs = hours * 60 * 60 * 1000;
-    const expiresAt = Date.now() + durationMs;
 
     let question = "";
-    let rawOptions = [];
+    let options = [];
 
-    // Bulletproof parsing: Check if there's a question mark
-    const qIndex = argsText.indexOf("?");
-    if (qIndex !== -1) {
-      // Everything before and including the '?' is the question
-      let rawQ = argsText.substring(0, qIndex + 1).trim();
-      question = rawQ.replace(/(--multi|-m|--anon|-a|(--time|-t)\s+\d+)/g, "").trim();
+    // 1. Try extracting quoted strings first (Classic Style)
+    const matches = [...argsText.matchAll(/"([^"]+)"/g)].map(m => m[1]);
 
-      // Everything after the '?' are the options, separated by commas
-      let remainder = argsText.substring(qIndex + 1).trim();
-      remainder = remainder.replace(/(--multi|-m|--anon|-a|(--time|-t)\s+\d+)/g, "").trim();
-
-      if (remainder.length > 0) {
-        rawOptions = remainder.split(",").map(opt => opt.trim()).filter(opt => opt.length > 0);
-      }
+    if (matches.length >= 3) {
+      question = matches[0];
+      options = matches.slice(1);
     } else {
-      // Fallback to quotes if they used quotes instead
-      const matches = [...argsText.matchAll(/"([^"]+)"/g)].map(m => m[1]);
-      if (matches.length >= 3) {
-        question = matches[0];
-        rawOptions = matches.slice(1);
+      // 2. Fallback to Super Easy Comma Style: ?poll Question? Option 1, Option 2, Option 3
+      const qIndex = argsText.indexOf("?");
+      if (qIndex !== -1) {
+        let rawQ = argsText.substring(0, qIndex + 1).trim();
+        question = rawQ.replace(/(--multi|-m)/g, "").trim();
+
+        let remainder = argsText.substring(qIndex + 1).trim();
+        remainder = remainder.replace(/(--multi|-m)/g, "").trim();
+
+        if (remainder.includes(",")) {
+          options = remainder.split(",").map(opt => opt.trim()).filter(opt => opt.length > 0);
+        }
       }
     }
 
-    if (!question || rawOptions.length < 2) {
+    if (!question || options.length < 2) {
       const usageEmbed = new EmbedBuilder()
         .setColor(0x2b2d31)
-        .setTitle("📊 Quick Poll Help")
+        .setTitle("📊 Poll Command Usage")
         .setDescription(
-          `Make a poll instantly just by typing your question with a \`?\` and comma-separated options!\n\n` +
-          `**Example:**\n` +
+          `Create a gorgeous interactive poll instantly!\n\n` +
+          `**Super Easy (Comma Shorthand):**\n` +
           `\`${prefix}poll Favorite game? Pet Simulator 99, Roblox, Minecraft\`\n\n` +
-          `**Optional Flags:**\n` +
-          `• \`--multi\` or \`-m\` — Pick multiple choices\n` +
-          `• \`--anon\` or \`-a\` — Keep votes secret`
-        );
+          `**Classic Quotes Style:**\n` +
+          `\`${prefix}poll "Question?" "Option 1" "Option 2" [--multi]\`\n\n` +
+          `**Optional Flag:** \`--multi\` or \`-m\` for multiple choice`
+        )
+        .setFooter({ text: "Tip: Just use a question mark after your question and commas for options!" });
 
       const reply = await message.reply({ embeds: [usageEmbed] });
       setTimeout(() => reply.delete().catch(() => {}), 15000);
       return;
     }
 
-    if (rawOptions.length > 10) {
-      return message.reply("❌ Maximum limit is 10 options.");
+    if (options.length > 10) {
+      return message.reply("❌ You can add a maximum of 10 options for a poll.");
     }
 
-    const options = [];
-    const customEmojis = [];
+    // Number emojis for options
+    const numberEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 
-    rawOptions.forEach(opt => {
-      const splitMatch = opt.match(/^<?(a)?:?(\w{2,32}|[\u{1f300}-\u{1f5ff}\u{1f900}-\u{1f9ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{2600}-\u{26ff}\u{2700}-\u{27bf}])>?[:\s]+(.+)$/u);
-      if (splitMatch) {
-        customEmojis.push(splitMatch[2] || splitMatch[0].split(/[:\s]/)[0]);
-        options.push(splitMatch[3]);
-      } else {
-        customEmojis.push(null);
-        options.push(opt);
-      }
-    });
-
-    const fallbackEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
-
+    // Initialize poll data structure
     const pollId = Date.now().toString();
     const data = getGuildData(message.guild.id);
     if (!data.polls) data.polls = {};
@@ -88,20 +70,19 @@ module.exports = {
     data.polls[pollId] = {
       question,
       options,
-      customEmojis,
-      votes: {},
+      votes: {}, // userId: [array of option indices]
       isMulti,
-      isAnon,
-      expiresAt,
       authorTag: message.author.tag,
       createdAt: Date.now()
     };
     saveData(message.guild.id, data);
 
+    // Helper function to generate progress bar & embed
     function generatePollEmbed() {
       const poll = data.polls[pollId];
       const totalVotes = Object.keys(poll.votes).length;
 
+      // Count votes per option
       const counts = new Array(poll.options.length).fill(0);
       for (const userId in poll.votes) {
         const userVotes = poll.votes[userId];
@@ -112,44 +93,40 @@ module.exports = {
         }
       }
 
-      let description = `> ## 📌 ${poll.question}\n\n`;
+      let description = `**Question:** ${poll.question}\n\n`;
       if (totalVotes === 0) {
-        description += `*No votes yet. Tap a button below to vote!*\n\n`;
-      } else {
-        description += `────────────────────────\n\n`;
+        description += `*No votes cast yet. Be the first to vote below!*\n\n`;
       }
 
       poll.options.forEach((opt, idx) => {
         const count = counts[idx];
         const percentage = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
         
+        // Generate visual progress bar (10 blocks)
         const filledBlocks = Math.round((percentage / 100) * 10);
         const emptyBlocks = 10 - filledBlocks;
         const progressBar = "🟩".repeat(filledBlocks) + "⬛".repeat(emptyBlocks);
 
-        const displayEmoji = poll.customEmojis[idx] || fallbackEmojis[idx];
-        description += `${displayEmoji} **${opt}**\n`;
+        description += `${numberEmojis[idx]} **${opt}**\n`;
         description += `${progressBar} \`${count} vote${count === 1 ? "" : "s"} (${percentage}%)\`\n\n`;
       });
 
-      const modeTab = poll.isMulti ? "🔀 Multiple Choice" : "📌 Single Choice";
-      const privacyTab = poll.isAnon ? "🕵️ Anonymous" : "👁️ Public";
-
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
+        .setTitle(`📊 Interactive Poll`)
         .setDescription(description)
         .addFields(
-          { name: "🗳️ Mode", value: `\` ${modeTab} \``, inline: true },
-          { name: "🔒 Privacy", value: `\` ${privacyTab} \``, inline: true },
-          { name: "👥 Votes", value: `\` ${totalVotes} \``, inline: true }
+          { name: "📋 Vote Type", value: poll.isMulti ? "🔀 Multiple Choice" : "📌 Single Choice", inline: true },
+          { name: "👥 Total Voters", value: `${totalVotes}`, inline: true }
         )
-        .setFooter({ text: `Poll ID: ${pollId} • Ends` })
-        .setTimestamp(poll.expiresAt);
+        .setFooter({ text: `Poll ID: ${pollId} • Created by ${poll.authorTag}` })
+        .setTimestamp();
 
       return embed;
     }
 
-    function generateComponents(disabled = false) {
+    // Generate action rows (max 5 buttons per row)
+    function generateComponents() {
       const poll = data.polls[pollId];
       const rows = [];
       let currentRow = new ActionRowBuilder();
@@ -160,21 +137,14 @@ module.exports = {
           currentRow = new ActionRowBuilder();
         }
 
-        const label = opt.length > 20 ? opt.substring(0, 17) + "..." : opt;
-        const button = new ButtonBuilder()
-          .setCustomId(`poll_${pollId}_${idx}`)
-          .setLabel(`${idx + 1}. ${label}`)
-          .setStyle(ButtonStyle.Secondary)
-          .setDisabled(disabled);
+        const label = opt.length > 25 ? opt.substring(0, 22) + "..." : opt;
 
-        const assignedEmoji = poll.customEmojis[idx];
-        if (assignedEmoji) {
-          try {
-            button.setEmoji(assignedEmoji);
-          } catch (e) {}
-        }
-
-        currentRow.addComponents(button);
+        currentRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`poll_${pollId}_${idx}`)
+            .setLabel(`${idx + 1}. ${label}`)
+            .setStyle(ButtonStyle.Secondary)
+        );
       });
 
       if (currentRow.components.length > 0) {
@@ -189,8 +159,9 @@ module.exports = {
       components: generateComponents()
     });
 
+    // Create a component collector for voting (active for 7 days)
     const collector = pollMessage.createMessageComponentCollector({
-      time: durationMs
+      time: 7 * 24 * 60 * 60 * 1000 
     });
 
     collector.on('collect', async interaction => {
@@ -202,7 +173,7 @@ module.exports = {
 
       const guildData = getGuildData(message.guild.id);
       if (!guildData.polls || !guildData.polls[pollId]) {
-        return interaction.reply({ content: "❌ This poll has expired.", ephemeral: true });
+        return interaction.reply({ content: "❌ This poll no longer exists.", ephemeral: true });
       }
 
       const poll = guildData.polls[pollId];
@@ -211,6 +182,7 @@ module.exports = {
       }
 
       if (poll.isMulti) {
+        // Toggle vote for this option in multi-choice mode
         const voteIdx = poll.votes[userId].indexOf(optionIndex);
         if (voteIdx > -1) {
           poll.votes[userId].splice(voteIdx, 1);
@@ -218,6 +190,7 @@ module.exports = {
           poll.votes[userId].push(optionIndex);
         }
       } else {
+        // Single choice mode: switch or toggle off
         if (poll.votes[userId].length === 1 && poll.votes[userId][0] === optionIndex) {
           poll.votes[userId] = [];
         } else {
@@ -229,12 +202,16 @@ module.exports = {
 
       await interaction.update({
         embeds: [generatePollEmbed()],
-        components: generateComponents(false)
+        components: generateComponents()
       });
     });
 
     collector.on('end', () => {
-      pollMessage.edit({ components: generateComponents(true) }).catch(() => {});
+      const disabledRows = generateComponents().map(row => {
+        row.components.forEach(button => button.setDisabled(true));
+        return row;
+      });
+      pollMessage.edit({ components: disabledRows }).catch(() => {});
     });
   }
 };
