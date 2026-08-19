@@ -237,4 +237,3 @@ module.exports = {
     });
   }
 };
-```[cite: 6]
