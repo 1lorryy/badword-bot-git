@@ -3,25 +3,22 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 module.exports = {
   name: "poll",
   aliases: ["vote", "voting"],
-  description: "Create an interactive poll with single or multiple choice voting, live progress bars, and numbered options.",
+  description: "Create an interactive poll that never expires and works across bot restarts.",
 
   async execute(message, args, prefix, getGuildData, saveData) {
     const argsText = args.join(" ");
 
-    // Check for multi-choice flag
     const isMulti = argsText.includes("--multi") || argsText.includes("-m");
 
     let question = "";
     let options = [];
 
-    // 1. Try extracting quoted strings first (Classic Style)
     const matches = [...argsText.matchAll(/"([^"]+)"/g)].map(m => m[1]);
 
     if (matches.length >= 3) {
       question = matches[0];
       options = matches.slice(1);
     } else {
-      // 2. Fallback to Super Easy Comma Style: ?poll Question? Option 1, Option 2, Option 3
       const qIndex = argsText.indexOf("?");
       if (qIndex !== -1) {
         let rawQ = argsText.substring(0, qIndex + 1).trim();
@@ -41,7 +38,7 @@ module.exports = {
         .setColor(0x2b2d31)
         .setTitle("📊 Poll Command Usage")
         .setDescription(
-          `Create a gorgeous interactive poll instantly!\n\n` +
+          `Create a permanent interactive poll instantly!\n\n` +
           `**Super Easy (Comma Shorthand):**\n` +
           `\`${prefix}poll Favorite game? Pet Simulator 99, Roblox, Minecraft\`\n\n` +
           `**Classic Quotes Style:**\n` +
@@ -59,13 +56,10 @@ module.exports = {
       return message.reply("❌ You can add a maximum of 10 options for a poll.");
     }
 
-    // Delete the user's command message instantly
     await message.delete().catch(() => {});
 
-    // Number emojis for options
     const numberEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 
-    // Initialize poll data structure
     const pollId = Date.now().toString();
     const data = getGuildData(message.guild.id);
     if (!data.polls) data.polls = {};
@@ -73,19 +67,17 @@ module.exports = {
     data.polls[pollId] = {
       question,
       options,
-      votes: {}, // userId: [array of option indices]
+      votes: {},
       isMulti,
       authorTag: message.author.tag,
       createdAt: Date.now()
     };
     saveData(message.guild.id, data);
 
-    // Helper function to generate progress bar & embed
     function generatePollEmbed() {
       const poll = data.polls[pollId];
       const totalVotes = Object.keys(poll.votes).length;
 
-      // Count votes per option
       const counts = new Array(poll.options.length).fill(0);
       for (const userId in poll.votes) {
         const userVotes = poll.votes[userId];
@@ -105,7 +97,6 @@ module.exports = {
         const count = counts[idx];
         const percentage = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
         
-        // Generate visual progress bar (10 blocks)
         const filledBlocks = Math.round((percentage / 100) * 10);
         const emptyBlocks = 10 - filledBlocks;
         const progressBar = "🟩".repeat(filledBlocks) + "⬛".repeat(emptyBlocks);
@@ -128,7 +119,6 @@ module.exports = {
       return embed;
     }
 
-    // Generate action rows (max 5 buttons per row)
     function generateComponents() {
       const poll = data.polls[pollId];
       const rows = [];
@@ -154,68 +144,13 @@ module.exports = {
         rows.push(currentRow);
       }
 
+      rows;
       return rows;
     }
 
-    // Send the poll as a standard channel message (since command message is deleted)
-    const pollMessage = await message.channel.send({
+    await message.channel.send({
       embeds: [generatePollEmbed()],
       components: generateComponents()
-    });
-
-    // Create a component collector for voting (active for 7 days)
-    const collector = pollMessage.createMessageComponentCollector({
-      time: 7 * 24 * 60 * 60 * 1000 
-    });
-
-    collector.on('collect', async interaction => {
-      const customId = interaction.customId;
-      if (!customId.startsWith(`poll_${pollId}_`)) return;
-
-      const optionIndex = parseInt(customId.split("_")[2]);
-      const userId = interaction.user.id;
-
-      const guildData = getGuildData(message.guild.id);
-      if (!guildData.polls || !guildData.polls[pollId]) {
-        return interaction.reply({ content: "❌ This poll no longer exists.", ephemeral: true });
-      }
-
-      const poll = guildData.polls[pollId];
-      if (!poll.votes[userId]) {
-        poll.votes[userId] = [];
-      }
-
-      if (poll.isMulti) {
-        // Toggle vote for this option in multi-choice mode
-        const voteIdx = poll.votes[userId].indexOf(optionIndex);
-        if (voteIdx > -1) {
-          poll.votes[userId].splice(voteIdx, 1);
-        } else {
-          poll.votes[userId].push(optionIndex);
-        }
-      } else {
-        // Single choice mode: switch or toggle off
-        if (poll.votes[userId].length === 1 && poll.votes[userId][0] === optionIndex) {
-          poll.votes[userId] = [];
-        } else {
-          poll.votes[userId] = [optionIndex];
-        }
-      }
-
-      saveData(message.guild.id, guildData);
-
-      await interaction.update({
-        embeds: [generatePollEmbed()],
-        components: generateComponents()
-      });
-    });
-
-    collector.on('end', () => {
-      const disabledRows = generateComponents().map(row => {
-        row.components.forEach(button => button.setDisabled(true));
-        return row;
-      });
-      pollMessage.edit({ components: disabledRows }).catch(() => {});
     });
   }
 };
