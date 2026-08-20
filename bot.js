@@ -1838,8 +1838,6 @@ async function startBot() {
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}!`);
 
-    await registerSlashCommands();
-
     processExpiredTempRoles(client);
 
     setInterval(() => {
