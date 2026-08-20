@@ -17,6 +17,7 @@ const arCommand = require('./commands/ar.js');
 const marriageCommand = require("./commands/marriage.js");
 const adoptionCommand = require("./commands/adoption.js");
 const pollCommand = require("./commands/poll.js");
+const giveawayCommand = require("./commands/giveaway.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -1694,7 +1695,7 @@ async function handleCommands(message, getGuildData) {
       });
     }
 
-    const pageFun = new EmbedBuilder()
+const pageFun = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setTitle("🎮 Fun, Social & Games")
       .setDescription(`Interactive family systems, mini-games, AI, and personal customization. Prefix: \`${prefix}\``)
@@ -1711,14 +1712,15 @@ async function handleCommands(message, getGuildData) {
             `• \`${prefix}family [@user]\` — View family tree`
         },
         {
-          name: "🎲 Games, Polls & Mini-Games",
+          name: "🎲 Games, Polls & Giveaways",
           value:
+            `• \`/giveaway\` — Host an advanced custom giveaway with role & requirement filters\n` +
             `• \`${prefix}poll "Question?" "Opt1" "Opt2" [--multi]\` — Create an interactive poll\n` +
             `• \`${prefix}8ball [question]\` — Ask the magic 8-ball\n` +
             `• \`${prefix}coinflip\` — Flip a coin (Heads or Tails)\n` +
             `• \`${prefix}roll [max]\` — Roll a random number (1-100)\n` +
             `• \`${prefix}rps [rock/paper/scissors]\` — Play Rock Paper Scissors\n` +
-            `• \`${prefix}auction\` / \`${prefix}bid\` — Server auction & bidding engine`
+            `• \`${prefix}auction\` — Server auction & bidding engine`
         },
         {
           name: "🎨 AI & Personalization",
@@ -1861,7 +1863,7 @@ async function startBot() {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-  // ================= INTERACTION LISTENER =================
+// ================= INTERACTION LISTENER =================
   client.on("interactionCreate", async (interaction) => {
     if (interaction.isChatInputCommand()) {
       const funSlashCommands = ['8ball', 'coinflip', 'roll', 'rps', 'ship', 'shop', 'marry', 'divorce', 'marriages', 'adopt', 'daily'];
@@ -1873,6 +1875,10 @@ async function startBot() {
             ephemeral: true
           });
         }
+      }
+
+      if (interaction.commandName === 'giveaway') {
+        return giveawayCommand.execute(interaction, getGuildData, saveData);
       }
 
       if (interaction.commandName === '8ball') {
@@ -2078,6 +2084,40 @@ async function startBot() {
     }
 
     if (interaction.isButton() || interaction.isModalSubmit()) {
+      if (interaction.isButton() && interaction.customId.startsWith("gw_enter_")) {
+        const giveawayId = interaction.customId.split("_")[2];
+        const guildData = getGuildData(interaction.guild.id);
+        
+        if (!guildData.giveaways || !guildData.giveaways[giveawayId]) {
+          return interaction.reply({ content: "❌ This giveaway no longer exists.", ephemeral: true });
+        }
+
+        const gw = guildData.giveaways[giveawayId];
+        if (gw.ended) {
+          return interaction.reply({ content: "❌ This giveaway has already ended!", ephemeral: true });
+        }
+
+        const member = interaction.member;
+
+        if (gw.requiredRoleId && !member.roles.cache.has(gw.requiredRoleId)) {
+          return interaction.reply({ content: `❌ You are missing the required role: <@&${gw.requiredRoleId}> to enter!`, ephemeral: true });
+        }
+
+        if (gw.blacklistedRoleId && member.roles.cache.has(gw.blacklistedRoleId)) {
+          return interaction.reply({ content: `❌ You have a blacklisted role and cannot enter this giveaway.`, ephemeral: true });
+        }
+
+        if (!gw.entries.includes(interaction.user.id)) {
+          gw.entries.push(interaction.user.id);
+          saveData(interaction.guild.id, guildData);
+          return interaction.reply({ content: `🎉 You have successfully entered the giveaway for **${gw.prize}**! Good luck!`, ephemeral: true });
+        } else {
+          gw.entries = gw.entries.filter(id => id !== interaction.user.id);
+          saveData(interaction.guild.id, guildData);
+          return interaction.reply({ content: `📤 You have left the giveaway.`, ephemeral: true });
+        }
+      }
+
       if (
         interaction.customId === "open_hex_modal" ||
         interaction.customId === "hex_color_modal" ||
