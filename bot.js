@@ -1840,7 +1840,6 @@ client.once("ready", () => {
   
   // Initialize and catch up on persistent giveaways after a restart
   initGiveaways(client, getGuildData, saveData);
-});
 
     await registerSlashCommands();
 
