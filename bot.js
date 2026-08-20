@@ -1835,8 +1835,12 @@ async function startBot() {
     ]
   });
 
-  client.once("clientReady", async () => {
-    console.log(`🤖 Logged in as ${client.user.tag}!`);
+client.once("ready", () => {
+  console.log(`Logged in as ${client.user.tag}!`);
+  
+  // Initialize and catch up on persistent giveaways after a restart
+  initGiveaways(client, getGuildData, saveData);
+});
 
     await registerSlashCommands();
 
