@@ -1,0 +1,12 @@
+const { initGiveaways } = require("../commands/giveaway.js"); // Adjust path if your folders are structured differently
+
+module.exports = {
+  name: "ready",
+  once: true,
+  async execute(client, getGuildData, saveData) {
+    console.log(`Ready! Logged in as ${client.user.tag}`);
+    
+    // This wakes up all your pending giveaway timers after a restart/redeploy
+    await initGiveaways(client, getGuildData, saveData);
+  },
+};
