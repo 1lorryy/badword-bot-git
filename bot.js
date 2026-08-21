@@ -2116,6 +2116,97 @@ client.once("ready", () => {
         }
       }
 
+      // === POLL BUTTON HANDLER ===
+      if (interaction.isButton() && interaction.customId.startsWith("poll_")) {
+        const parts = interaction.customId.split("_");
+        const pollId = parts[1];
+        const optionIdx = parseInt(parts[2]);
+
+        const data = getGuildData(interaction.guild.id);
+        if (!data.polls || !data.polls[pollId]) {
+          return interaction.reply({ content: "❌ This poll no longer exists or data was wiped.", ephemeral: true });
+        }
+
+        const poll = data.polls[pollId];
+
+        if (Date.now() > poll.expiresAt) {
+          return interaction.reply({ content: "❌ This poll has already expired and is locked.", ephemeral: true });
+        }
+
+        const userId = interaction.user.id;
+        if (!poll.votes[userId]) {
+          poll.votes[userId] = [];
+        }
+
+        if (poll.isMulti) {
+          const userVotes = poll.votes[userId];
+          const indexInUserVotes = userVotes.indexOf(optionIdx);
+          if (indexInUserVotes > -1) {
+            userVotes.splice(indexInUserVotes, 1);
+          } else {
+            userVotes.push(optionIdx);
+          }
+          if (userVotes.length === 0) {
+            delete poll.votes[userId];
+          }
+        } else {
+          if (poll.votes[userId].includes(optionIdx)) {
+            delete poll.votes[userId];
+          } else {
+            poll.votes[userId] = [optionIdx];
+          }
+        }
+
+        saveData(interaction.guild.id, data);
+
+        const numberEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+        const totalVotes = Object.keys(poll.votes).length;
+        const counts = new Array(poll.options.length).fill(0);
+
+        for (const uId in poll.votes) {
+          const userVotes = poll.votes[uId];
+          if (Array.isArray(userVotes)) {
+            userVotes.forEach(idx => {
+              if (counts[idx] !== undefined) counts[idx]++;
+            });
+          }
+        }
+
+        let description = `**Question:** ${poll.question}\n\n`;
+        if (totalVotes === 0) {
+          description += `*No votes cast yet. Be the first to vote below!*\n\n`;
+        }
+
+        poll.options.forEach((opt, idx) => {
+          const count = counts[idx];
+          const percentage = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+          const filledBlocks = Math.round((percentage / 100) * 10);
+          const emptyBlocks = 10 - filledBlocks;
+          const progressBar = "🟩".repeat(filledBlocks) + "⬛".repeat(emptyBlocks);
+
+          description += `${numberEmojis[idx]} **${opt}**\n`;
+          description += `${progressBar} \`${count} vote${count === 1 ? "" : "s"} (${percentage}%)\`\n\n`;
+        });
+
+        const unixTimestamp = Math.floor(poll.expiresAt / 1000);
+        description += `⏳ **Expires:** <t:${unixTimestamp}:R>`;
+
+        const updatedEmbed = new EmbedBuilder()
+          .setColor(0x5865F2)
+          .setTitle(`📊 Interactive Poll`)
+          .setDescription(description)
+          .addFields(
+            { name: "📋 Vote Type", value: poll.isMulti ? "🔀 Multiple Choice" : "📌 Single Choice", inline: true },
+            { name: "👥 Total Voters", value: `${totalVotes}`, inline: true }
+          )
+          .setFooter({ text: `Poll ID: ${pollId} • Created by ${poll.authorTag}` })
+          .setTimestamp();
+
+        return await interaction.update({
+          embeds: [updatedEmbed]
+        });
+      }
+
       if (
         interaction.customId === "open_hex_modal" ||
         interaction.customId === "hex_color_modal" ||
