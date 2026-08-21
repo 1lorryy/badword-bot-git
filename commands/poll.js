@@ -40,7 +40,7 @@ module.exports = {
         .setDescription(
           `Create a permanent interactive poll instantly!\n\n` +
           `**Super Easy (Comma Shorthand):**\n` +
-          `\`${prefix}poll Favorite game? Pet Simulator 99, Roblox, Minecraft\`\n\n` +
+          `\`${prefix}poll Favorite game? Valorant, Roblox, Minecraft\`\n\n` +
           `**Classic Quotes Style:**\n` +
           `\`${prefix}poll "Question?" "Option 1" "Option 2" [--multi]\`\n\n` +
           `**Optional Flag:** \`--multi\` or \`-m\` for multiple choice`
