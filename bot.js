@@ -2260,12 +2260,13 @@ async function startBot() {
           allowedMentions: { parse: [], repliedUser: true }
         });
       }
-} catch (err) {
+    } catch (err) {
       console.error("Error running inside messageCreate pipeline:", err);
     }
-  });
+  }); // <-- This closing parenthesis and brace closes the messageCreate event properly
 
   await client.login(process.env.DISCORD_TOKEN);
 }
 
 module.exports = { startBot };
+
