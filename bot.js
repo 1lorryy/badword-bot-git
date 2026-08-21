@@ -1837,8 +1837,8 @@ async function startBot() {
     ]
   });
 
-client.once("ready", () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+  client.once("ready", async () => {
+    console.log(`Logged in as ${client.user.tag}!`);
 
     processExpiredTempRoles(client);
 
@@ -1856,12 +1856,21 @@ client.once("ready", () => {
     initTimers(client);
     console.log("⏰ Real-time dynamic timer system initialized.");
 
+    // Initialize active giveaways after restart
+    try {
+      await initGiveaways(client, getGuildData, saveData);
+      console.log("🎉 Giveaway persistence timers initialized.");
+    } catch (err) {
+      console.error("Failed to initialize giveaway timers:", err);
+    }
+
     setInterval(() => {
       checkBirthdays(client, getGuildData, saveData).catch(console.error);
     }, 60 * 60 * 1000);
 
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
+}
 
 // ================= INTERACTION LISTENER =================
   client.on("interactionCreate", async (interaction) => {
