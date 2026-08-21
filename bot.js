@@ -2265,8 +2265,6 @@ async function startBot() {
     }
   }); // <-- This closing parenthesis and brace closes the messageCreate event properly
 
-  await client.login(process.env.DISCORD_TOKEN);
-}
+client.login(process.env.DISCORD_TOKEN).catch(console.error)
 
 module.exports = { startBot };
-
