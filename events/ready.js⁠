@@ -1,4 +1,4 @@
-const { initGiveaways } = require("../commands/giveaway.js"); // Adjust path if your folders are structured differently
+const { initGiveaways } = require("../utils/giveaway.js"); // Adjust if it's in a utils or functions folder
 
 module.exports = {
   name: "ready",
@@ -6,7 +6,15 @@ module.exports = {
   async execute(client, getGuildData, saveData) {
     console.log(`Ready! Logged in as ${client.user.tag}`);
     
-    // This wakes up all your pending giveaway timers after a restart/redeploy
-    await initGiveaways(client, getGuildData, saveData);
+    try {
+      // Ensure the function exists before calling it to prevent hard crashes
+      if (typeof initGiveaways === "function") {
+        await initGiveaways(client, getGuildData, saveData);
+      } else {
+        console.error("initGiveaways is not a valid function export.");
+      }
+    } catch (error) {
+      console.error("Failed to initialize active giveaways:", error);
+    }
   },
 };
