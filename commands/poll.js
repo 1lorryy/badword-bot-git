@@ -1,32 +1,47 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 module.exports = {
   name: "poll",
   aliases: ["vote", "voting"],
-  description: "Create an interactive poll that never expires and works across bot restarts.",
+  description: "Create an interactive poll with custom expiration that works across bot restarts.",
 
   async execute(message, args, prefix, getGuildData, saveData) {
     const argsText = args.join(" ");
 
     const isMulti = argsText.includes("--multi") || argsText.includes("-m");
 
+    // Parse time flag e.g. --time 12h, --time 2d, --time 30m (Default: 24h)
+    let durationMs = 24 * 60 * 60 * 1000; 
+    const timeMatch = argsText.match(/--(?:time|t)\s+(\d+)([hdm])/i);
+    if (timeMatch) {
+      const value = parseInt(timeMatch[1]);
+      const unit = timeMatch[2].toLowerCase();
+      if (unit === 'm') durationMs = value * 60 * 1000;
+      else if (unit === 'h') durationMs = value * 60 * 60 * 1000;
+      else if (unit === 'd') durationMs = value * 24 * 60 * 60 * 1000;
+    }
+
+    // Clean text for parsing question and options
+    const cleanedArgs = argsText
+      .replace(/(--multi|-m)/g, "")
+      .replace(/--(?:time|t)\s+\d+[hdm]/gi, "")
+      .trim();
+
     let question = "";
     let options = [];
 
-    const matches = [...argsText.matchAll(/"([^"]+)"/g)].map(m => m[1]);
+    const matches = [...cleanedArgs.matchAll(/"([^"]+)"/g)].map(m => m[1]);
 
     if (matches.length >= 3) {
       question = matches[0];
       options = matches.slice(1);
     } else {
-      const qIndex = argsText.indexOf("?");
+      const qIndex = cleanedArgs.indexOf("?");
       if (qIndex !== -1) {
-        let rawQ = argsText.substring(0, qIndex + 1).trim();
-        question = rawQ.replace(/(--multi|-m)/g, "").trim();
+        let rawQ = cleanedArgs.substring(0, qIndex + 1).trim();
+        question = rawQ;
 
-        let remainder = argsText.substring(qIndex + 1).trim();
-        remainder = remainder.replace(/(--multi|-m)/g, "").trim();
-
+        let remainder = cleanedArgs.substring(qIndex + 1).trim();
         if (remainder.includes(",")) {
           options = remainder.split(",").map(opt => opt.trim()).filter(opt => opt.length > 0);
         }
@@ -38,17 +53,17 @@ module.exports = {
         .setColor(0x2b2d31)
         .setTitle("📊 Poll Command Usage")
         .setDescription(
-          `Create a permanent interactive poll instantly!\n\n` +
-          `**Super Easy (Comma Shorthand):**\n` +
-          `\`${prefix}poll Favorite game? Valorant, Roblox, Minecraft\`\n\n` +
-          `**Classic Quotes Style:**\n` +
-          `\`${prefix}poll "Question?" "Option 1" "Option 2" [--multi]\`\n\n` +
-          `**Optional Flag:** \`--multi\` or \`-m\` for multiple choice`
+          `Create a permanent interactive poll with a timer!\n\n` +
+          `**Shorthand with Time:**\n` +
+          `\`${prefix}poll Favorite game? Valorant, Roblox, Minecraft --time 12h\`\n\n` +
+          `**Quotes Style:**\n` +
+          `\`${prefix}poll "Question?" "Opt 1" "Opt 2" --multi --time 2d\`\n\n` +
+          `**Flags:** \`--multi\` / \`-m\` (multiple choice) | \`--time\` or \`-t\` ([number]h/d/m)`
         )
-        .setFooter({ text: "Tip: Just use a question mark after your question and commas for options!" });
+        .setFooter({ text: "Tip: Time units are h (hours), d (days), m (minutes). Default is 24h." });
 
       const reply = await message.reply({ embeds: [usageEmbed] });
-      setTimeout(() => reply.delete().catch(() => {}), 15000);
+      setTimeout(() => reply.delete().catch(() => {}), 20000);
       return;
     }
 
@@ -59,26 +74,28 @@ module.exports = {
     await message.delete().catch(() => {});
 
     const numberEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
-
     const pollId = Date.now().toString();
     const data = getGuildData(message.guild.id);
     if (!data.polls) data.polls = {};
 
+    const now = Date.now();
     data.polls[pollId] = {
       question,
       options,
       votes: {},
       isMulti,
       authorTag: message.author.tag,
-      createdAt: Date.now()
+      createdAt: now,
+      expiresAt: now + durationMs
     };
     saveData(message.guild.id, data);
 
-    function generatePollEmbed() {
-      const poll = data.polls[pollId];
-      const totalVotes = Object.keys(poll.votes).length;
+    const poll = data.polls[pollId];
 
+    function generatePollEmbed() {
+      const totalVotes = Object.keys(poll.votes).length;
       const counts = new Array(poll.options.length).fill(0);
+      
       for (const userId in poll.votes) {
         const userVotes = poll.votes[userId];
         if (Array.isArray(userVotes)) {
@@ -87,6 +104,8 @@ module.exports = {
           });
         }
       }
+
+      const isExpired = Date.now() > poll.expiresAt;
 
       let description = `**Question:** ${poll.question}\n\n`;
       if (totalVotes === 0) {
@@ -105,9 +124,16 @@ module.exports = {
         description += `${progressBar} \`${count} vote${count === 1 ? "" : "s"} (${percentage}%)\`\n\n`;
       });
 
-      const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setTitle(`📊 Interactive Poll`)
+      if (isExpired) {
+        description += `🔒 **This poll has ended.**`;
+      } else {
+        const unixTimestamp = Math.floor(poll.expiresAt / 1000);
+        description += `⏳ **Expires:** <t:${unixTimestamp}:R>`;
+      }
+
+      return new EmbedBuilder()
+        .setColor(isExpired ? 0xED4245 : 0x5865F2)
+        .setTitle(`📊 Interactive Poll ${isExpired ? "(Closed)" : ""}`)
         .setDescription(description)
         .addFields(
           { name: "📋 Vote Type", value: poll.isMulti ? "🔀 Multiple Choice" : "📌 Single Choice", inline: true },
@@ -115,12 +141,10 @@ module.exports = {
         )
         .setFooter({ text: `Poll ID: ${pollId} • Created by ${poll.authorTag}` })
         .setTimestamp();
-
-      return embed;
     }
 
     function generateComponents() {
-      const poll = data.polls[pollId];
+      const isExpired = Date.now() > poll.expiresAt;
       const rows = [];
       let currentRow = new ActionRowBuilder();
 
@@ -137,6 +161,7 @@ module.exports = {
             .setCustomId(`poll_${pollId}_${idx}`)
             .setLabel(`${idx + 1}. ${label}`)
             .setStyle(ButtonStyle.Secondary)
+            .setDisabled(isExpired)
         );
       });
 
@@ -144,7 +169,6 @@ module.exports = {
         rows.push(currentRow);
       }
 
-      rows;
       return rows;
     }
 
