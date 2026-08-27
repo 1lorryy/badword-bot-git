@@ -2,7 +2,7 @@ const { PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 
 const BIRTHDAY_ROLE_ID = "1512121400624812072";
 const ALLOWED_CHANNELS = ["1481370051264254259", "1481370050597228656", "1499888577738309633"];
-const BDAY_ANNOUNCE_CHANNEL_ID = "1481370051264254259";
+const BDAY_ANNOUNCE_CHANNEL_ID = "1481561361044607047"; // Updated to general chat channel ID[cite: 5]
 
 let processedToday = new Set();
 let lastKey = null;
