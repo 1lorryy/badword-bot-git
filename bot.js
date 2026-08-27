@@ -18,6 +18,7 @@ const marriageCommand = require("./commands/marriage.js");
 const adoptionCommand = require("./commands/adoption.js");
 const pollCommand = require("./commands/poll.js");
 const giveawayCommand = require("./commands/giveaway.js");
+const { handleRoleCommand } = require("./commands/role.js");
 
 const snipes = {};
 const fs = require("fs");
