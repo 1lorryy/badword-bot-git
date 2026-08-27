@@ -1573,6 +1573,10 @@ async function handleCommands(message, getGuildData) {
     return message.reply({ embeds: [embed] });
   }
 
+  if (command === "role") {
+    return handleRoleCommand(message, args);
+  }
+
   if (command === "help") {
     if (!canManageGuild(message)) {
       const reply = await message.reply("❌ The help command is restricted to server staff.");
