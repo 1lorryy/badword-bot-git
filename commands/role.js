@@ -17,13 +17,25 @@ async function handleRoleCommand(message, args) {
         });
     }
 
-    // Get the mentioned member and role from the message
+    // Get the mentioned member
     const targetMember = message.mentions.members.first();
-    const roleToToggle = message.mentions.roles.first();
+
+    // Get the role: Check if a role was pinged first, otherwise search by name using the text arguments
+    let roleToToggle = message.mentions.roles.first();
+    
+    if (!roleToToggle && targetMember && args.length > 1) {
+        // Join all arguments after the user mention and strip out the user ping string to get the raw role name
+        const roleQuery = args.slice(1).join(" ").replace(/<@!?\d+>/g, "").trim().toLowerCase();
+        
+        // Search the guild roles by name (case-insensitive) or exact ID match
+        roleToToggle = message.guild.roles.cache.find(role => 
+            role.name.toLowerCase() === roleQuery || role.id === roleQuery
+        );
+    }
 
     if (!targetMember || !roleToToggle) {
         return message.reply({ 
-            content: "⚠️ Please mention a user and a role. \nUsage: `?role @user @role`", 
+            content: "⚠️ Please mention a user and provide a valid role name or ping.\nUsage: `?role @user Role Name` or `?role @user @role`", 
             allowedMentions: { repliedUser: false } 
         });
     }
