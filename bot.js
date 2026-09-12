@@ -30,7 +30,6 @@ const {
   GatewayIntentBits,
   PermissionsBitField,
   EmbedBuilder,
-  ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   StringSelectMenuBuilder,
