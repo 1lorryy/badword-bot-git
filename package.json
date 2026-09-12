@@ -16,5 +16,7 @@
     "express-session": "^1.19.0",
     "jimp": "^0.22.12",
     "openai": "latest"
-  }
+  },
+  "dependencies": {
+  "discord.js": "^14.14.0"
 }
