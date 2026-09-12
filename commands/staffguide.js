@@ -7,97 +7,91 @@ const STAFF_GUIDE_FILE = process.env.STAFF_GUIDE_FILE || path.join(__dirname, ".
 const defaultGuideData = {
   title: "🛡️ Don Don Complete Command & Staff Operations Guide",
   color: "#5865F2",
-  intro: "Complete manual for all moderation, security, utility, auto-responder, and fun systems.\n═══════════════════════════════════\n",
+  intro: "Complete manual for all moderation, security, utility, auto-responder, and fun systems.\n═══════════════════════════════════",
   categories: [
     {
-      name: "🛡️ **Moderation & Punishments**",
+      name: "🛡️ Moderation & Punishments",
       commands: [
-        "• `?warn @user [reason]` — Issue an official warning",
-        "• `?warnings [@user]` — Check warn history with dynamic timestamps & page jump",
-        "• `?unwarn @user [warn_id]` — Remove a specific warning",
-        "• `?clearwarns @user` — Clear all warnings for a user",
-        "• `?mute @user [time] [reason]` — Timeout user (e.g. `5m`, `30m`, `12h`)",
-        "• `?unmute @user` — Remove an active timeout",
+        "• `?warn @user [reason]` — Issue official warning",
+        "• `?warnings [@user]` — Check warn history",
+        "• `?unwarn @user [id]` — Remove specific warning",
+        "• `?clearwarns @user` — Clear all warnings",
+        "• `?mute @user [time] [reason]` — Timeout user",
+        "• `?unmute @user` — Remove active timeout",
         "• `?kick @user [reason]` — Kick user from server",
-        "• `?ban @user [reason]` — Ban user & purge recent messages",
-        "• `?softban @user [reason]` — Kick user & wipe 7 days of message history",
-        "• `?unban [user_id]` — Unban user using their Discord ID",
-        "• `?modstats [@staff]` — Check moderator action statistics",
-        "• `?modlogs [@user]` — View recent moderation log entries"
+        "• `?ban @user [reason]` — Ban user & purge messages",
+        "• `?softban @user [reason]` — Kick & wipe 7 days",
+        "• `?unban [user_id]` — Unban using Discord ID",
+        "• `?modstats [@staff]` — Check action statistics",
+        "• `?modlogs [@user]` — View recent mod logs"
       ]
     },
     {
-      name: "🔒 **Security & Verification Controls**",
+      name: "🔒 Security & Verification Controls",
       commands: [
-        "• `?verify settings` — Check current anti-raid security configuration",
-        "• `?verify scan @user` — Scan an account's risk score and creation age",
-        "• `?verify massscan` — Scan all unverified members in bulk",
-        "• `?verify verifiedrole [role]` — Set the server's official verified role",
-        "• `?verify unverifiedrole [role]` — Set the unverified quarantine role",
-        "• `?verify trusteddays [days]` — Set minimum account creation age threshold",
-        "• `?verify autoban [on/off]` — Toggle automatic ban on join for risky accounts",
-        "• `?verify autokick [on/off]` — Toggle automatic kick on join"
+        "• `?verify settings` — Check anti-raid config",
+        "• `?verify scan @user` — Scan risk score & age",
+        "• `?verify massscan` — Scan unverified bulk",
+        "• `?verify verifiedrole [role]` — Set verified role",
+        "• `?verify unverifiedrole [role]` — Set quarantine role",
+        "• `?verify trusteddays [days]` — Set min account age",
+        "• `?verify autoban [on/off]` — Toggle auto-ban",
+        "• `?verify autokick [on/off]` — Toggle auto-kick"
       ]
     },
     {
-      name: "⚙️ **Chat, Roles & Channel Management**",
+      name: "⚙️ Chat, Roles & Channel Management",
       commands: [
-        "• `?purge [1-100]` — Bulk delete recent messages",
-        "• `?purge @user [1-100]` — Delete messages from a specific user",
-        "• `?purge bots [1-100]` — Clean up bot messages",
-        "• `?purge links [1-100]` — Delete messages containing links",
-        "• `?role @user [role]` — Add or remove a role from a user (No Pings)",
-        "• `?temprole @user [time] [role]` — Give temporary role (Auto-removes across restarts)",
-        "• `?rolecreate [role_name] [color_hex]` — Create a new server role",
-        "• `?roleicon @role <image/URL/emoji>` — Set or update a role's icon",
-        "• `?rename <new-name>` — Rename ticket channels",
-        "• `?setnick @user [new_nickname]` — Change a user's server nickname",
-        "• `?slowmode [#channel] [time]` — Set channel slowmode (e.g. `5s` or `off`)"
+        "• `?purge [1-100]` — Bulk delete messages",
+        "• `?purge @user [1-100]` — Delete user messages",
+        "• `?purge bots [1-100]` — Clean bot messages",
+        "• `?role @user [role]` — Add/remove role safely",
+        "• `?temprole @user [time] [role]` — Temporary role",
+        "• `?rolecreate [name] [color]` — Create new role",
+        "• `?roleicon @role [icon]` — Set/update role icon",
+        "• `?rename [name]` — Rename ticket channels",
+        "• `?setnick @user [nick]` — Change nickname",
+        "• `?slowmode [#channel] [time]` — Set slowmode"
       ]
     },
     {
-      name: "🤖 **Autoresponders & Blacklist Automation**",
+      name: "🤖 Autoresponders & Blacklists",
       commands: [
-        "• `?ar add [trigger] [response] + [image]` — Create custom text, emoji, or GIF auto-response",
-        "• `?ar remove [trigger]` — Delete an active auto-response trigger",
-        "• `?ar list` — View all active server auto-responses",
-        "• `?bl [word]` — Add a word to auto-blacklist",
-        "• `?unbl [word]` — Remove a word from blacklist",
-        "• `?words` — View all blacklisted words"
+        "• `?ar add [trigger] [response]` — Create response",
+        "• `?ar remove [trigger]` — Delete response",
+        "• `?ar list` — View all auto-responses",
+        "• `?bl [word]` — Add word to blacklist",
+        "• `?unbl [word]` — Remove word from blacklist",
+        "• `?words` — View blacklisted words"
       ]
     },
     {
-      name: "🛠️ **Utilities & General Tools**",
+      name: "🛠️ Utilities & General Tools",
       commands: [
-        "• `?help` — Open interactive button command center",
-        "• `?afk [reason]` / `?afk global` — Set AFK status (Survives redeploys)",
-        "• `?translate [lang] [text]` — Translate message content",
-        "• `?timer [time] [label]` — Set a countdown timer",
-        "• `?birthday` / `?bday` — Set your birthday (`#commands` only)",
-        "• `?snipe` / `?snipes` — View recently deleted messages",
-        "• `?joininfo [@user]` — View join placement, milestone tier, and timezone",
-        "• `?tz [zone]` — Set or view personal timezone (e.g. `EST`, `UTC+2`)"
+        "• `?help` — Interactive command center",
+        "• `?afk [reason]` — Set AFK status",
+        "• `?translate [lang] [text]` — Translate message",
+        "• `?timer [time] [label]` — Set countdown timer",
+        "• `?birthday` — Set your birthday",
+        "• `?snipe` — View deleted messages",
+        "• `?joininfo [@user]` — View join placement",
+        "• `?tz [zone]` — Set personal timezone",
+        "• `?status` — Check system performance"
       ]
     },
     {
-      name: "🎮 **Fun, Social & Games**",
+      name: "🎮 Fun, Social & Games",
       commands: [
-        "• `?marry @user [ring]` — Propose to a member with custom rings from inventory",
-        "• `?divorce [@user]` — End a marriage (30-day cooldown applies)",
-        "• `?marriages` — View server marriage records",
-        "• `?ship @user1 [@user2]` — Calculate love match compatibility",
-        "• `?adopt @user` — Adopt a child into your family tree",
-        "• `?disown @user` — Disown a family child",
-        "• `?family [@user]` — View full interactive family tree",
-        "• `?8ball [question]` — Ask the magic 8-ball",
-        "• `?coinflip` — Flip a coin (Heads or Tails)",
-        "• `?roll [max]` — Roll a random number (1-100)",
-        "• `?rps [rock/paper/scissors]` — Play Rock Paper Scissors",
-        "• `?auction` / `?bid` — Server auction & bidding engine",
-        "• `?ai [prompt]` — Chat with the OpenAI bot engine",
-        "• `?customcolor` / `?color` — Open interactive custom hex color studio",
-        "• `?staffguide` — Show this command manual",
-        "• `?staffguidedit <message_id> [new_text]` — Edit guide content"
+        "• `?marry @user [ring]` — Propose to member",
+        "• `?divorce [@user]` — End a marriage",
+        "• `?marriages` — View server marriages",
+        "• `?ship @user1 [@user2]` — Love match test",
+        "• `?adopt @user` / `?disown` — Family system",
+        "• `?family [@user]` — Interactive family tree",
+        "• `?8ball` / `?coinflip` / `?roll` — Minigames",
+        "• `?rps` / `?auction` — Play games & bid",
+        "• `?ai [prompt]` — Chat with OpenAI engine",
+        "• `?customcolor` — Open hex color studio"
       ]
     }
   ]
@@ -139,7 +133,7 @@ function saveStaffGuide(data) {
 
 module.exports = {
   name: "staffguide",
-  description: "Displays complete server guidelines and command manual edited from the dashboard",
+  description: "Displays complete server guidelines and command manual",
   async execute(message, args) {
     try {
       await message.delete().catch(() => null);
@@ -153,41 +147,32 @@ module.exports = {
       const hexColor = parseInt((guideData.color || "#5865F2").replace("#", ""), 16);
       const parsedColor = isNaN(hexColor) ? 0x5865f2 : hexColor;
 
-      let embeds = [];
-      let components = [];
+      const embed = new EmbedBuilder()
+        .setColor(parsedColor)
+        .setTitle(guideData.title || "🛡️ Don Don Complete Command & Staff Operations Guide")
+        .setDescription(guideData.intro || "")
+        .setFooter({ text: "Don Don Staff Operations • Complete Command Manual" })
+        .setTimestamp();
 
+      // Load all categories safely into single message fields
       if (guideData.categories && Array.isArray(guideData.categories)) {
-        guideData.categories.forEach((category, index) => {
-          let categoryDesc = "";
-          if (index === 0 && guideData.intro) {
-            categoryDesc += guideData.intro + "\n";
-          }
-          categoryDesc += `${category.name}\n` + category.commands.join("\n");
-
-          const embed = new EmbedBuilder()
-            .setColor(parsedColor)
-            .setTitle(index === 0 ? (guideData.title || "🛡️ Don Don Guide") : `${guideData.title || "🛡️ Don Don Guide"} (${category.name.replace(/[*_]/g, "").trim()})`)
-            .setDescription(categoryDesc)
-            .setFooter({ text: `Don Don Staff Operations • Category ${index + 1} of ${guideData.categories.length}` })
-            .setTimestamp();
-
-          embeds.push(embed);
-
-          // Add an "Edit Category" button directly beneath its respective embed card!
-          const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId(`edit_guide_${index}`)
-              .setLabel(`✏️ Edit Category ${index + 1}`)
-              .setStyle(ButtonStyle.Primary)
-          );
-          components.push(row);
+        guideData.categories.forEach((category) => {
+          embed.addFields({
+            name: category.name,
+            value: category.commands.join("\n"),
+            inline: false
+          });
         });
       }
 
-      // Send each category embed with its own edit button row
-      for (let i = 0; i < embeds.length; i++) {
-        await message.channel.send({ embeds: [embeds[i]], components: [components[i]] });
-      }
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("edit_main_guide")
+          .setLabel("✏️ Edit Guide Title/Intro")
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      return message.channel.send({ embeds: [embed], components: [row] });
 
     } catch (error) {
       console.error("Error executing staffguide command:", error);
@@ -195,75 +180,55 @@ module.exports = {
     }
   },
 
-  // Handle interaction events for buttons and modals
   async handleInteraction(interaction) {
     if (!interaction.isButton() && !interaction.isModalSubmit()) return;
 
-    // Check if it's an edit button click
-    if (interaction.isButton() && interaction.customId.startsWith("edit_guide_")) {
+    if (interaction.isButton() && interaction.customId === "edit_main_guide") {
       if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({ content: "❌ Administrator permission required.", ephemeral: true });
       }
 
-      const index = parseInt(interaction.customId.split("_")[2]);
       const guideData = loadStaffGuide();
-      const category = guideData.categories[index];
-
-      if (!category) {
-        return interaction.reply({ content: "❌ Category not found.", ephemeral: true });
-      }
-
-      // Create a pop-up form (Modal) with two distinct boards/fields: 
-      // Field 1: Category Name (the title board)
-      // Field 2: Command List (the explanation/content board)
+      
       const modal = new ModalBuilder()
-        .setCustomId(`modal_edit_guide_${index}`)
-        .setTitle(`Editing: Category ${index + 1}`);
+        .setCustomId("modal_edit_main_guide")
+        .setTitle("Edit Guide Header");
 
-      const nameInput = new TextInputBuilder()
-        .setCustomId("category_name")
-        .setLabel("Category Title / Header")
+      const titleInput = new TextInputBuilder()
+        .setCustomId("guide_title")
+        .setLabel("Main Guide Title")
         .setStyle(TextInputStyle.Short)
-        .setValue(category.name)
+        .setValue(guideData.title || "")
         .setRequired(true);
 
-      const commandsInput = new TextInputBuilder()
-        .setCustomId("category_commands")
-        .setLabel("Commands / Explanation List (One per line)")
+      const introInput = new TextInputBuilder()
+        .setCustomId("guide_intro")
+        .setLabel("Introductory Description Text")
         .setStyle(TextInputStyle.Paragraph)
-        .setValue(category.commands.join("\n"))
+        .setValue(guideData.intro || "")
         .setRequired(true);
 
       modal.addComponents(
-        new ActionRowBuilder().addComponents(nameInput),
-        new ActionRowBuilder().addComponents(commandsInput)
+        new ActionRowBuilder().addComponents(titleInput),
+        new ActionRowBuilder().addComponents(introInput)
       );
 
       await interaction.showModal(modal);
     }
 
-    // Handle when they click Save/Submit on the form popup
-    if (interaction.isModalSubmit() && interaction.customId.startsWith("modal_edit_guide_")) {
-      const index = parseInt(interaction.customId.split("_")[3]);
-      const newName = interaction.fields.getTextInputValue("category_name");
-      const newCommandsRaw = interaction.fields.getTextInputValue("category_commands");
+    if (interaction.isModalSubmit() && interaction.customId === "modal_edit_main_guide") {
+      const newTitle = interaction.fields.getTextInputValue("guide_title");
+      const newIntro = interaction.fields.getTextInputValue("guide_intro");
 
       const guideData = loadStaffGuide();
-      if (guideData.categories[index]) {
-        guideData.categories[index].name = newName;
-        // Split text block back into an array by lines, filtering out empty lines
-        guideData.categories.updateCommands = true; 
-        guideData.categories[index].commands = newCommandsRaw.split("\n").filter(c => c.trim().length > 0);
-        
-        saveStaffGuide(guideData);
+      guideData.title = newTitle;
+      guideData.intro = newIntro;
+      saveStaffGuide(guideData);
 
-        await interaction.reply({ 
-          content: `✅ **Successfully updated Category ${index + 1}!** Re-run \`?staffguide\` to refresh the manual.`, 
-          ephemeral: true 
-        });
-      } else {
-        await interaction.reply({ content: "❌ Error: Category index mismatch.", ephemeral: true });
-      }
+      await interaction.reply({ 
+        content: `✅ **Guide updated successfully!** Re-run \`?staffguide\` to refresh the embed.`, 
+        ephemeral: true 
+      });
     }
   }
 };
