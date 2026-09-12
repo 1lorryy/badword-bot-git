@@ -48,7 +48,7 @@ const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json
 const DEFAULT_PREFIX = process.env.DEFAULT_PREFIX || "?";
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || "1492845794192134245";
 const BAN_TARGET_CHANNEL_ID = "1492845794192134245";
-const ADMIN_APPEAL_ROLE_ID = "1481370041441189959";
+const ADMIN_APPEAL_ROLE_ID = "";
 
 // Dedicated Category & Channel Configuration
 const SUPPORT_TICKET_CATEGORY_ID = "1481939936964775946";
