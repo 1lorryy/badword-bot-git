@@ -1092,6 +1092,35 @@ async function handleCommands(message, getGuildData) {
     return message.reply(`✅ Removed warning \`${warnId}\` from ${member.user.tag}`);
   }
 
+  // ================= NEW: CLEARALL WARNS COMMAND =================
+  if (command === "clearwarns" || command === "resetwarns") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission to clear user warnings.");
+    const member = await findTargetMember(message, args);
+    if (!member) return message.reply(`Usage: \`${prefix}clearwarns @user\``);
+
+    const userWarnings = data.warnings[member.id] || [];
+    if (userWarnings.length === 0) {
+      return message.reply(`ℹ️ **${member.user.tag}** doesn't have any warnings to clear.`);
+    }
+
+    const warningCount = userWarnings.length;
+    data.warnings[member.id] = [];
+    saveData();
+
+    const embed = new EmbedBuilder()
+      .setTitle("🧹 All Warnings Cleared")
+      .setColor(0x22c55e)
+      .setDescription(`Successfully wiped **${warningCount}** warning record(s) for **${member.user.tag}**.`)
+      .addFields(
+        { name: "👤 Target User", value: `${member} \`(${member.id})\``, inline: true },
+        { name: "🛡️ Cleared By", value: `${message.author} \`(${message.author.id})\``, inline: true }
+      )
+      .setTimestamp();
+
+    await sendModLog(embed);
+    return message.reply({ embeds: [embed] });
+  }
+
   if (command === "setnick") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames)) {
@@ -1672,7 +1701,8 @@ async function handleCommands(message, getGuildData) {
           value:
             `• \`${prefix}warn @user [reason]\` — Issue a warning (now updated with gorgeous new embeds!)\n` +
             `• \`${prefix}warnings [@user]\` — View warn history & interactive edit dropdowns!\n` +
-            `• \`${prefix}unwarn @user [id]\` — Clear warning\n` +
+            `• \`${prefix}unwarn @user [id]\` — Clear specific warning by ID\n` +
+            `• \`${prefix}clearwarns @user\` — Clear ALL warnings for a user at once ✨\n` +
             `• \`${prefix}mute @user [time] [reason]\` — Timeout user\n` +
             `• \`${prefix}unmute @user\` — Remove timeout\n` +
             `• \`${prefix}kick @user [reason]\` — Kick member\n` +
