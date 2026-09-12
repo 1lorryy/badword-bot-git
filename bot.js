@@ -348,13 +348,13 @@ async function sendAutomodLog(message, word) {
   await log.send({ embeds: [embed] }).catch(() => null);
 }
 
-async function sendModLog(embed, targetChannelId = LOG_CHANNEL_ID) {
+async function sendModLog(embed, targetChannelId = LOG_CHANNEL_ID, content = undefined) {
   const log = await client.channels
     .fetch(targetChannelId)
     .catch(() => null);
   if (!log || !log.isTextBased()) return;
 
-  await log.send({ embeds: [embed] }).catch(() => null);
+  await log.send({ content, embeds: [embed] }).catch(() => null);
 }
 
 const globalContexts = [
@@ -1276,7 +1276,7 @@ if (command === "warn") {
     const reason = args.slice(1).join(" ") || "No reason specified";
 
     try {
-      // Create a cool DM embed for the banned user
+      // Create a cool DM embed for the banned user including instructions for appealing
       const banDmEmbed = new EmbedBuilder()
         .setTitle("🔨 You Have Been Banned")
         .setColor(0xef4444)
@@ -1314,8 +1314,8 @@ if (command === "warn") {
         )
         .setTimestamp();
       
-      // Send directly to the specified BAN_TARGET_CHANNEL_ID (1492845794192134245)
-      await sendModLog(logEmbed, BAN_TARGET_CHANNEL_ID);
+      // Send directly to the specified BAN_TARGET_CHANNEL_ID (1492845794192134245) with the admin role ping
+      await sendModLog(logEmbed, BAN_TARGET_CHANNEL_ID, `<@&${ADMIN_APPEAL_ROLE_ID}>`);
 
       return message.reply(`🔨 **Banned** ${member.user.tag} and wiped their recent messages.`);
     } catch (err) {
