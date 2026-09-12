@@ -10,13 +10,11 @@
   "dependencies": {
     "@vitalets/google-translate-api": "^9.2.0",
     "chroma-js": "^2.4.2",
-    "discord.js": "^14.26.2",
+    "discord.js": "^14.14.0",
     "dotenv": "^17.4.1",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "jimp": "^0.22.12",
     "openai": "latest"
-  },
-  "dependencies": {
-  "discord.js": "^14.14.0"
+  }
 }
