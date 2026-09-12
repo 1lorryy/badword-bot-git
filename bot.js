@@ -2049,13 +2049,12 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    // 2. Handle Ban Appeal Button (Opens the Modal)
+// 2. Handle Ban Appeal Button (Opens the Modal)
     if (interaction.isButton() && interaction.customId === 'open_appeal_modal') {
         const modal = new ModalBuilder()
             .setCustomId('ban_appeal_modal_submit')
             .setTitle('Formal Server Ban Appeal');
 
-        // Professional Question 1: Incident breakdown
         const q1 = new TextInputBuilder()
             .setCustomId('appeal_reason_why')
             .setLabel('1. Describe the events leading up to your ban.')
@@ -2063,7 +2062,6 @@ client.on("interactionCreate", async (interaction) => {
             .setPlaceholder('Explain objectively what happened from your perspective.')
             .setRequired(true);
 
-        // Professional Question 2: Accountability & Remorse
         const q2 = new TextInputBuilder()
             .setCustomId('appeal_accountability')
             .setLabel('2. Do you acknowledge your rule violation?')
@@ -2071,7 +2069,6 @@ client.on("interactionCreate", async (interaction) => {
             .setPlaceholder('Reflect on your actions and how they impacted the community.')
             .setRequired(true);
 
-        // Professional Question 3: Future conduct plan
         const q3 = new TextInputBuilder()
             .setCustomId('appeal_future_plan')
             .setLabel('3. What will you do differently if unbanned?')
