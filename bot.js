@@ -931,28 +931,31 @@ async function handleCommands(message, getGuildData) {
     saveData();
 
     const embed = new EmbedBuilder()
-      .setTitle("⚠️ User Warned")
-      .setColor(0xf59e0b)
+      .setAuthor({ name: "⚠️ User Warning Issued", iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+      .setColor(0xfbbf24)
+      .setDescription(`A warning has been successfully logged for **${member.user.tag}**.`)
       .addFields(
-        { name: "User", value: `${member.user.tag}`, inline: true },
-        { name: "Moderator", value: `${message.author.tag}`, inline: true },
-        { name: "Reason", value: reason, inline: false },
-        { name: "Warn ID", value: `\`${warnId}\``, inline: true }
+        { name: "👤 Target User", value: `${member} \`(${member.id})\``, inline: false },
+        { name: "🛡️ Moderator", value: `${message.author} \`(${message.author.id})\``, inline: false },
+        { name: "📝 Reason", value: `> ${reason}`, inline: false },
+        { name: "🆔 Warning ID", value: `\`${warnId}\``, inline: true }
       )
+      .setFooter({ text: "Don Don Security System", iconURL: message.guild.iconURL({ dynamic: true }) })
       .setTimestamp();
+      
     await sendModLog(embed);
     await member.send({ embeds: [embed] }).catch(() => null);
 
-    return message.reply(`✅ Warned ${member.user.tag}\nWarn ID: \`${warnId}\``);
+    return message.reply({ embeds: [embed] });
   }
 
   if (command === "warnings") {
     const member = await findTargetMember(message, args) || message.member;
     const warnings = data.warnings[member.id] || [];
 
-    if (!warnings.length) return message.reply(`${member.user.tag} has no warnings.`);
+    if (!warnings.length) return message.reply(`✨ **${member.user.tag}** has a clean record with no warnings.`);
 
-    const perPage = 5;
+    const perPage = 3; // Updated to show 3 warnings per page to prevent flooding
     const totalPages = Math.ceil(warnings.length / perPage);
     let currentPage = 0;
 
@@ -963,22 +966,29 @@ async function handleCommands(message, getGuildData) {
       const description = current
         .map((w, i) => {
           const unixTime = w.date ? Math.floor(new Date(w.date).getTime() / 1000) : null;
-          const timeString = unixTime ? ` • <t:${unixTime}:R>` : "";
-          return `**#${start + i + 1}** ID: \`${w.id}\`${timeString} • By: <@${w.mod}>\n└ **Reason:** ${w.reason}`;
+          const timeString = unixTime ? `• <t:${unixTime}:R>` : "";
+          return `🔹 **Case #${start + i + 1}** ${timeString}\n` +
+                 `> 🆔 **ID:** \`${w.id}\`\n` +
+                 `> 🛡️ **Moderator:** <@${w.mod}>\n` +
+                 `> 📌 **Reason:** ${w.reason}`;
         })
         .join("\n\n");
 
       return new EmbedBuilder()
-        .setTitle(`⚠️ Warnings Record • ${member.user.tag}`)
-        .setColor(0xf59e0b)
-        .setDescription(description || "*No warnings on this page.*")
-        .setFooter({ text: `Page ${page + 1}/${totalPages} • Total Logs: ${warnings.length}\n💡 Tip: You can type a page number directly to jump!` });
+        .setAuthor({ name: `⚠️ Warning Records — ${member.user.tag}`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+        .setColor(0xfbbf24)
+        .setDescription(description || "*No warnings found on this page.*")
+        .addFields(
+          { name: "📊 Total Offenses", value: `\`${warnings.length}\` warning(s) registered`, inline: true }
+        )
+        .setFooter({ text: `Page ${page + 1} of ${totalPages} • Type page number to jump` })
+        .setTimestamp();
     };
 
     const generateWarningButtons = (page) => {
       return new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("prev_warn_page").setLabel("⬅️").setStyle(ButtonStyle.Primary).setDisabled(page === 0),
-        new ButtonBuilder().setCustomId("next_warn_page").setLabel("➡️").setStyle(ButtonStyle.Primary).setDisabled(page === totalPages - 1)
+        new ButtonBuilder().setCustomId("prev_warn_page").setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId("next_warn_page").setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(page === totalPages - 1)
       );
     };
 
@@ -1010,8 +1020,8 @@ async function handleCommands(message, getGuildData) {
       buttonCollector.on("end", () => {
         textCollector.stop();
         const disabledRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("prev_warn_page").setLabel("⬅️").setStyle(ButtonStyle.Primary).setDisabled(true),
-          new ButtonBuilder().setCustomId("next_warn_page").setLabel("➡️").setStyle(ButtonStyle.Primary).setDisabled(true)
+          new ButtonBuilder().setCustomId("prev_warn_page").setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(true),
+          new ButtonBuilder().setCustomId("next_warn_page").setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(true)
         );
         embedMessage.edit({ components: [disabledRow] }).catch(() => null);
       });
@@ -1601,7 +1611,7 @@ async function handleCommands(message, getGuildData) {
         { name: "⚙️ Server & Utility", value: "Roles, tickets, channel tools, auto-responders, AFK, and analytics.", inline: true },
         { name: "🎮 Fun & Games", value: "Marriage, adoption, polls, ships, mini-games, AI, and personalization.", inline: true }
       )
-      .setFooter({ text: "Page 1/6 • Don Don Operations" })
+      .setFooter({ text: "Page 1/5 • Don Don Operations" })
       .setTimestamp();
 
     const pageMod = new EmbedBuilder()
@@ -1612,8 +1622,8 @@ async function handleCommands(message, getGuildData) {
         {
           name: "🔨 Punishments & Logs",
           value:
-            `• \`${prefix}warn @user [reason]\` — Issue a warning\n` +
-            `• \`${prefix}warnings [@user]\` — View warn history\n` +
+            `• \`${prefix}warn @user [reason]\` — Issue a warning (now updated with gorgeous new embeds!)\n` +
+            `• \`${prefix}warnings [@user]\` — View warn history (now 3 per page clean view!)\n` +
             `• \`${prefix}unwarn @user [id]\` — Clear warning\n` +
             `• \`${prefix}mute @user [time] [reason]\` — Timeout user\n` +
             `• \`${prefix}unmute @user\` — Remove timeout\n` +
@@ -1700,7 +1710,7 @@ async function handleCommands(message, getGuildData) {
       });
     }
 
-const pageFun = new EmbedBuilder()
+    const pageFun = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setTitle("🎮 Fun, Social & Games")
       .setDescription(`Interactive family systems, mini-games, AI, and personal customization. Prefix: \`${prefix}\``)
@@ -1840,8 +1850,8 @@ async function startBot() {
     ]
   });
 
-client.once("ready", () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+  client.once("ready", () => {
+    console.log(`Logged in as ${client.user.tag}!`);
 
     processExpiredTempRoles(client);
 
@@ -1866,7 +1876,7 @@ client.once("ready", () => {
     checkBirthdays(client, getGuildData, saveData).catch(console.error);
   });
 
-// ================= INTERACTION LISTENER =================
+  // ================= INTERACTION LISTENER =================
   client.on("interactionCreate", async (interaction) => {
     if (interaction.isChatInputCommand()) {
       const funSlashCommands = ['8ball', 'coinflip', 'roll', 'rps', 'ship', 'shop', 'marry', 'divorce', 'marriages', 'adopt', 'daily'];
@@ -2345,7 +2355,7 @@ client.once("ready", () => {
           allowedMentions: { parse: [], repliedUser: true }
         });
       }
-} catch (err) {
+    } catch (err) {
       console.error("Error running inside messageCreate pipeline:", err);
     }
   });
