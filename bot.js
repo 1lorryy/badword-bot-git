@@ -1,3 +1,4 @@
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const { initTimers, handleTimerCommand } = require("./commands/timer.js");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handlePurchaseCommand, handlePurchEditCommand } = require("./commands/buy");
@@ -2049,7 +2050,7 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-// 2. Handle Ban Appeal Button (Opens the Modal)
+    // 2. Handle Ban Appeal Button (Opens the Modal)
     if (interaction.isButton() && interaction.customId === 'open_appeal_modal') {
         const modal = new ModalBuilder()
             .setCustomId('ban_appeal_modal_submit')
@@ -2096,7 +2097,7 @@ client.on("interactionCreate", async (interaction) => {
             ephemeral: true 
         });
 
-        // ⚠️ CHANGE THIS TO YOUR STAFF/APPEALS CHANNEL ID
+        // ⚠️ Staff/Appeals channel ID
         const staffChannelId = '1492845794192134245'; 
         const staffChannel = interaction.client.channels.cache.get(staffChannelId);
 
@@ -2487,7 +2488,39 @@ client.on("interactionCreate", async (interaction) => {
         return adoptionCommand.handleInteraction(interaction, getGuildData, saveData);
       }
     }
-});
+  
+// 6. Handle Slash Commands (like /feedback)
+    if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === 'feedback') {
+            const modal = new ModalBuilder()
+                .setCustomId('myModal')
+                .setTitle('My Awesome Form');
+
+            const favoriteInput = new TextInputBuilder()
+                .setCustomId('favoriteInput')
+                .setLabel("What's your favorite thing?")
+                .setStyle(TextInputStyle.Short);
+
+            const firstActionRow = new ActionRowBuilder().addComponents(favoriteInput);
+            modal.addComponents(firstActionRow);
+
+            await interaction.showModal(modal);
+        }
+    }
+
+    // 7. Handle Modal Submissions (when the user fills it out and hits submit)
+    else if (interaction.isModalSubmit()) {
+        if (interaction.customId === 'myModal') {
+            // Get the value the user typed in the text input
+            const favoriteAnswer = interaction.fields.getTextInputValue('favoriteInput');
+
+            await interaction.reply({ 
+                content: `Thank you! Your favorite thing is: **${favoriteAnswer}**`, 
+                ephemeral: true 
+            });
+        }
+    }
+  });
   
   // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
