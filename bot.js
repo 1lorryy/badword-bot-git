@@ -47,6 +47,8 @@ const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json
 
 const DEFAULT_PREFIX = process.env.DEFAULT_PREFIX || "?";
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || "1492845794192134245";
+const BAN_TARGET_CHANNEL_ID = "1492845794192134245";
+const ADMIN_APPEAL_ROLE_ID = "1481370041441189959";
 
 // Dedicated Category & Channel Configuration
 const SUPPORT_TICKET_CATEGORY_ID = "1481939936964775946";
@@ -346,9 +348,9 @@ async function sendAutomodLog(message, word) {
   await log.send({ embeds: [embed] }).catch(() => null);
 }
 
-async function sendModLog(embed) {
+async function sendModLog(embed, targetChannelId = LOG_CHANNEL_ID) {
   const log = await client.channels
-    .fetch(LOG_CHANNEL_ID)
+    .fetch(targetChannelId)
     .catch(() => null);
   if (!log || !log.isTextBased()) return;
 
@@ -947,16 +949,13 @@ if (command === "warn") {
       .setFooter({ text: "Don Don Security System", iconURL: message.guild.iconURL({ dynamic: true }) })
       .setTimestamp();
       
-    // 1. Send the big embed to the don-logs channel
     await sendModLog(embed);
 
-    // 2. Try to DM the user and track status
     let dmStatus = "📬 Successfully notified via DM.";
     await member.send({ embeds: [embed] }).catch(() => {
       dmStatus = "📭 User could not be DMed (DMs disabled).";
     });
 
-    // 3. Reply to the command channel with a clean short summary + DM status
     return message.reply({
       content: `✅ **WARN ISSUED** | Target: ${member} | Reason: *${reason}* | ID: \`${warnId}\`\n> _${dmStatus}_`
     });
@@ -965,15 +964,15 @@ if (command === "warn") {
   if (command === "warnings") {
     if (!canManageGuild(message)) return message.reply("❌ No permission to view or manage warning records.");
     const member = await findTargetMember(message, args) || message.member;
-    const ings = data.ings[member.id] || [];
+    const ings = data.warnings[member.id] || [];
 
-    if (!ings.length) return message.reply(`✨ **${member.user.tag}** has a clean record with no ings.`);
+    if (!ings.length) return message.reply(`✨ **${member.user.tag}** has a clean record with no warnings.`);
 
     const perPage = 3; 
     const totalPages = Math.ceil(ings.length / perPage);
     let currentPage = 0;
 
-    const generateingEmbed = (page) => {
+    const generateWarningEmbed = (page) => {
       const start = page * perPage;
       const current = ings.slice(start, start + perPage);
 
@@ -989,11 +988,11 @@ if (command === "warn") {
         .join("\n\n");
 
       return new EmbedBuilder()
-        .setAuthor({ name: `⚠️ ing Records — ${member.user.tag}`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+        .setAuthor({ name: `⚠️ Warning Records — ${member.user.tag}`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
         .setColor(0xfbbf24)
-        .setDescription(description || "*No ings found on this page.*")
+        .setDescription(description || "*No warnings found on this page.*")
         .addFields(
-          { name: "📊 Total Offenses", value: `\`${ings.length}\` ing(s) registered`, inline: true }
+          { name: "📊 Total Offenses", value: `\`${ings.length}\` warning(s) registered`, inline: true }
         )
         .setFooter({ text: `Page ${page + 1} of ${totalPages} • Select a case below to Edit` })
         .setTimestamp();
@@ -1005,11 +1004,10 @@ if (command === "warn") {
 
       const components = [];
 
-      // Select menu to choose which case on this page to edit
       if (current.length > 0) {
         const selectMenu = new StringSelectMenuBuilder()
           .setCustomId(`edit__select_${member.id}`)
-          .setPlaceholder("✏️ Select a ing case to edit...")
+          .setPlaceholder("✏️ Select a warning case to edit...")
           .addOptions(
             current.map((w, i) => ({
               label: `Case #${start + i + 1} (${w.id.slice(-6)})`,
@@ -1020,7 +1018,6 @@ if (command === "warn") {
         components.push(new ActionRowBuilder().addComponents(selectMenu));
       }
 
-      // Pagination buttons row
       const paginationRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("prev__page").setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
         new ButtonBuilder().setCustomId("next__page").setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(page === totalPages - 1)
@@ -1031,7 +1028,7 @@ if (command === "warn") {
     };
 
     const embedMessage = await message.reply({
-      embeds: [generateingEmbed(currentPage)],
+      embeds: [generateWarningEmbed(currentPage)],
       components: generateComponents(currentPage)
     });
 
@@ -1051,7 +1048,6 @@ if (command === "warn") {
           return interaction.reply({ content: "❌ That warning could no longer be found.", ephemeral: true });
         }
 
-        // Show the edit modal window with text input prefilled
         const modal = new ModalBuilder()
           .setCustomId(`modal_edit_warn_${targetUserId}_${warnId}`)
           .setTitle("✏️ Edit Warning Case");
@@ -1069,8 +1065,8 @@ if (command === "warn") {
       }
 
       if (interaction.isButton()) {
-        if (interaction.customId === "prev_warn_page") currentPage--;
-        else if (interaction.customId === "next_warn_page") currentPage++;
+        if (interaction.customId === "prev__page") currentPage--;
+        else if (interaction.customId === "next__page") currentPage++;
         
         await interaction.update({
           embeds: [generateWarningEmbed(currentPage)],
@@ -1101,7 +1097,6 @@ if (command === "warn") {
     return message.reply(`✅ Removed warning \`${warnId}\` from ${member.user.tag}`);
   }
 
-  // ================= NEW: CLEARALL WARNS COMMAND =================
   if (command === "clearwarns" || command === "resetwarns") {
     if (!canManageGuild(message)) return message.reply("❌ No permission to clear user warnings.");
     const member = await findTargetMember(message, args);
@@ -1281,6 +1276,22 @@ if (command === "warn") {
     const reason = args.slice(1).join(" ") || "No reason specified";
 
     try {
+      // Create a cool DM embed for the banned user
+      const banDmEmbed = new EmbedBuilder()
+        .setTitle("🔨 You Have Been Banned")
+        .setColor(0xef4444)
+        .setDescription(`You have been permanently banned from **${message.guild.name}**.`)
+        .addFields(
+          { name: "📌 Reason", value: `> ${reason}`, inline: false },
+          { name: "🛡️ Moderator", value: `${message.author.tag}`, inline: true },
+          { name: "⚖️ Appeal Information", value: `If you wish to appeal this ban, please contact an administrator or ping <@&${ADMIN_APPEAL_ROLE_ID}>.`, inline: false }
+        )
+        .setFooter({ text: "Don Don Moderation Systems", iconURL: message.guild.iconURL({ dynamic: true }) })
+        .setTimestamp();
+
+      // Try sending the cool ban DM before executing the ban
+      await member.send({ embeds: [banDmEmbed] }).catch(() => null);
+
       await member.ban({ 
         deleteMessageSeconds: 604800, 
         reason: reason 
@@ -1292,7 +1303,7 @@ if (command === "warn") {
       data.modStats[message.author.id].bans++;
       saveData();
 
-      const embed = new EmbedBuilder()
+      const logEmbed = new EmbedBuilder()
         .setTitle("🔨 Member Banned & Cleared")
         .setColor(0xef4444)
         .addFields(
@@ -1302,7 +1313,9 @@ if (command === "warn") {
           { name: "Action Taken", value: "Banned permanently + 7 days of message history deleted.", inline: false }
         )
         .setTimestamp();
-      await sendModLog(embed);
+      
+      // Send directly to the specified BAN_TARGET_CHANNEL_ID (1492845794192134245)
+      await sendModLog(logEmbed, BAN_TARGET_CHANNEL_ID);
 
       return message.reply(`🔨 **Banned** ${member.user.tag} and wiped their recent messages.`);
     } catch (err) {
@@ -1342,7 +1355,7 @@ if (command === "warn") {
           { name: "Action Taken", value: "Kicked from server + 7 days of message history wiped.", inline: false }
         )
         .setTimestamp();
-      await sendModLog(embed);
+      await sendModLog(embed, BAN_TARGET_CHANNEL_ID);
 
       return message.reply(`🛡️ **Softbanned** ${member.user.tag} (Messages wiped, user kicked).`);
     } catch (err) {
@@ -1562,7 +1575,6 @@ if (command === "warn") {
     });
   }
 
-  // ================= AUTORESPONDER INTEGRATION =================
   if (command === "ar" || command === "autoresponder" || command === "autoresp") {
     const arCommand = require("./commands/ar.js");
     if (arCommand && typeof arCommand.execute === "function") {
@@ -1708,7 +1720,7 @@ if (command === "warn") {
         {
           name: "🔨 Punishments & Logs",
           value:
-            `• \`${prefix}warn @user [reason]\` — Issue a warning (now updated with gorgeous new embeds!)\n` +
+            `• \`${prefix}warn @user [reason]\` — Issue a warning\n` +
             `• \`${prefix}warnings [@user]\` — View warn history & interactive edit dropdowns!\n` +
             `• \`${prefix}unwarn @user [id]\` — Clear specific warning by ID\n` +
             `• \`${prefix}clearwarns @user\` — Clear ALL warnings for a user at once ✨\n` +
@@ -1770,7 +1782,7 @@ if (command === "warn") {
         {
           name: "🤖 Autoresponders & Triggers",
           value:
-            `• \`${prefix}ar add "trigger phrase" [response]\` — Add response (supports emojis/GIFs!)\n` +
+            `• \`${prefix}ar add "trigger phrase" [response]\` — Add response\n` +
             `• \`${prefix}ar remove [trigger]\` — Delete an auto-response\n` +
             `• \`${prefix}ar list\` — View all server auto-responses`
         },
@@ -1965,7 +1977,6 @@ async function startBot() {
 
   // ================= INTERACTION LISTENER =================
   client.on("interactionCreate", async (interaction) => {
-    // Handle Warning Reason Editing Modal Submit
     if (interaction.isModalSubmit() && interaction.customId.startsWith("modal_edit_warn_")) {
       const parts = interaction.customId.split("_");
       const targetUserId = parts[3];
@@ -2244,7 +2255,6 @@ async function startBot() {
         }
       }
 
-      // === POLL BUTTON HANDLER ===
       if (interaction.isButton() && interaction.customId.startsWith("poll_")) {
         const parts = interaction.customId.split("_");
         const pollId = parts[1];
