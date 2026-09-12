@@ -76,8 +76,7 @@ const defaultGuideData = {
         "• `?birthday` / `?bday` — Set your birthday (`#commands` only)",
         "• `?snipe` / `?snipes` — View recently deleted messages",
         "• `?joininfo [@user]` — View join placement, milestone tier, and timezone",
-        "• `?tz [zone]` — Set or view personal timezone (e.g. `EST`, `UTC+2`)",
-        "• `?status` — Check bot system health and latency performance"
+        "• `?tz [zone]` — Set or view personal timezone (e.g. `EST`, `UTC+2`)"
       ]
     },
     {
@@ -149,46 +148,32 @@ module.exports = {
       const hexColor = parseInt((guideData.color || "#5865F2").replace("#", ""), 16);
       const parsedColor = isNaN(hexColor) ? 0x5865f2 : hexColor;
 
-      // Automatically group categories into multiple sequential embeds so nothing gets cut off!
       let embeds = [];
-      let currentDesc = guideData.intro || "";
-      let pageCount = 1;
 
-      if (guideData.categories) {
-        guideData.categories.forEach((category) => {
-          let categoryText = `\n${category.name}\n` + category.commands.join("\n") + "\n";
-
-          // If adding this category exceeds 4000 characters, save current embed and start a new one
-          if ((currentDesc + categoryText).length > 4000) {
-            embeds.push(
-              new EmbedBuilder()
-                .setColor(parsedColor)
-                .setTitle(pageCount === 1 ? (guideData.title || "🛡️ Don Don Guide") : `${guideData.title || "🛡️ Don Don Guide"} (Cont.)`)
-                .setDescription(currentDesc)
-                .setFooter({ text: `Don Don Staff Operations • Page ${pageCount}` })
-                .setTimestamp()
-            );
-            currentDesc = categoryText;
-            pageCount++;
-          } else {
-            currentDesc += categoryText;
+      if (guideData.categories && Array.isArray(guideData.categories)) {
+        guideData.categories.forEach((category, index) => {
+          // Each category gets its own independent description block
+          let categoryDesc = "";
+          
+          // Include the intro text only on the very first category embed
+          if (index === 0 && guideData.intro) {
+            categoryDesc += guideData.intro + "\n";
           }
+
+          categoryDesc += `${category.name}\n` + category.commands.join("\n");
+
+          embeds.push(
+            new EmbedBuilder()
+              .setColor(parsedColor)
+              .setTitle(index === 0 ? (guideData.title || "🛡️ Don Don Guide") : `${guideData.title || "🛡️ Don Don Guide"} (${category.name.replace(/[*_]/g, "").trim()})`)
+              .setDescription(categoryDesc)
+              .setFooter({ text: `Don Don Staff Operations • Category ${index + 1} of ${guideData.categories.length}` })
+              .setTimestamp()
+          );
         });
       }
 
-      // Push the final batch
-      if (currentDesc.length > 0) {
-        embeds.push(
-          new EmbedBuilder()
-            .setColor(parsedColor)
-            .setTitle(pageCount === 1 ? (guideData.title || "🛡️ Don Don Guide") : `${guideData.title || "🛡️ Don Don Guide"} (Cont.)`)
-            .setDescription(currentDesc)
-            .setFooter({ text: `Don Don Staff Operations • Page ${pageCount}` })
-            .setTimestamp()
-        );
-      }
-
-      // Send all connected embed pages sequentially in the channel
+      // Send each category embed sequentially in the channel
       for (const embed of embeds) {
         await message.channel.send({ embeds: [embed] });
       }
