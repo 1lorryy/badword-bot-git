@@ -39,6 +39,7 @@ module.exports = {
       "• `?warn @user [reason]` — Issue an official warning\n" +
       "• `?warnings [@user]` — Check warn history with dynamic timestamps & page jump\n" +
       "• `?unwarn @user [warn_id]` — Remove a specific warning\n" +
+      "• `?clearwarns @user` — Clear all warnings for a user\n" +
       "• `?mute @user [time] [reason]` — Timeout user (e.g. `5m`, `30m`, `12h`)\n" +
       "• `?unmute @user` — Remove an active timeout\n" +
       "• `?kick @user [reason]` — Kick user from server\n" +
