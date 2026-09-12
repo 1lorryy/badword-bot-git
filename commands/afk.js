@@ -100,7 +100,10 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
   const authorAfk = globalAfk || serverAfk;
 
   // ================= RETURN HANDLER =================
-  if (authorAfk && !message.content.toLowerCase().startsWith(`${prefix}afk`)) {
+  // Trigger return for any message except when a user is actively running the `?afk` command to update/re-set it
+  const isAfkCommand = message.content.toLowerCase().startsWith(`${prefix}afk`);
+  
+  if (authorAfk && !isAfkCommand) {
     
     globalAfkUsers.delete(message.author.id);
     serverAfkUsers.delete(serverKey);
@@ -158,7 +161,9 @@ async function handleAfkMentionsAndReturn(message, prefix, getGuildData, saveDat
       allowedMentions: { parse: [] }
     }).catch(() => null);
 
-    return true; 
+    // Note: Returning false here lets your main bot.js continue executing 
+    // the command or text message they just sent right away!
+    return false; 
   }
 
   // ================= MENTION DETECTOR =================
