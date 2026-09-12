@@ -164,7 +164,6 @@ module.exports = {
         });
       }
 
-      // Action Row 1: Edit Main Settings & Add New Category Button
       const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("edit_main_guide")
@@ -176,14 +175,12 @@ module.exports = {
           .setStyle(ButtonStyle.Success)
       );
 
-      // Action Row 2: Select menu to choose which specific category to edit
       const options = guideData.categories.map((cat, idx) => ({
         label: cat.name.replace(/[*_]/g, "").substring(0, 25),
         description: `Edit commands in Category ${idx + 1}`,
         value: `edit_cat_${idx}`
       }));
 
-      // Discord select menu allows max 25 options, slice safely
       const selectMenu = new StringSelectMenuBuilder()
         .setCustomId("select_category_to_edit")
         .setPlaceholder("📂 Select a category to edit or delete...")
@@ -243,7 +240,7 @@ module.exports = {
 
       const nameInput = new TextInputBuilder()
         .setCustomId("new_cat_name")
-        .setLabel("Category Title (with emoji e.g. 🚀 Economy)")
+        .setLabel("Category Title (with emoji)")
         .setStyle(TextInputStyle.Short)
         .setPlaceholder("🚀 **Economy & Shop**")
         .setRequired(true);
@@ -252,7 +249,7 @@ module.exports = {
         .setCustomId("new_cat_commands")
         .setLabel("Commands (One per line)")
         .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder("• `?balance` — Check your wallet\n• `?pay @user [amt]` — Send coins")
+        .setPlaceholder("• `?balance` — Check balance\n• `?pay` — Send money")
         .setRequired(true);
 
       modal.addComponents(
@@ -263,9 +260,9 @@ module.exports = {
       return interaction.showModal(modal);
     }
 
-    // 3. SELECT CATEGORY FROM DROPDOWN TO EDIT
+    // 3. SELECT CATEGORY FROM DROPDOWN
     if (interaction.isStringSelectMenu() && interaction.customId === "select_category_to_edit") {
-      const selectedValue = interaction.values[0]; // e.g., "edit_cat_2"
+      const selectedValue = interaction.values[0];
       const index = parseInt(selectedValue.split("_")[2]);
       const guideData = loadStaffGuide();
       const category = guideData.categories[index];
@@ -300,9 +297,9 @@ module.exports = {
       return interaction.showModal(modal);
     }
 
-    // 4. HANDLE MODAL SUBMISSIONS (Saving changes)
+    // 4. HANDLE MODAL SUBMISSIONS (Fixed with instant deferral)
     if (interaction.isModalSubmit()) {
-      // Prevent timeout error by acknowledging immediately
+      // ⚠️ CRITICAL: Defer the reply instantly so Discord never times out!
       await interaction.deferReply({ ephemeral: true });
 
       const guideData = loadStaffGuide();
