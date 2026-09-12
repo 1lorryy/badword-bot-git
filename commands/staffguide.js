@@ -108,9 +108,10 @@ const defaultGuideData = {
 function loadStaffGuide() {
   try {
     if (fs.existsSync(STAFF_GUIDE_FILE)) {
-      const data = JSON.parse(fs.readFileSync(STAFF_GUIDE_FILE, "utf8"));
+      const fileContent = fs.readFileSync(STAFF_GUIDE_FILE, "utf8");
+      const data = JSON.parse(fileContent);
       
-      // If the JSON file exists but doesn't have our new categories format, inject them and save!
+      // If the JSON exists but lacks categories, inject them
       if (!data.categories) {
         data.categories = defaultGuideData.categories;
         data.intro = defaultGuideData.intro;
@@ -118,13 +119,14 @@ function loadStaffGuide() {
       }
       return data;
     } else {
-      // If the file doesn't exist at all, create it using our defaults
       fs.writeFileSync(STAFF_GUIDE_FILE, JSON.stringify(defaultGuideData, null, 2));
       return defaultGuideData;
     }
   } catch (err) {
-    console.error("Error reading/writing staff guide file:", err);
-    return defaultGuideData; // Fallback so the bot doesn't crash
+    console.error("Error reading/parsing staff guide file:", err);
+    // If JSON is completely corrupted, backup/overwrite it with default so the bot recovers
+    fs.writeFileSync(STAFF_GUIDE_FILE, JSON.stringify(defaultGuideData, null, 2));
+    return defaultGuideData;
   }
 }
 
@@ -132,34 +134,47 @@ module.exports = {
   name: "staffguide",
   description: "Displays complete server guidelines and command manual edited from the dashboard",
   async execute(message, args) {
-    message.delete().catch(() => null);
+    try {
+      await message.delete().catch(() => null);
 
-    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-      return message.channel.send("❌ **Access Denied:** Administrator permission required.")
-        .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
+      if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+        return message.channel.send("❌ **Access Denied:** Administrator permission required.")
+          .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
+      }
+
+      // Load the dynamic data from the JSON file
+      const guideData = loadStaffGuide();
+      const hexColor = parseInt((guideData.color || "#5865F2").replace("#", ""), 16);
+
+      // Build the dynamic text directly from the categories!
+      let dynamicGuideText = guideData.intro || "";
+      
+      if (guideData.categories) {
+        guideData.categories.forEach(category => {
+          dynamicGuideText += `\n${category.name}\n`;
+          if (Array.isArray(category.commands)) {
+            dynamicGuideText += category.commands.join("\n") + "\n";
+          }
+        });
+      }
+
+      // Check Discord's 4096 limit
+      if (dynamicGuideText.length > 4096) {
+        return message.channel.send(`❌ **Error:** Staff guide text is too long (${dynamicGuideText.length} / 4096 characters).`);
+      }
+
+      const guideEmbed = new EmbedBuilder()
+        .setColor(isNaN(hexColor) ? 0x5865f2 : hexColor)
+        .setTitle(guideData.title || "🛡️ Don Don Complete Command & Staff Operations Guide")
+        .setDescription(dynamicGuideText)
+        .setFooter({ text: "Don Don Staff Operations • Complete Manual" })
+        .setTimestamp();
+
+      return message.channel.send({ embeds: [guideEmbed] });
+
+    } catch (error) {
+      console.error("Error executing staffguide command:", error);
+      return message.channel.send(`❌ **An error occurred:** \`${error.message}\``);
     }
-
-    // Load the dynamic data from the JSON file
-    const guideData = loadStaffGuide();
-    const hexColor = parseInt((guideData.color || "#5865F2").replace("#", ""), 16);
-
-    // Build the dynamic text directly from the categories!
-    let dynamicGuideText = guideData.intro || "";
-    
-    if (guideData.categories) {
-      guideData.categories.forEach(category => {
-        dynamicGuideText += `\n${category.name}\n`;
-        dynamicGuideText += category.commands.join("\n") + "\n";
-      });
-    }
-
-    const guideEmbed = new EmbedBuilder()
-      .setColor(isNaN(hexColor) ? 0x5865f2 : hexColor)
-      .setTitle(guideData.title || "🛡️ Don Don Complete Command & Staff Operations Guide")
-      .setDescription(dynamicGuideText)
-      .setFooter({ text: "Don Don Staff Operations • Complete Manual" })
-      .setTimestamp();
-
-    return message.channel.send({ embeds: [guideEmbed] });
   }
 };
