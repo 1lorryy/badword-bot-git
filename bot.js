@@ -903,7 +903,7 @@ async function handleCommands(message, getGuildData) {
     return customColorCommand.execute(message);
   }
 
-  if (command === "warn") {
+if (command === "warn") {
     if (!canManageGuild(message)) return message.reply("❌ No permission.");
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}warn @user reason\``);
@@ -947,26 +947,35 @@ async function handleCommands(message, getGuildData) {
       .setFooter({ text: "Don Don Security System", iconURL: message.guild.iconURL({ dynamic: true }) })
       .setTimestamp();
       
+    // 1. Send the big embed to the don-logs channel
     await sendModLog(embed);
-    await member.send({ embeds: [embed] }).catch(() => null);
 
-    return message.reply({ embeds: [embed] });
+    // 2. Try to DM the user and track status
+    let dmStatus = "📬 Successfully notified via DM.";
+    await member.send({ embeds: [embed] }).catch(() => {
+      dmStatus = "📭 User could not be DMed (DMs disabled).";
+    });
+
+    // 3. Reply to the command channel with a clean short summary + DM status
+    return message.reply({
+      content: `✅ **WARN ISSUED** | Target: ${member} | Reason: *${reason}* | ID: \`${warnId}\`\n> _${dmStatus}_`
+    });
   }
 
   if (command === "warnings") {
     if (!canManageGuild(message)) return message.reply("❌ No permission to view or manage warning records.");
     const member = await findTargetMember(message, args) || message.member;
-    const warnings = data.warnings[member.id] || [];
+    const ings = data.ings[member.id] || [];
 
-    if (!warnings.length) return message.reply(`✨ **${member.user.tag}** has a clean record with no warnings.`);
+    if (!ings.length) return message.reply(`✨ **${member.user.tag}** has a clean record with no ings.`);
 
     const perPage = 3; 
-    const totalPages = Math.ceil(warnings.length / perPage);
+    const totalPages = Math.ceil(ings.length / perPage);
     let currentPage = 0;
 
-    const generateWarningEmbed = (page) => {
+    const generateingEmbed = (page) => {
       const start = page * perPage;
-      const current = warnings.slice(start, start + perPage);
+      const current = ings.slice(start, start + perPage);
 
       const description = current
         .map((w, i) => {
@@ -980,11 +989,11 @@ async function handleCommands(message, getGuildData) {
         .join("\n\n");
 
       return new EmbedBuilder()
-        .setAuthor({ name: `⚠️ Warning Records — ${member.user.tag}`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+        .setAuthor({ name: `⚠️ ing Records — ${member.user.tag}`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
         .setColor(0xfbbf24)
-        .setDescription(description || "*No warnings found on this page.*")
+        .setDescription(description || "*No ings found on this page.*")
         .addFields(
-          { name: "📊 Total Offenses", value: `\`${warnings.length}\` warning(s) registered`, inline: true }
+          { name: "📊 Total Offenses", value: `\`${ings.length}\` ing(s) registered`, inline: true }
         )
         .setFooter({ text: `Page ${page + 1} of ${totalPages} • Select a case below to Edit` })
         .setTimestamp();
@@ -992,15 +1001,15 @@ async function handleCommands(message, getGuildData) {
 
     const generateComponents = (page) => {
       const start = page * perPage;
-      const current = warnings.slice(start, start + perPage);
+      const current = ings.slice(start, start + perPage);
 
       const components = [];
 
       // Select menu to choose which case on this page to edit
       if (current.length > 0) {
         const selectMenu = new StringSelectMenuBuilder()
-          .setCustomId(`edit_warn_select_${member.id}`)
-          .setPlaceholder("✏️ Select a warning case to edit...")
+          .setCustomId(`edit__select_${member.id}`)
+          .setPlaceholder("✏️ Select a ing case to edit...")
           .addOptions(
             current.map((w, i) => ({
               label: `Case #${start + i + 1} (${w.id.slice(-6)})`,
@@ -1013,8 +1022,8 @@ async function handleCommands(message, getGuildData) {
 
       // Pagination buttons row
       const paginationRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("prev_warn_page").setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
-        new ButtonBuilder().setCustomId("next_warn_page").setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(page === totalPages - 1)
+        new ButtonBuilder().setCustomId("prev__page").setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId("next__page").setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(page === totalPages - 1)
       );
       components.push(paginationRow);
 
@@ -1022,7 +1031,7 @@ async function handleCommands(message, getGuildData) {
     };
 
     const embedMessage = await message.reply({
-      embeds: [generateWarningEmbed(currentPage)],
+      embeds: [generateingEmbed(currentPage)],
       components: generateComponents(currentPage)
     });
 
@@ -1032,7 +1041,7 @@ async function handleCommands(message, getGuildData) {
     });
 
     collector.on("collect", async (interaction) => {
-      if (interaction.isStringSelectMenu() && interaction.customId.startsWith("edit_warn_select_")) {
+      if (interaction.isStringSelectMenu() && interaction.customId.startsWith("edit__select_")) {
         const targetUserId = interaction.customId.split("_")[3];
         const warnId = interaction.values[0];
         const userWarns = data.warnings[targetUserId] || [];
