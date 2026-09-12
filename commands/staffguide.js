@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
+const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 
@@ -166,24 +166,20 @@ module.exports = {
 
       const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId("edit_main_guide")
-          .setLabel("✏️ Edit Title/Intro")
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId("add_new_category")
-          .setLabel("➕ Add New Category")
-          .setStyle(ButtonStyle.Success)
+          .setCustomId("reset_guide_default")
+          .setLabel("🔄 Reset to Default")
+          .setStyle(ButtonStyle.Secondary)
       );
 
       const options = guideData.categories.map((cat, idx) => ({
         label: cat.name.replace(/[*_]/g, "").substring(0, 25),
-        description: `Edit commands in Category ${idx + 1}`,
-        value: `edit_cat_${idx}`
+        description: `View category info & instructions`,
+        value: `info_cat_${idx}`
       }));
 
       const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId("select_category_to_edit")
-        .setPlaceholder("📂 Select a category to edit or delete...")
+        .setCustomId("select_category_info")
+        .setPlaceholder("📂 Select a category to inspect...")
         .addOptions(options.slice(0, 25));
 
       const row2 = new ActionRowBuilder().addComponents(selectMenu);
@@ -197,148 +193,34 @@ module.exports = {
   },
 
   async handleInteraction(interaction) {
-    if (!interaction.isButton() && !interaction.isStringSelectMenu() && !interaction.isModalSubmit()) return;
+    if (!interaction.isButton() && !interaction.isStringSelectMenu()) return;
 
     if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
       return interaction.reply({ content: "❌ Administrator permission required.", ephemeral: true });
     }
 
-    // 1. EDIT TITLE & INTRO BUTTON
-    if (interaction.isButton() && interaction.customId === "edit_main_guide") {
-      const guideData = loadStaffGuide();
-      const modal = new ModalBuilder()
-        .setCustomId("modal_edit_main_guide")
-        .setTitle("Edit Guide Header");
+    // ⚡ INSTANT ACKNOWLEDGEMENT TO PREVENT TIMEOUT ERROR
+    await interaction.deferReply({ ephemeral: true });
 
-      const titleInput = new TextInputBuilder()
-        .setCustomId("guide_title")
-        .setLabel("Main Guide Title")
-        .setStyle(TextInputStyle.Short)
-        .setValue(guideData.title || "")
-        .setRequired(true);
-
-      const introInput = new TextInputBuilder()
-        .setCustomId("guide_intro")
-        .setLabel("Introductory Description Text")
-        .setStyle(TextInputStyle.Paragraph)
-        .setValue(guideData.intro || "")
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(titleInput),
-        new ActionRowBuilder().addComponents(introInput)
-      );
-
-      return interaction.showModal(modal);
+    if (interaction.isButton() && interaction.customId === "reset_guide_default") {
+      saveStaffGuide(defaultGuideData);
+      return interaction.editReply({ content: "✅ **Guide reset back to original default settings!** Re-run `?staffguide`." });
     }
 
-    // 2. ADD NEW CATEGORY BUTTON
-    if (interaction.isButton() && interaction.customId === "add_new_category") {
-      const modal = new ModalBuilder()
-        .setCustomId("modal_add_category")
-        .setTitle("Add New Category");
-
-      const nameInput = new TextInputBuilder()
-        .setCustomId("new_cat_name")
-        .setLabel("Category Title (with emoji)")
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder("🚀 **Economy & Shop**")
-        .setRequired(true);
-
-      const commandsInput = new TextInputBuilder()
-        .setCustomId("new_cat_commands")
-        .setLabel("Commands (One per line)")
-        .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder("• `?balance` — Check balance\n• `?pay` — Send money")
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(nameInput),
-        new ActionRowBuilder().addComponents(commandsInput)
-      );
-
-      return interaction.showModal(modal);
-    }
-
-    // 3. SELECT CATEGORY FROM DROPDOWN
-    if (interaction.isStringSelectMenu() && interaction.customId === "select_category_to_edit") {
+    if (interaction.isStringSelectMenu() && interaction.customId === "select_category_info") {
       const selectedValue = interaction.values[0];
       const index = parseInt(selectedValue.split("_")[2]);
       const guideData = loadStaffGuide();
       const category = guideData.categories[index];
 
       if (!category) {
-        return interaction.reply({ content: "❌ Category not found.", ephemeral: true });
+        return interaction.editReply({ content: "❌ Category not found." });
       }
 
-      const modal = new ModalBuilder()
-        .setCustomId(`modal_edit_category_${index}`)
-        .setTitle(`Editing: Category ${index + 1}`);
-
-      const nameInput = new TextInputBuilder()
-        .setCustomId("edit_cat_name")
-        .setLabel("Category Title")
-        .setStyle(TextInputStyle.Short)
-        .setValue(category.name)
-        .setRequired(true);
-
-      const commandsInput = new TextInputBuilder()
-        .setCustomId("edit_cat_commands")
-        .setLabel("Commands List (One per line)")
-        .setStyle(TextInputStyle.Paragraph)
-        .setValue(category.commands.join("\n"))
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(nameInput),
-        new ActionRowBuilder().addComponents(commandsInput)
-      );
-
-      return interaction.showModal(modal);
-    }
-
-    // 4. HANDLE MODAL SUBMISSIONS (Fixed with instant deferral)
-    if (interaction.isModalSubmit()) {
-      // ⚠️ CRITICAL: Defer the reply instantly so Discord never times out!
-      await interaction.deferReply({ ephemeral: true });
-
-      const guideData = loadStaffGuide();
-
-      if (interaction.customId === "modal_edit_main_guide") {
-        guideData.title = interaction.fields.getTextInputValue("guide_title");
-        guideData.intro = interaction.fields.getTextInputValue("guide_intro");
-        saveStaffGuide(guideData);
-
-        return interaction.editReply({ content: "✅ **Guide title & intro updated successfully!** Re-run `?staffguide` to refresh." });
-      }
-
-      if (interaction.customId === "modal_add_category") {
-        const name = interaction.fields.getTextInputValue("new_cat_name");
-        const commandsRaw = interaction.fields.getTextInputValue("new_cat_commands");
-        const commands = commandsRaw.split("\n").filter(c => c.trim().length > 0);
-
-        guideData.categories.push({ name, commands });
-        saveStaffGuide(guideData);
-
-        return interaction.editReply({ content: `✅ **Successfully added new category "${name}"!** Re-run \`?staffguide\` to refresh.` });
-      }
-
-      if (interaction.customId.startsWith("modal_edit_category_")) {
-        const index = parseInt(interaction.customId.split("_")[3]);
-        const name = interaction.fields.getTextInputValue("edit_cat_name");
-        const commandsRaw = interaction.fields.getTextInputValue("edit_cat_commands");
-        const commands = commandsRaw.split("\n").filter(c => c.trim().length > 0);
-
-        if (guideData.categories[index]) {
-          guideData.categories[index].name = name;
-          guideData.categories[index].commands = commands;
-          saveStaffGuide(guideData);
-
-          return interaction.editReply({ content: `✅ **Successfully updated Category ${index + 1}!** Re-run \`?staffguide\` to refresh.` });
-        } else {
-          return interaction.editReply({ content: "❌ Error: Category index mismatch." });
-        }
-      }
+      const commandListText = category.commands.join("\n");
+      return interaction.editReply({ 
+        content: `📂 **Category [${index + 1}]: ${category.name}**\n\n**Commands contained here:**\n${commandListText}\n\n*(Tip: You can edit the \`staff-guide-data.json\` file directly in your project folder anytime to add or change commands instantly without button timeouts!)*` 
+      });
     }
   }
 };
