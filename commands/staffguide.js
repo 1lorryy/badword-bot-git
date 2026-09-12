@@ -105,13 +105,23 @@ const defaultGuideData = {
   ]
 };
 
+function ensureDirectoryExistence(filePath) {
+  const dirname = path.dirname(filePath);
+  if (fs.existsSync(dirname)) {
+    return true;
+  }
+  ensureDirectoryExistence(dirname);
+  fs.mkdirSync(dirname);
+}
+
 function loadStaffGuide() {
   try {
+    ensureDirectoryExistence(STAFF_GUIDE_FILE);
+
     if (fs.existsSync(STAFF_GUIDE_FILE)) {
       const fileContent = fs.readFileSync(STAFF_GUIDE_FILE, "utf8");
       const data = JSON.parse(fileContent);
       
-      // If the JSON exists but lacks categories, inject them
       if (!data.categories) {
         data.categories = defaultGuideData.categories;
         data.intro = defaultGuideData.intro;
@@ -124,7 +134,7 @@ function loadStaffGuide() {
     }
   } catch (err) {
     console.error("Error reading/parsing staff guide file:", err);
-    // If JSON is completely corrupted, backup/overwrite it with default so the bot recovers
+    ensureDirectoryExistence(STAFF_GUIDE_FILE);
     fs.writeFileSync(STAFF_GUIDE_FILE, JSON.stringify(defaultGuideData, null, 2));
     return defaultGuideData;
   }
@@ -142,11 +152,9 @@ module.exports = {
           .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
       }
 
-      // Load the dynamic data from the JSON file
       const guideData = loadStaffGuide();
       const hexColor = parseInt((guideData.color || "#5865F2").replace("#", ""), 16);
 
-      // Build the dynamic text directly from the categories!
       let dynamicGuideText = guideData.intro || "";
       
       if (guideData.categories) {
@@ -158,7 +166,6 @@ module.exports = {
         });
       }
 
-      // Check Discord's 4096 limit
       if (dynamicGuideText.length > 4096) {
         return message.channel.send(`❌ **Error:** Staff guide text is too long (${dynamicGuideText.length} / 4096 characters).`);
       }
