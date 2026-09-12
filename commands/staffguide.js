@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 
@@ -132,6 +132,11 @@ function loadStaffGuide() {
   }
 }
 
+function saveStaffGuide(data) {
+  ensureDirectoryExistence(STAFF_GUIDE_FILE);
+  fs.writeFileSync(STAFF_GUIDE_FILE, JSON.stringify(data, null, 2));
+}
+
 module.exports = {
   name: "staffguide",
   description: "Displays complete server guidelines and command manual edited from the dashboard",
@@ -149,38 +154,116 @@ module.exports = {
       const parsedColor = isNaN(hexColor) ? 0x5865f2 : hexColor;
 
       let embeds = [];
+      let components = [];
 
       if (guideData.categories && Array.isArray(guideData.categories)) {
         guideData.categories.forEach((category, index) => {
-          // Each category gets its own independent description block
           let categoryDesc = "";
-          
-          // Include the intro text only on the very first category embed
           if (index === 0 && guideData.intro) {
             categoryDesc += guideData.intro + "\n";
           }
-
           categoryDesc += `${category.name}\n` + category.commands.join("\n");
 
-          embeds.push(
-            new EmbedBuilder()
-              .setColor(parsedColor)
-              .setTitle(index === 0 ? (guideData.title || "🛡️ Don Don Guide") : `${guideData.title || "🛡️ Don Don Guide"} (${category.name.replace(/[*_]/g, "").trim()})`)
-              .setDescription(categoryDesc)
-              .setFooter({ text: `Don Don Staff Operations • Category ${index + 1} of ${guideData.categories.length}` })
-              .setTimestamp()
+          const embed = new EmbedBuilder()
+            .setColor(parsedColor)
+            .setTitle(index === 0 ? (guideData.title || "🛡️ Don Don Guide") : `${guideData.title || "🛡️ Don Don Guide"} (${category.name.replace(/[*_]/g, "").trim()})`)
+            .setDescription(categoryDesc)
+            .setFooter({ text: `Don Don Staff Operations • Category ${index + 1} of ${guideData.categories.length}` })
+            .setTimestamp();
+
+          embeds.push(embed);
+
+          // Add an "Edit Category" button directly beneath its respective embed card!
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`edit_guide_${index}`)
+              .setLabel(`✏️ Edit Category ${index + 1}`)
+              .setStyle(ButtonStyle.Primary)
           );
+          components.push(row);
         });
       }
 
-      // Send each category embed sequentially in the channel
-      for (const embed of embeds) {
-        await message.channel.send({ embeds: [embed] });
+      // Send each category embed with its own edit button row
+      for (let i = 0; i < embeds.length; i++) {
+        await message.channel.send({ embeds: [embeds[i]], components: [components[i]] });
       }
 
     } catch (error) {
       console.error("Error executing staffguide command:", error);
       return message.channel.send(`❌ **An error occurred:** \`${error.message}\``);
+    }
+  },
+
+  // Handle interaction events for buttons and modals
+  async handleInteraction(interaction) {
+    if (!interaction.isButton() && !interaction.isModalSubmit()) return;
+
+    // Check if it's an edit button click
+    if (interaction.isButton() && interaction.customId.startsWith("edit_guide_")) {
+      if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+        return interaction.reply({ content: "❌ Administrator permission required.", ephemeral: true });
+      }
+
+      const index = parseInt(interaction.customId.split("_")[2]);
+      const guideData = loadStaffGuide();
+      const category = guideData.categories[index];
+
+      if (!category) {
+        return interaction.reply({ content: "❌ Category not found.", ephemeral: true });
+      }
+
+      // Create a pop-up form (Modal) with two distinct boards/fields: 
+      // Field 1: Category Name (the title board)
+      // Field 2: Command List (the explanation/content board)
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_edit_guide_${index}`)
+        .setTitle(`Editing: Category ${index + 1}`);
+
+      const nameInput = new TextInputBuilder()
+        .setCustomId("category_name")
+        .setLabel("Category Title / Header")
+        .setStyle(TextInputStyle.Short)
+        .setValue(category.name)
+        .setRequired(true);
+
+      const commandsInput = new TextInputBuilder()
+        .setCustomId("category_commands")
+        .setLabel("Commands / Explanation List (One per line)")
+        .setStyle(TextInputStyle.Paragraph)
+        .setValue(category.commands.join("\n"))
+        .setRequired(true);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(nameInput),
+        new ActionRowBuilder().addComponents(commandsInput)
+      );
+
+      await interaction.showModal(modal);
+    }
+
+    // Handle when they click Save/Submit on the form popup
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("modal_edit_guide_")) {
+      const index = parseInt(interaction.customId.split("_")[3]);
+      const newName = interaction.fields.getTextInputValue("category_name");
+      const newCommandsRaw = interaction.fields.getTextInputValue("category_commands");
+
+      const guideData = loadStaffGuide();
+      if (guideData.categories[index]) {
+        guideData.categories[index].name = newName;
+        // Split text block back into an array by lines, filtering out empty lines
+        guideData.categories.updateCommands = true; 
+        guideData.categories[index].commands = newCommandsRaw.split("\n").filter(c => c.trim().length > 0);
+        
+        saveStaffGuide(guideData);
+
+        await interaction.reply({ 
+          content: `✅ **Successfully updated Category ${index + 1}!** Re-run \`?staffguide\` to refresh the manual.`, 
+          ephemeral: true 
+        });
+      } else {
+        await interaction.reply({ content: "❌ Error: Category index mismatch.", ephemeral: true });
+      }
     }
   }
 };
