@@ -32,6 +32,10 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  StringSelectMenuBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   SlashCommandBuilder,
   REST,
   Routes,
@@ -950,12 +954,13 @@ async function handleCommands(message, getGuildData) {
   }
 
   if (command === "warnings") {
+    if (!canManageGuild(message)) return message.reply("❌ No permission to view or manage warning records.");
     const member = await findTargetMember(message, args) || message.member;
     const warnings = data.warnings[member.id] || [];
 
     if (!warnings.length) return message.reply(`✨ **${member.user.tag}** has a clean record with no warnings.`);
 
-    const perPage = 3; // Updated to show 3 warnings per page to prevent flooding
+    const perPage = 3; 
     const totalPages = Math.ceil(warnings.length / perPage);
     let currentPage = 0;
 
@@ -981,51 +986,94 @@ async function handleCommands(message, getGuildData) {
         .addFields(
           { name: "📊 Total Offenses", value: `\`${warnings.length}\` warning(s) registered`, inline: true }
         )
-        .setFooter({ text: `Page ${page + 1} of ${totalPages} • Type page number to jump` })
+        .setFooter({ text: `Page ${page + 1} of ${totalPages} • Select a case below to Edit` })
         .setTimestamp();
     };
 
-    const generateWarningButtons = (page) => {
-      return new ActionRowBuilder().addComponents(
+    const generateComponents = (page) => {
+      const start = page * perPage;
+      const current = warnings.slice(start, start + perPage);
+
+      const components = [];
+
+      // Select menu to choose which case on this page to edit
+      if (current.length > 0) {
+        const selectMenu = new StringSelectMenuBuilder()
+          .setCustomId(`edit_warn_select_${member.id}`)
+          .setPlaceholder("✏️ Select a warning case to edit...")
+          .addOptions(
+            current.map((w, i) => ({
+              label: `Case #${start + i + 1} (${w.id.slice(-6)})`,
+              description: w.reason.slice(0, 95),
+              value: w.id
+            }))
+          );
+        components.push(new ActionRowBuilder().addComponents(selectMenu));
+      }
+
+      // Pagination buttons row
+      const paginationRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("prev_warn_page").setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
         new ButtonBuilder().setCustomId("next_warn_page").setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(page === totalPages - 1)
       );
+      components.push(paginationRow);
+
+      return components;
     };
 
     const embedMessage = await message.reply({
       embeds: [generateWarningEmbed(currentPage)],
-      components: totalPages > 1 ? [generateWarningButtons(currentPage)] : []
+      components: generateComponents(currentPage)
     });
 
-    if (totalPages > 1) {
-      const buttonCollector = embedMessage.createMessageComponentCollector({ filter: (i) => i.user.id === message.author.id, time: 90000 });
-      const textCollector = message.channel.createMessageCollector({ filter: (m) => m.author.id === message.author.id && /^\d+$/.test(m.content.trim()), time: 90000 });
+    const collector = embedMessage.createMessageComponentCollector({
+      filter: (i) => i.user.id === message.author.id,
+      time: 120000
+    });
 
-      buttonCollector.on("collect", async (interaction) => {
+    collector.on("collect", async (interaction) => {
+      if (interaction.isStringSelectMenu() && interaction.customId.startsWith("edit_warn_select_")) {
+        const targetUserId = interaction.customId.split("_")[3];
+        const warnId = interaction.values[0];
+        const userWarns = data.warnings[targetUserId] || [];
+        const targetWarn = userWarns.find(w => w.id === warnId);
+
+        if (!targetWarn) {
+          return interaction.reply({ content: "❌ That warning could no longer be found.", ephemeral: true });
+        }
+
+        // Show the edit modal window with text input prefilled
+        const modal = new ModalBuilder()
+          .setCustomId(`modal_edit_warn_${targetUserId}_${warnId}`)
+          .setTitle("✏️ Edit Warning Case");
+
+        const reasonInput = new TextInputBuilder()
+          .setCustomId("newReasonInput")
+          .setLabel("Update or Rewrite Reason")
+          .setStyle(TextInputStyle.Paragraph)
+          .setValue(targetWarn.reason)
+          .setMaxLength(1000)
+          .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+        return await interaction.showModal(modal);
+      }
+
+      if (interaction.isButton()) {
         if (interaction.customId === "prev_warn_page") currentPage--;
         else if (interaction.customId === "next_warn_page") currentPage++;
-        await interaction.update({ embeds: [generateWarningEmbed(currentPage)], components: [generateWarningButtons(currentPage)] });
-      });
+        
+        await interaction.update({
+          embeds: [generateWarningEmbed(currentPage)],
+          components: generateComponents(currentPage)
+        });
+      }
+    });
 
-      textCollector.on("collect", async (msg) => {
-        const targetPage = parseInt(msg.content.trim(), 10);
-        msg.delete().catch(() => null);
+    collector.on("end", () => {
+      embedMessage.edit({ components: [] }).catch(() => null);
+    });
 
-        if (targetPage >= 1 && targetPage <= totalPages) {
-          currentPage = targetPage - 1;
-          await embedMessage.edit({ embeds: [generateWarningEmbed(currentPage)], components: [generateWarningButtons(currentPage)] }).catch(() => null);
-        }
-      });
-
-      buttonCollector.on("end", () => {
-        textCollector.stop();
-        const disabledRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("prev_warn_page").setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(true),
-          new ButtonBuilder().setCustomId("next_warn_page").setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(true)
-        );
-        embedMessage.edit({ components: [disabledRow] }).catch(() => null);
-      });
-    }
     return true;
   }
 
@@ -1623,7 +1671,7 @@ async function handleCommands(message, getGuildData) {
           name: "🔨 Punishments & Logs",
           value:
             `• \`${prefix}warn @user [reason]\` — Issue a warning (now updated with gorgeous new embeds!)\n` +
-            `• \`${prefix}warnings [@user]\` — View warn history (now 3 per page clean view!)\n` +
+            `• \`${prefix}warnings [@user]\` — View warn history & interactive edit dropdowns!\n` +
             `• \`${prefix}unwarn @user [id]\` — Clear warning\n` +
             `• \`${prefix}mute @user [time] [reason]\` — Timeout user\n` +
             `• \`${prefix}unmute @user\` — Remove timeout\n` +
@@ -1878,6 +1926,32 @@ async function startBot() {
 
   // ================= INTERACTION LISTENER =================
   client.on("interactionCreate", async (interaction) => {
+    // Handle Warning Reason Editing Modal Submit
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("modal_edit_warn_")) {
+      const parts = interaction.customId.split("_");
+      const targetUserId = parts[3];
+      const warnId = parts[4];
+      const newReason = interaction.fields.getTextInputValue("newReasonInput").trim();
+
+      const guildData = getGuildData(interaction.guild.id);
+      if (!guildData.warnings || !guildData.warnings[targetUserId]) {
+        return await interaction.reply({ content: "❌ Warning record data not found.", ephemeral: true });
+      }
+
+      const warningObj = guildData.warnings[targetUserId].find(w => w.id === warnId);
+      if (!warningObj) {
+        return await interaction.reply({ content: "❌ Specific warning ID could not be found.", ephemeral: true });
+      }
+
+      warningObj.reason = newReason || "No reason";
+      saveData();
+
+      return await interaction.reply({
+        content: `✅ Successfully updated warning case \`${warnId}\`!\n> **New Reason:** ${warningObj.reason}`,
+        ephemeral: true
+      });
+    }
+
     if (interaction.isChatInputCommand()) {
       const funSlashCommands = ['8ball', 'coinflip', 'roll', 'rps', 'ship', 'shop', 'marry', 'divorce', 'marriages', 'adopt', 'daily'];
       if (funSlashCommands.includes(interaction.commandName)) {
