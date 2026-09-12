@@ -4,7 +4,6 @@ const path = require("path");
 
 const STAFF_GUIDE_FILE = process.env.STAFF_GUIDE_FILE || path.join(__dirname, "..", "staff-guide-data.json");
 
-// We define the default categories here so the bot can build your JSON file automatically.
 const defaultGuideData = {
   title: "🛡️ Don Don Complete Command & Staff Operations Guide",
   color: "#5865F2",
@@ -107,9 +106,7 @@ const defaultGuideData = {
 
 function ensureDirectoryExistence(filePath) {
   const dirname = path.dirname(filePath);
-  if (fs.existsSync(dirname)) {
-    return true;
-  }
+  if (fs.existsSync(dirname)) return true;
   ensureDirectoryExistence(dirname);
   fs.mkdirSync(dirname);
 }
@@ -117,11 +114,8 @@ function ensureDirectoryExistence(filePath) {
 function loadStaffGuide() {
   try {
     ensureDirectoryExistence(STAFF_GUIDE_FILE);
-
     if (fs.existsSync(STAFF_GUIDE_FILE)) {
-      const fileContent = fs.readFileSync(STAFF_GUIDE_FILE, "utf8");
-      const data = JSON.parse(fileContent);
-      
+      const data = JSON.parse(fs.readFileSync(STAFF_GUIDE_FILE, "utf8"));
       if (!data.categories) {
         data.categories = defaultGuideData.categories;
         data.intro = defaultGuideData.intro;
@@ -133,7 +127,6 @@ function loadStaffGuide() {
       return defaultGuideData;
     }
   } catch (err) {
-    console.error("Error reading/parsing staff guide file:", err);
     ensureDirectoryExistence(STAFF_GUIDE_FILE);
     fs.writeFileSync(STAFF_GUIDE_FILE, JSON.stringify(defaultGuideData, null, 2));
     return defaultGuideData;
@@ -154,30 +147,51 @@ module.exports = {
 
       const guideData = loadStaffGuide();
       const hexColor = parseInt((guideData.color || "#5865F2").replace("#", ""), 16);
+      const parsedColor = isNaN(hexColor) ? 0x5865f2 : hexColor;
 
-      let dynamicGuideText = guideData.intro || "";
-      
+      // Automatically group categories into multiple sequential embeds so nothing gets cut off!
+      let embeds = [];
+      let currentDesc = guideData.intro || "";
+      let pageCount = 1;
+
       if (guideData.categories) {
-        guideData.categories.forEach(category => {
-          dynamicGuideText += `\n${category.name}\n`;
-          if (Array.isArray(category.commands)) {
-            dynamicGuideText += category.commands.join("\n") + "\n";
+        guideData.categories.forEach((category) => {
+          let categoryText = `\n${category.name}\n` + category.commands.join("\n") + "\n";
+
+          // If adding this category exceeds 4000 characters, save current embed and start a new one
+          if ((currentDesc + categoryText).length > 4000) {
+            embeds.push(
+              new EmbedBuilder()
+                .setColor(parsedColor)
+                .setTitle(pageCount === 1 ? (guideData.title || "🛡️ Don Don Guide") : `${guideData.title || "🛡️ Don Don Guide"} (Cont.)`)
+                .setDescription(currentDesc)
+                .setFooter({ text: `Don Don Staff Operations • Page ${pageCount}` })
+                .setTimestamp()
+            );
+            currentDesc = categoryText;
+            pageCount++;
+          } else {
+            currentDesc += categoryText;
           }
         });
       }
 
-      if (dynamicGuideText.length > 4096) {
-        return message.channel.send(`❌ **Error:** Staff guide text is too long (${dynamicGuideText.length} / 4096 characters).`);
+      // Push the final batch
+      if (currentDesc.length > 0) {
+        embeds.push(
+          new EmbedBuilder()
+            .setColor(parsedColor)
+            .setTitle(pageCount === 1 ? (guideData.title || "🛡️ Don Don Guide") : `${guideData.title || "🛡️ Don Don Guide"} (Cont.)`)
+            .setDescription(currentDesc)
+            .setFooter({ text: `Don Don Staff Operations • Page ${pageCount}` })
+            .setTimestamp()
+        );
       }
 
-      const guideEmbed = new EmbedBuilder()
-        .setColor(isNaN(hexColor) ? 0x5865f2 : hexColor)
-        .setTitle(guideData.title || "🛡️ Don Don Complete Command & Staff Operations Guide")
-        .setDescription(dynamicGuideText)
-        .setFooter({ text: "Don Don Staff Operations • Complete Manual" })
-        .setTimestamp();
-
-      return message.channel.send({ embeds: [guideEmbed] });
+      // Send all connected embed pages sequentially in the channel
+      for (const embed of embeds) {
+        await message.channel.send({ embeds: [embed] });
+      }
 
     } catch (error) {
       console.error("Error executing staffguide command:", error);
