@@ -1000,126 +1000,137 @@ if (command === "warn") {
   }
 
 if (command === "warnings") {
-    if (!canManageGuild(message)) return message.reply("❌ No permission to view or manage warning records.");
-    const member = await findTargetMember(message, args) || message.member;
-    const ings = data.warnings[member.id] || [];
+    try {
+      if (!canManageGuild(message)) return message.reply("❌ No permission to view or manage warning records.");
 
-    if (!ings.length) return message.reply(`✨ **${member.user.tag}** has a clean record with no warnings.`);
+      // Ensure data.warnings exists
+      if (!data.warnings) data.warnings = {};
 
-    const perPage = 3; 
-    const totalPages = Math.ceil(ings.length / perPage);
-    let currentPage = 0;
+      const member = (await findTargetMember(message, args)) || message.member;
+      const ings = data.warnings[member.id] || [];
 
-    const generateWarningEmbed = (page) => {
-      const start = page * perPage;
-      const current = ings.slice(start, start + perPage);
+      if (!ings.length) return message.reply(`✨ **${member.user.tag}** has a clean record with no warnings.`);
 
-      const description = current
-        .map((w, i) => {
-          const unixTime = w.date ? Math.floor(new Date(w.date).getTime() / 1000) : null;
-          const timeString = unixTime ? `• <t:${unixTime}:R>` : "";
-          // Added a fallback string in case the reason is missing
-          return `🔹 **Case #${start + i + 1}** ${timeString}\n` +
-                 `> 🆔 **ID:** \`${w.id}\`\n` +
-                 `> 🛡️ **Moderator:** <@${w.mod}>\n` +
-                 `> 📌 **Reason:** ${w.reason || "No reason provided"}`;
-        })
-        .join("\n\n");
+      const perPage = 3; 
+      const totalPages = Math.ceil(ings.length / perPage);
+      let currentPage = 0;
 
-      return new EmbedBuilder()
-        .setAuthor({ name: `⚠️ Warning Records — ${member.user.tag}`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
-        .setColor(0xfbbf24) 
-        .setDescription(description || "*No warnings found on this page.*")
-        .addFields(
-          { name: "📊 Total Offenses", value: `\`${ings.length}\` warning(s) registered`, inline: true }
-        )
-        .setFooter({ text: `Page ${page + 1} of ${totalPages} • Select a case below to Edit` })
-        .setTimestamp();
-    };
+      const generateWarningEmbed = (page) => {
+        const start = page * perPage;
+        const current = ings.slice(start, start + perPage);
 
-    const generateComponents = (page) => {
-      const start = page * perPage;
-      const current = ings.slice(start, start + perPage);
+        const description = current
+          .map((w, i) => {
+            const unixTime = w.date ? Math.floor(new Date(w.date).getTime() / 1000) : null;
+            const timeString = unixTime ? `• <t:${unixTime}:R>` : "";
+            return `🔹 **Case #${start + i + 1}** ${timeString}\n` +
+                   `> 🆔 **ID:** \`${w.id || "N/A"}\`\n` +
+                   `> 🛡️ **Moderator:** <@${w.mod || "Unknown"}>\n` +
+                   `> 📌 **Reason:** ${String(w.reason || "No reason provided")}`;
+          })
+          .join("\n\n");
 
-      const components = [];
+        return new EmbedBuilder()
+          .setAuthor({ name: `⚠️ Warning Records — ${member.user.tag}`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+          .setColor(0xfbbf24) 
+          .setDescription(description || "*No warnings found on this page.*")
+          .addFields(
+            { name: "📊 Total Offenses", value: `\`${ings.length}\` warning(s) registered`, inline: true }
+          )
+          .setFooter({ text: `Page ${page + 1} of ${totalPages} • Select a case below to Edit` })
+          .setTimestamp();
+      };
 
-      if (current.length > 0) {
-        const selectMenu = new StringSelectMenuBuilder()
-          .setCustomId(`edit__select_${member.id}`)
-          .setPlaceholder("✏️ Select a warning case to edit...")
-          .addOptions(
-            current.map((w, i) => ({
-              label: `Case #${start + i + 1} (${String(w.id).slice(-6)})`,
-              // Fixed the slice crash by ensuring w.reason is always a string
-              description: (w.reason || "No reason").slice(0, 95),
-              value: String(w.id)
-            }))
-          );
-        components.push(new ActionRowBuilder().addComponents(selectMenu));
-      }
+      const generateComponents = (page) => {
+        const start = page * perPage;
+        const current = ings.slice(start, start + perPage);
 
-      const paginationRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("prev__page").setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
-        new ButtonBuilder().setCustomId("next__page").setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(page === totalPages - 1)
-      );
-      components.push(paginationRow);
+        const components = [];
 
-      return components;
-    };
-
-    const embedMessage = await message.reply({
-      embeds: [generateWarningEmbed(currentPage)],
-      components: generateComponents(currentPage)
-    });
-
-    const collector = embedMessage.createMessageComponentCollector({
-      filter: (i) => i.user.id === message.author.id,
-      time: 120000
-    });
-
-    collector.on("collect", async (interaction) => {
-      if (interaction.isStringSelectMenu() && interaction.customId.startsWith("edit__select_")) {
-        const targetUserId = interaction.customId.split("_")[3];
-        const warnId = interaction.values[0];
-        const userWarns = data.warnings[targetUserId] || [];
-        const targetWarn = userWarns.find(w => w.id === warnId);
-
-        if (!targetWarn) {
-          return interaction.reply({ content: "❌ That warning could no longer be found.", ephemeral: true });
+        if (current.length > 0) {
+          const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`edit__select_${member.id}`)
+            .setPlaceholder("✏️ Select a warning case to edit...")
+            .addOptions(
+              current.map((w, i) => ({
+                label: `Case #${start + i + 1} (${String(w.id || "000000").slice(-6)})`,
+                description: String(w.reason || "No reason").slice(0, 95),
+                value: String(w.id || i)
+              }))
+            );
+          components.push(new ActionRowBuilder().addComponents(selectMenu));
         }
 
-        const modal = new ModalBuilder()
-          .setCustomId(`modal_edit_warn_${targetUserId}_${warnId}`)
-          .setTitle("✏️ Edit Warning Case");
+        const paginationRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("prev__page").setLabel("◀ Previous").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+          new ButtonBuilder().setCustomId("next__page").setLabel("Next ▶").setStyle(ButtonStyle.Secondary).setDisabled(page === totalPages - 1)
+        );
+        components.push(paginationRow);
 
-        const reasonInput = new TextInputBuilder()
-          .setCustomId("newReasonInput")
-          .setLabel("Update or Rewrite Reason")
-          .setStyle(TextInputStyle.Paragraph)
-          .setValue(targetWarn.reason || "No reason")
-          .setMaxLength(1000)
-          .setRequired(true);
+        return components;
+      };
 
-        modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
-        return await interaction.showModal(modal);
-      }
+      const embedMessage = await message.reply({
+        embeds: [generateWarningEmbed(currentPage)],
+        components: generateComponents(currentPage)
+      });
 
-      if (interaction.isButton()) {
-        if (interaction.customId === "prev__page") currentPage--;
-        else if (interaction.customId === "next__page") currentPage++;
-        
-        await interaction.update({
-          embeds: [generateWarningEmbed(currentPage)],
-          components: generateComponents(currentPage)
-        });
-      }
-    });
+      const collector = embedMessage.createMessageComponentCollector({
+        filter: (i) => i.user.id === message.author.id,
+        time: 120000
+      });
 
-    collector.on("end", () => {
-      embedMessage.edit({ components: [] }).catch(() => null);
-    });
-  
-    return true;
+      collector.on("collect", async (interaction) => {
+        try {
+          if (interaction.isStringSelectMenu() && interaction.customId.startsWith("edit__select_")) {
+            const targetUserId = interaction.customId.split("_")[3];
+            const warnId = interaction.values[0];
+            const userWarns = data.warnings[targetUserId] || [];
+            const targetWarn = userWarns.find(w => String(w.id) === String(warnId));
+
+            if (!targetWarn) {
+              return interaction.reply({ content: "❌ That warning could no longer be found.", ephemeral: true });
+            }
+
+            const modal = new ModalBuilder()
+              .setCustomId(`modal_edit_warn_${targetUserId}_${warnId}`)
+              .setTitle("✏️ Edit Warning Case");
+
+            const reasonInput = new TextInputBuilder()
+              .setCustomId("newReasonInput")
+              .setLabel("Update or Rewrite Reason")
+              .setStyle(TextInputStyle.Paragraph)
+              .setValue(String(targetWarn.reason || "No reason"))
+              .setMaxLength(1000)
+              .setRequired(true);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+            return await interaction.showModal(modal);
+          }
+
+          if (interaction.isButton()) {
+            if (interaction.customId === "prev__page") currentPage--;
+            else if (interaction.customId === "next__page") currentPage++;
+            
+            await interaction.update({
+              embeds: [generateWarningEmbed(currentPage)],
+              components: generateComponents(currentPage)
+            });
+          }
+        } catch (collectorErr) {
+          console.error("Error inside warnings collector:", collectorErr);
+        }
+      });
+
+      collector.on("end", () => {
+        embedMessage.edit({ components: [] }).catch(() => null);
+      });
+
+      return true;
+    } catch (err) {
+      console.error("Error running warnings command:", err);
+      return message.reply("❌ An unexpected error occurred while running the warnings command. Check terminal logs.");
+    }
   }
 
   if (command === "unwarn") {
