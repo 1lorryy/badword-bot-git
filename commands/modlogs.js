@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 function loadMergedData() {
-  const merged = { warnings: {}, cases: [] };
+  const merged = { warnings: {}, cases: [], modStats: {} };
   const possibleFiles = ["data.json", "moderation-data.json"];
 
   for (const file of possibleFiles) {
@@ -15,7 +15,7 @@ function loadMergedData() {
         const extractData = (obj) => {
           if (!obj || typeof obj !== "object") return;
 
-          // Merge warning arrays without overwriting existing arrays
+          // Merge warning arrays
           if (obj.warnings && typeof obj.warnings === "object") {
             for (const uId in obj.warnings) {
               if (Array.isArray(obj.warnings[uId])) {
@@ -24,7 +24,12 @@ function loadMergedData() {
             }
           }
 
-          // Collect all case/action arrays
+          // Merge modStats counters
+          if (obj.modStats && typeof obj.modStats === "object") {
+            Object.assign(merged.modStats, obj.modStats);
+          }
+
+          // Collect all case arrays
           ["cases", "actions", "modlogs", "history", "mutes", "bans", "kicks"].forEach(key => {
             if (Array.isArray(obj[key])) {
               merged.cases.push(...obj[key]);
@@ -106,6 +111,9 @@ async function handleModLogsCommand(message, args, prefix, getGuildData) {
         }
       }
     }
+    if (runtimeData.modStats) {
+      Object.assign(fileData.modStats, runtimeData.modStats);
+    }
     ["cases", "actions", "modlogs", "history", "mutes", "bans", "kicks"].forEach(key => {
       if (Array.isArray(runtimeData[key])) {
         fileData.cases.push(...runtimeData[key]);
@@ -113,10 +121,14 @@ async function handleModLogsCommand(message, args, prefix, getGuildData) {
     });
   }
 
+  // Get raw counts from modStats object
+  const rawModStats = fileData.modStats[target.id] || { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+  const totalModStatsCount = (rawModStats.warns || 0) + (rawModStats.mutes || 0) + (rawModStats.kicks || 0) + (rawModStats.bans || 0);
+
   const allRecords = [];
   const seenCaseKeys = new Set();
 
-  // 1. Gather Infractions Received
+  // 1. Infractions Received
   const userWarns = fileData.warnings[target.id] || [];
   userWarns.forEach(w => {
     const key = `rec_warn_${w.id || w.date || Math.random()}`;
@@ -150,7 +162,7 @@ async function handleModLogsCommand(message, args, prefix, getGuildData) {
     }
   });
 
-  // 2. Gather Actions Executed as Staff
+  // 2. Actions Executed as Staff
   for (const uId in fileData.warnings) {
     const warnsList = fileData.warnings[uId];
     if (Array.isArray(warnsList)) {
@@ -190,7 +202,13 @@ async function handleModLogsCommand(message, args, prefix, getGuildData) {
     }
   });
 
-  if (allRecords.length === 0) {
+  const receivedCount = allRecords.filter(r => r.kind === "RECEIVED").length;
+  const loggedIssuedCount = allRecords.filter(r => r.kind === "ISSUED").length;
+  
+  // Use modStats total if higher than logged cases
+  const totalIssuedDisplay = Math.max(loggedIssuedCount, totalModStatsCount);
+
+  if (allRecords.length === 0 && totalIssuedDisplay === 0) {
     const cleanEmbed = new EmbedBuilder()
       .setColor("#57F287")
       .setTitle(`🛡️ Modlogs • ${target.user.tag}`)
@@ -205,14 +223,14 @@ async function handleModLogsCommand(message, args, prefix, getGuildData) {
   allRecords.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
   const ITEMS_PER_PAGE = 4;
-  const totalPages = Math.ceil(allRecords.length / ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(allRecords.length / ITEMS_PER_PAGE));
   let currentPage = 0;
 
   const buildEmbed = (page) => {
     const start = page * ITEMS_PER_PAGE;
     const pageItems = allRecords.slice(start, start + ITEMS_PER_PAGE);
 
-    const formattedList = pageItems.map(item => {
+    let formattedList = pageItems.map(item => {
       const ts = item.date ? Math.floor(new Date(item.date).getTime() / 1000) : null;
       const timeStr = ts ? `<t:${ts}:R>` : "Recently";
 
@@ -223,14 +241,19 @@ async function handleModLogsCommand(message, args, prefix, getGuildData) {
       }
     }).join("\n\n");
 
-    const receivedCount = allRecords.filter(r => r.kind === "RECEIVED").length;
-    const issuedCount = allRecords.filter(r => r.kind === "ISSUED").length;
+    if (!formattedList) {
+      formattedList = "_No detailed case logs available for older counter stats._";
+    }
+
+    const breakdownStr = totalModStatsCount > 0 
+      ? `\n└ **Stats Breakdown:** \`${rawModStats.warns || 0}\` Warns • \`${rawModStats.mutes || 0}\` Mutes • \`${rawModStats.kicks || 0}\` Kicks • \`${rawModStats.bans || 0}\` Bans`
+      : "";
 
     return new EmbedBuilder()
       .setColor("#5865F2")
       .setAuthor({ name: `Moderation History: ${target.user.tag}`, iconURL: target.user.displayAvatarURL() })
       .setThumbnail(target.user.displayAvatarURL({ forceStatic: false }))
-      .setDescription(`**Summary:** Received \`${receivedCount}\` infraction(s) • Issued \`${issuedCount}\` action(s)\n\n${formattedList}`)
+      .setDescription(`**Summary:** Received \`${receivedCount}\` infraction(s) • Issued \`${totalIssuedDisplay}\` action(s)${breakdownStr}\n\n${formattedList}`)
       .setFooter({ text: `Target ID: ${target.id} • Page ${page + 1} of ${totalPages} • Donquixote Store` })
       .setTimestamp();
   };
