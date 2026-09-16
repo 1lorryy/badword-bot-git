@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentTyp
 const fs = require("fs");
 const path = require("path");
 
-function loadData() {
+function loadMergedData() {
   const merged = { warnings: {}, cases: [] };
   const possibleFiles = ["data.json", "moderation-data.json"];
 
@@ -11,22 +11,64 @@ function loadData() {
       const filePath = path.join(__dirname, "..", file);
       if (fs.existsSync(filePath)) {
         const raw = JSON.parse(fs.readFileSync(filePath, "utf8"));
-        
-        if (raw.warnings) Object.assign(merged.warnings, raw.warnings);
-        
+
+        const extractData = (obj) => {
+          if (!obj || typeof obj !== "object") return;
+
+          // Merge warning arrays without overwriting existing arrays
+          if (obj.warnings && typeof obj.warnings === "object") {
+            for (const uId in obj.warnings) {
+              if (Array.isArray(obj.warnings[uId])) {
+                merged.warnings[uId] = (merged.warnings[uId] || []).concat(obj.warnings[uId]);
+              }
+            }
+          }
+
+          // Collect all case/action arrays
+          ["cases", "actions", "modlogs", "history", "mutes", "bans", "kicks"].forEach(key => {
+            if (Array.isArray(obj[key])) {
+              merged.cases.push(...obj[key]);
+            }
+          });
+        };
+
+        extractData(raw);
         for (const key in raw) {
           if (raw[key] && typeof raw[key] === "object") {
-            if (raw[key].warnings) Object.assign(merged.warnings, raw[key].warnings);
-            if (Array.isArray(raw[key].cases)) merged.cases.push(...raw[key].cases);
+            extractData(raw[key]);
           }
         }
-        if (Array.isArray(raw.cases)) merged.cases.push(...raw.cases);
       }
     } catch (err) {
-      // Continue if a file isn't present
+      // Ignore file reading errors
     }
   }
   return merged;
+}
+
+function getModId(item) {
+  return String(
+    item.mod ||
+    item.moderatorId ||
+    item.moderator ||
+    item.executorId ||
+    item.executor ||
+    item.staffId ||
+    item.staff ||
+    item.authorId ||
+    item.author ||
+    ""
+  );
+}
+
+function getTargetId(item) {
+  return String(
+    item.userId ||
+    item.targetId ||
+    item.user ||
+    item.target ||
+    ""
+  );
 }
 
 async function findMember(message, args) {
@@ -53,72 +95,101 @@ async function handleModLogsCommand(message, args, prefix, getGuildData) {
     return message.reply(`💡 **Usage:** \`${prefix}modlogs [@user / ID / username]\``);
   }
 
-  const fileData = loadData();
+  const fileData = loadMergedData();
+
   if (typeof getGuildData === "function") {
     const runtimeData = getGuildData(message.guild.id) || {};
-    if (runtimeData.warnings) Object.assign(fileData.warnings, runtimeData.warnings);
-    if (Array.isArray(runtimeData.cases)) fileData.cases.push(...runtimeData.cases);
+    if (runtimeData.warnings) {
+      for (const uId in runtimeData.warnings) {
+        if (Array.isArray(runtimeData.warnings[uId])) {
+          fileData.warnings[uId] = (fileData.warnings[uId] || []).concat(runtimeData.warnings[uId]);
+        }
+      }
+    }
+    ["cases", "actions", "modlogs", "history", "mutes", "bans", "kicks"].forEach(key => {
+      if (Array.isArray(runtimeData[key])) {
+        fileData.cases.push(...runtimeData[key]);
+      }
+    });
   }
 
   const allRecords = [];
+  const seenCaseKeys = new Set();
 
-  // 1. Gather Infractions Received by Target
-  const receivedWarns = fileData.warnings[target.id] || [];
-  receivedWarns.forEach(w => {
-    allRecords.push({
-      kind: "RECEIVED",
-      id: w.id || "N/A",
-      type: (w.type || "WARN").toUpperCase(),
-      reason: w.reason || "No reason provided",
-      mod: w.mod || w.moderatorId || "Unknown",
-      date: w.date || w.createdAt
-    });
+  // 1. Gather Infractions Received
+  const userWarns = fileData.warnings[target.id] || [];
+  userWarns.forEach(w => {
+    const key = `rec_warn_${w.id || w.date || Math.random()}`;
+    if (!seenCaseKeys.has(key)) {
+      seenCaseKeys.add(key);
+      allRecords.push({
+        kind: "RECEIVED",
+        id: w.id || "N/A",
+        type: (w.type || "WARN").toUpperCase(),
+        reason: w.reason || "No reason provided",
+        mod: getModId(w) || "Unknown",
+        date: w.date || w.createdAt
+      });
+    }
   });
 
-  const receivedCases = fileData.cases.filter(c => c.userId === target.id);
-  receivedCases.forEach(c => {
-    allRecords.push({
-      kind: "RECEIVED",
-      id: c.id || "N/A",
-      type: (c.type || "ACTION").toUpperCase(),
-      reason: c.reason || "No reason provided",
-      mod: c.moderatorId || c.mod || "Unknown",
-      date: c.createdAt || c.date
-    });
+  fileData.cases.forEach(c => {
+    if (getTargetId(c) === target.id) {
+      const key = `rec_case_${c.id || c.createdAt || Math.random()}`;
+      if (!seenCaseKeys.has(key)) {
+        seenCaseKeys.add(key);
+        allRecords.push({
+          kind: "RECEIVED",
+          id: c.id || "N/A",
+          type: (c.type || "ACTION").toUpperCase(),
+          reason: c.reason || "No reason provided",
+          mod: getModId(c) || "Unknown",
+          date: c.createdAt || c.date
+        });
+      }
+    }
   });
 
-  // 2. Gather Actions Executed by Target as Staff/Mod
+  // 2. Gather Actions Executed as Staff
   for (const uId in fileData.warnings) {
-    const userWarns = fileData.warnings[uId];
-    if (Array.isArray(userWarns)) {
-      userWarns.forEach(w => {
-        if (String(w.mod) === String(target.id) || String(w.moderatorId) === String(target.id)) {
-          allRecords.push({
-            kind: "ISSUED",
-            id: w.id || "N/A",
-            type: (w.type || "WARN").toUpperCase(),
-            targetId: uId,
-            reason: w.reason || "No reason provided",
-            date: w.date || w.createdAt
-          });
+    const warnsList = fileData.warnings[uId];
+    if (Array.isArray(warnsList)) {
+      warnsList.forEach(w => {
+        if (getModId(w) === target.id) {
+          const key = `iss_warn_${w.id || w.date || Math.random()}`;
+          if (!seenCaseKeys.has(key)) {
+            seenCaseKeys.add(key);
+            allRecords.push({
+              kind: "ISSUED",
+              id: w.id || "N/A",
+              type: (w.type || "WARN").toUpperCase(),
+              targetId: uId,
+              reason: w.reason || "No reason provided",
+              date: w.date || w.createdAt
+            });
+          }
         }
       });
     }
   }
 
-  const issuedCases = fileData.cases.filter(c => String(c.moderatorId || c.mod) === String(target.id));
-  issuedCases.forEach(c => {
-    allRecords.push({
-      kind: "ISSUED",
-      id: c.id || "N/A",
-      type: (c.type || "ACTION").toUpperCase(),
-      targetId: c.userId,
-      reason: c.reason || "No reason provided",
-      date: c.createdAt || c.date
-    });
+  fileData.cases.forEach(c => {
+    if (getModId(c) === target.id) {
+      const key = `iss_case_${c.id || c.createdAt || Math.random()}`;
+      if (!seenCaseKeys.has(key)) {
+        seenCaseKeys.add(key);
+        allRecords.push({
+          kind: "ISSUED",
+          id: c.id || "N/A",
+          type: (c.type || "ACTION").toUpperCase(),
+          targetId: getTargetId(c),
+          reason: c.reason || "No reason provided",
+          date: c.createdAt || c.date
+        });
+      }
+    }
   });
 
-  // Clean Record Check
   if (allRecords.length === 0) {
     const cleanEmbed = new EmbedBuilder()
       .setColor("#57F287")
@@ -131,10 +202,8 @@ async function handleModLogsCommand(message, args, prefix, getGuildData) {
     return message.reply({ embeds: [cleanEmbed] });
   }
 
-  // Sort newest first
   allRecords.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
-  // Pagination Settings
   const ITEMS_PER_PAGE = 4;
   const totalPages = Math.ceil(allRecords.length / ITEMS_PER_PAGE);
   let currentPage = 0;
@@ -195,7 +264,7 @@ async function handleModLogsCommand(message, args, prefix, getGuildData) {
 
   const collector = replyMsg.createMessageComponentCollector({
     componentType: ComponentType.Button,
-    time: 120000 // 2 minutes active
+    time: 120000
   });
 
   collector.on("collect", async (interaction) => {
