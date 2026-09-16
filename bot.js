@@ -999,7 +999,7 @@ if (command === "warn") {
     });
   }
 
-  if (command === "warnings") {
+if (command === "warnings") {
     if (!canManageGuild(message)) return message.reply("❌ No permission to view or manage warning records.");
     const member = await findTargetMember(message, args) || message.member;
     const ings = data.warnings[member.id] || [];
@@ -1018,16 +1018,17 @@ if (command === "warn") {
         .map((w, i) => {
           const unixTime = w.date ? Math.floor(new Date(w.date).getTime() / 1000) : null;
           const timeString = unixTime ? `• <t:${unixTime}:R>` : "";
+          // Added a fallback string in case the reason is missing
           return `🔹 **Case #${start + i + 1}** ${timeString}\n` +
                  `> 🆔 **ID:** \`${w.id}\`\n` +
                  `> 🛡️ **Moderator:** <@${w.mod}>\n` +
-                 `> 📌 **Reason:** ${w.reason}`;
+                 `> 📌 **Reason:** ${w.reason || "No reason provided"}`;
         })
         .join("\n\n");
 
       return new EmbedBuilder()
         .setAuthor({ name: `⚠️ Warning Records — ${member.user.tag}`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
-        .setColor(0xfbbf24)
+        .setColor(0xfbbf24) 
         .setDescription(description || "*No warnings found on this page.*")
         .addFields(
           { name: "📊 Total Offenses", value: `\`${ings.length}\` warning(s) registered`, inline: true }
@@ -1048,9 +1049,10 @@ if (command === "warn") {
           .setPlaceholder("✏️ Select a warning case to edit...")
           .addOptions(
             current.map((w, i) => ({
-              label: `Case #${start + i + 1} (${w.id.slice(-6)})`,
-              description: w.reason.slice(0, 95),
-              value: w.id
+              label: `Case #${start + i + 1} (${String(w.id).slice(-6)})`,
+              // Fixed the slice crash by ensuring w.reason is always a string
+              description: (w.reason || "No reason").slice(0, 95),
+              value: String(w.id)
             }))
           );
         components.push(new ActionRowBuilder().addComponents(selectMenu));
@@ -1094,7 +1096,7 @@ if (command === "warn") {
           .setCustomId("newReasonInput")
           .setLabel("Update or Rewrite Reason")
           .setStyle(TextInputStyle.Paragraph)
-          .setValue(targetWarn.reason)
+          .setValue(targetWarn.reason || "No reason")
           .setMaxLength(1000)
           .setRequired(true);
 
@@ -1116,7 +1118,7 @@ if (command === "warn") {
     collector.on("end", () => {
       embedMessage.edit({ components: [] }).catch(() => null);
     });
-
+  
     return true;
   }
 
@@ -2521,12 +2523,10 @@ client.on("interactionCreate", async (interaction) => {
     }
   });
   
-  // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
     try {
-      if (message.author.bot) return;
-      if (!message.guild) return;
-      if (!message.content) return;
+      if (message.author.bot || !message.guild || !message.content) return;
 
       const data = getGuildData(message.guild.id);
       const prefix = data.prefix || DEFAULT_PREFIX;
@@ -2536,7 +2536,7 @@ client.on("interactionCreate", async (interaction) => {
 
       const bypassRoleId = "1492630307650666546";
       const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
-      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/gi;
+      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
       const containsDiscordInvite = discordInviteRegex.test(message.content);
       const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
 
@@ -2548,7 +2548,12 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
-        const word = containsBlacklistedWord(message.content, [...CORE_BLACKLIST, ...data.words, ...(data.blockedLinks || [])]);
+        // Fixed: Added array fallback to prevent TypeError if data.words is undefined
+        const word = containsBlacklistedWord(message.content, [
+          ...CORE_BLACKLIST, 
+          ...(data.words || []), 
+          ...(data.blockedLinks || [])
+        ]);
         if (word) {
           await message.delete().catch(() => null);
           await sendAutomodLog(message, word);
@@ -2582,7 +2587,10 @@ client.on("interactionCreate", async (interaction) => {
       
       let isReplyToBot = false;
       if (message.reference && message.reference.messageId) {
-        const repliedMsg = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+        // Fixed: Check local cache first before resorting to an API fetch call
+        const repliedMsg = message.channel.messages.cache.get(message.reference.messageId) 
+          || await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+        
         if (repliedMsg && repliedMsg.author.id === client.user.id) {
           isReplyToBot = true;
         }
@@ -2596,7 +2604,7 @@ client.on("interactionCreate", async (interaction) => {
           data.currentPersonaIndex += 1; 
         }
         
-        store[message.guild.id] = data;
+        if (typeof store !== "undefined") store[message.guild.id] = data;
         saveData();
       }
 
