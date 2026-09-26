@@ -169,13 +169,13 @@ function getGuildData(guildId) {
     saveData();
   }
 
+  const guild = store[guildId];
+
   if (guild.snipeEnabled === undefined) guild.snipeEnabled = true;
   
   // Add this line to set the default AI state
   if (guild.aiEnabled === undefined) guild.aiEnabled = true;
   
-  const guild = store[guildId];
-
   if (!Array.isArray(guild.words)) guild.words = [];
   if (!Array.isArray(guild.blockedLinks)) guild.blockedLinks = [];
   if (!guild.customCommands || typeof guild.customCommands !== "object") guild.customCommands = {};
