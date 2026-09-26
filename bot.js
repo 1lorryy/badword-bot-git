@@ -1421,7 +1421,7 @@ try {
     }
   }
 
-  if (command === "softban") {
+if (command === "softban") {
     if (!canBanUsers(message)) return message.reply("❌ Only admin+ can softban.");
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}softban @user [reason]\``);
@@ -1430,34 +1430,25 @@ try {
     const reason = args.slice(1).join(" ") || "Raid/Spam cleanup";
 
     try {
-      await member.ban({ 
-        deleteMessageSeconds: 604800, 
-        reason: `[Softban] ${reason}` 
-      });
-      await message.guild.members.unban(member.id, "Softban completion (unban)").catch(() => null);
-
-      if (!data.modStats[message.author.id]) {
-        data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
-      }
-      data.modStats[message.author.id].kicks++; 
-      saveData();
+      // Ban the user and delete their recent messages, then unban them immediately (softban)
+      await member.ban({ deleteMessageSeconds: 604800, reason });
+      await message.guild.members.unban(member.id, "Softban completion").catch(() => null);
 
       const embed = new EmbedBuilder()
-        .setTitle("🛡️ Member Softbanned")
-        .setColor(0x3b82f6)
+        .setTitle("🧹 User Softbanned")
+        .setColor(0xf59e0b)
         .addFields(
-          { name: "User", value: `${member.user.tag} (${member.id})`, inline: true },
+          { name: "User", value: `${member.user.tag}`, inline: true },
           { name: "Moderator", value: `${message.author.tag}`, inline: true },
-          { name: "Reason", value: reason, inline: false },
-          { name: "Action Taken", value: "Kicked from server + 7 days of message history wiped.", inline: false }
+          { name: "Reason", value: reason, inline: false }
         )
         .setTimestamp();
-      await sendModLog(embed, BAN_TARGET_CHANNEL_ID);
 
-      return message.reply(`🛡️ **Softbanned** ${member.user.tag} (Messages wiped, user kicked).`);
+      await sendModLog(embed);
+      return message.reply(`🧹 **Softbanned** ${member.user.tag} (recent messages wiped).`);
     } catch (err) {
       console.error("Softban error:", err);
-      return message.reply("❌ Failed to finish target account softban.");
+      return message.reply("❌ Failed to execute softban.");
     }
   }
 
