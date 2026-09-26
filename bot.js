@@ -169,6 +169,11 @@ function getGuildData(guildId) {
     saveData();
   }
 
+  if (guild.snipeEnabled === undefined) guild.snipeEnabled = true;
+  
+  // Add this line to set the default AI state
+  if (guild.aiEnabled === undefined) guild.aiEnabled = true;
+  
   const guild = store[guildId];
 
   if (!Array.isArray(guild.words)) guild.words = [];
@@ -666,6 +671,33 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
+  if (command === "toggleai") {
+  if (!canManageGuild(message)) return message.reply("❌ No permission.");
+
+  const state = args[0]?.toLowerCase();
+
+  if (state === "on") {
+    data.aiEnabled = true;
+    saveData();
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("✨ AI Features Enabled")
+          .setColor(0xffb6c1) // Pastel pink
+          .setDescription("The AI assistant is now active and ready to respond.")
+      ]
+    });
+  }
+
+  if (state === "off") {
+    data.aiEnabled = false;
+    saveData();
+    return message.reply("❌ AI features have been temporarily disabled.");
+  }
+
+  return message.reply(`Usage: \`${prefix}toggleai on|off\`. Current state: ${data.aiEnabled ? "**ON**" : "**OFF**"}`);
+}
+
   if (command === "daily") {
     const userId = message.author.id;
     
@@ -803,11 +835,16 @@ async function handleCommands(message, getGuildData) {
   if (data.customCommands?.[command]) {
     const custom = data.customCommands[command];
 
-    if (typeof custom === "object" && custom.ai === true) {
-      let aiReply = await generateAiReply(message, message.content).catch(() => null);
-      if (!aiReply) return message.reply("AI unavailable.");
-      return message.channel.send(aiReply);
-    }
+if (typeof custom === "object" && custom.ai === true) {
+  // Add this block to check the global toggle
+  if (!data.aiEnabled) {
+    return message.reply("❌ The AI module is currently disabled by server admins.");
+  }
+
+  let aiReply = await generateAiReply(message, message.content).catch(() => null); //[cite: 5]
+  if (!aiReply) return message.reply("AI unavailable."); //[cite: 5]
+  return message.channel.send(aiReply); //[cite: 5]
+}
 
     if (typeof custom === "object" && custom.embeds && custom.embeds.length > 0) {
       return message.channel.send({ embeds: custom.embeds });
