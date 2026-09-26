@@ -67,8 +67,8 @@ async function generateAiReply(message, trigger, history = []) {
 
   const currentDate = new Date().toUTCString();
 
-  // Keeps the last 25 messages for smooth multi-user conversation flow
-  const slicedHistory = Array.isArray(history) ? history.slice(-25) : [];
+  // Keeps up to the last 150 messages to maintain deep conversation context and thread continuity
+  const slicedHistory = Array.isArray(history) ? history.slice(-150) : [];
 
   try {
     const response = await client.chat.completions.create({
