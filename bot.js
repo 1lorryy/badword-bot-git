@@ -1906,7 +1906,7 @@ try {
       });
     }
 
-    const pageFun = new EmbedBuilder()
+const pageFun = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setTitle("🎮 Fun, Social & Games")
       .setDescription(`Interactive family systems, mini-games, AI, and personal customization. Prefix: \`${prefix}\``)
@@ -1936,6 +1936,7 @@ try {
         {
           name: "🎨 AI & Personalization",
           value:
+            `• \`${prefix}toggleai [on/off]\` — Toggle AI features (Admin)\n` + // <--- ADDED HERE
             `• \`${prefix}ai [prompt]\` — Chat with the OpenAI bot engine\n` +
             `• \`${prefix}customcolor\` / \`${prefix}color\` — Personal role color studio\n` +
             `• \`${prefix}tz [zone]\` — Set or check personal timezone`
@@ -2583,33 +2584,40 @@ client.on("interactionCreate", async (interaction) => {
       const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
       if (userReturned) return;
 
-      const bypassRoleId = "1492630307650666546";
-      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
-      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
-      const containsDiscordInvite = discordInviteRegex.test(message.content);
-      const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
+      // 1. AUTOMOD & BLACKLIST CHECKS (Now respects the toggle)
+      if (data.automodEnabled !== false) { // Defaults to true if undefined
+        const bypassRoleId = "1492630307650666546";
+        const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
+        const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
+        const containsDiscordInvite = discordInviteRegex.test(message.content);
+        const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
 
-      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
-      if (protectedWord) {
-        await message.delete().catch(() => null);
-        await sendAutomodLog(message, protectedWord);
-        return;
-      }
-
-      if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
-        // Fixed: Added array fallback to prevent TypeError if data.words is undefined
-        const word = containsBlacklistedWord(message.content, [
-          ...CORE_BLACKLIST, 
-          ...(data.words || []), 
-          ...(data.blockedLinks || [])
-        ]);
-        if (word) {
+        const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+        if (protectedWord) {
           await message.delete().catch(() => null);
-          await sendAutomodLog(message, word);
+          await sendAutomodLog(message, protectedWord);
           return;
+        }
+
+        if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
+          // Determine if we should check links based on the toggle
+          const linksToCheck = data.blockLinksEnabled !== false ? (data.blockedLinks || []) : [];
+          
+          const word = containsBlacklistedWord(message.content, [
+            ...CORE_BLACKLIST, 
+            ...(data.words || []), 
+            ...linksToCheck
+          ]);
+          
+          if (word) {
+            await message.delete().catch(() => null);
+            await sendAutomodLog(message, word);
+            return;
+          }
         }
       }
 
+      // 2. AUTO-RESPONDERS
       if (data.autoResponses) {
         const contentLower = message.content.toLowerCase();
         for (const [trigger, arData] of Object.entries(data.autoResponses)) {
@@ -2636,7 +2644,6 @@ client.on("interactionCreate", async (interaction) => {
       
       let isReplyToBot = false;
       if (message.reference && message.reference.messageId) {
-        // Fixed: Check local cache first before resorting to an API fetch call
         const repliedMsg = message.channel.messages.cache.get(message.reference.messageId) 
           || await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
         
@@ -2645,6 +2652,7 @@ client.on("interactionCreate", async (interaction) => {
         }
       }
 
+      // Track messages for Persona rotation
       if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
         data.channelCounters[message.channel.id]++;
         
@@ -2657,12 +2665,22 @@ client.on("interactionCreate", async (interaction) => {
         saveData();
       }
 
+      // 3. EXECUTE STANDARD COMMANDS
       const wasCommand = await handleCommands(message, getGuildData);
       if (wasCommand) return;
 
+      // 4. AI ENGINE TRIGGER (Now respects the toggle)
       const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
 
       if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
+
+      // Check if AI is turned off
+      if (data.aiEnabled === false) {
+        if (isAiCommand) {
+          return message.reply("❌ The AI assistant is currently disabled on this server.");
+        }
+        return; // Fail silently for mentions and replies if disabled
+      }
 
       let triggerText = message.content;
 
@@ -2689,8 +2707,3 @@ client.on("interactionCreate", async (interaction) => {
       console.error("Error running inside messageCreate pipeline:", err);
     }
   });
-
-  await client.login(process.env.DISCORD_TOKEN);
-}
-
-module.exports = { startBot };
