@@ -2707,4 +2707,3 @@ client.on("interactionCreate", async (interaction) => {
       console.error("Error running inside messageCreate pipeline:", err);
     }
   });
-)
