@@ -171,11 +171,6 @@ function getGuildData(guildId) {
 
   const guild = store[guildId];
 
-  if (guild.snipeEnabled === undefined) guild.snipeEnabled = true;
-  
-  // Add this line to set the default AI state
-  if (guild.aiEnabled === undefined) guild.aiEnabled = true;
-  
   if (!Array.isArray(guild.words)) guild.words = [];
   if (!Array.isArray(guild.blockedLinks)) guild.blockedLinks = [];
   if (!guild.customCommands || typeof guild.customCommands !== "object") guild.customCommands = {};
@@ -671,33 +666,6 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  if (command === "toggleai") {
-  if (!canManageGuild(message)) return message.reply("❌ No permission.");
-
-  const state = args[0]?.toLowerCase();
-
-  if (state === "on") {
-    data.aiEnabled = true;
-    saveData();
-    return message.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle("✨ AI Features Enabled")
-          .setColor(0xffb6c1) // Pastel pink
-          .setDescription("The AI assistant is now active and ready to respond.")
-      ]
-    });
-  }
-
-  if (state === "off") {
-    data.aiEnabled = false;
-    saveData();
-    return message.reply("❌ AI features have been temporarily disabled.");
-  }
-
-  return message.reply(`Usage: \`${prefix}toggleai on|off\`. Current state: ${data.aiEnabled ? "**ON**" : "**OFF**"}`);
-}
-
   if (command === "daily") {
     const userId = message.author.id;
     
@@ -835,16 +803,11 @@ async function handleCommands(message, getGuildData) {
   if (data.customCommands?.[command]) {
     const custom = data.customCommands[command];
 
-if (typeof custom === "object" && custom.ai === true) {
-  // Add this block to check the global toggle
-  if (!data.aiEnabled) {
-    return message.reply("❌ The AI module is currently disabled by server admins.");
-  }
-
-  let aiReply = await generateAiReply(message, message.content).catch(() => null); //[cite: 5]
-  if (!aiReply) return message.reply("AI unavailable."); //[cite: 5]
-  return message.channel.send(aiReply); //[cite: 5]
-}
+    if (typeof custom === "object" && custom.ai === true) {
+      let aiReply = await generateAiReply(message, message.content).catch(() => null);
+      if (!aiReply) return message.reply("AI unavailable.");
+      return message.channel.send(aiReply);
+    }
 
     if (typeof custom === "object" && custom.embeds && custom.embeds.length > 0) {
       return message.channel.send({ embeds: custom.embeds });
@@ -1421,7 +1384,7 @@ try {
     }
   }
 
-if (command === "softban") {
+  if (command === "softban") {
     if (!canBanUsers(message)) return message.reply("❌ Only admin+ can softban.");
     const member = await findTargetMember(message, args);
     if (!member) return message.reply(`Usage: \`${prefix}softban @user [reason]\``);
@@ -1430,25 +1393,34 @@ if (command === "softban") {
     const reason = args.slice(1).join(" ") || "Raid/Spam cleanup";
 
     try {
-      // Ban the user and delete their recent messages, then unban them immediately (softban)
-      await member.ban({ deleteMessageSeconds: 604800, reason });
-      await message.guild.members.unban(member.id, "Softban completion").catch(() => null);
+      await member.ban({ 
+        deleteMessageSeconds: 604800, 
+        reason: `[Softban] ${reason}` 
+      });
+      await message.guild.members.unban(member.id, "Softban completion (unban)").catch(() => null);
+
+      if (!data.modStats[message.author.id]) {
+        data.modStats[message.author.id] = { warns: 0, mutes: 0, kicks: 0, bans: 0 };
+      }
+      data.modStats[message.author.id].kicks++; 
+      saveData();
 
       const embed = new EmbedBuilder()
-        .setTitle("🧹 User Softbanned")
-        .setColor(0xf59e0b)
+        .setTitle("🛡️ Member Softbanned")
+        .setColor(0x3b82f6)
         .addFields(
-          { name: "User", value: `${member.user.tag}`, inline: true },
+          { name: "User", value: `${member.user.tag} (${member.id})`, inline: true },
           { name: "Moderator", value: `${message.author.tag}`, inline: true },
-          { name: "Reason", value: reason, inline: false }
+          { name: "Reason", value: reason, inline: false },
+          { name: "Action Taken", value: "Kicked from server + 7 days of message history wiped.", inline: false }
         )
         .setTimestamp();
+      await sendModLog(embed, BAN_TARGET_CHANNEL_ID);
 
-      await sendModLog(embed);
-      return message.reply(`🧹 **Softbanned** ${member.user.tag} (recent messages wiped).`);
+      return message.reply(`🛡️ **Softbanned** ${member.user.tag} (Messages wiped, user kicked).`);
     } catch (err) {
       console.error("Softban error:", err);
-      return message.reply("❌ Failed to execute softban.");
+      return message.reply("❌ Failed to finish target account softban.");
     }
   }
 
@@ -1897,7 +1869,7 @@ if (command === "softban") {
       });
     }
 
-const pageFun = new EmbedBuilder()
+    const pageFun = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setTitle("🎮 Fun, Social & Games")
       .setDescription(`Interactive family systems, mini-games, AI, and personal customization. Prefix: \`${prefix}\``)
@@ -1927,7 +1899,6 @@ const pageFun = new EmbedBuilder()
         {
           name: "🎨 AI & Personalization",
           value:
-            `• \`${prefix}toggleai [on/off]\` — Toggle AI features (Admin)\n` + // <--- ADDED HERE
             `• \`${prefix}ai [prompt]\` — Chat with the OpenAI bot engine\n` +
             `• \`${prefix}customcolor\` / \`${prefix}color\` — Personal role color studio\n` +
             `• \`${prefix}tz [zone]\` — Set or check personal timezone`
@@ -2575,40 +2546,33 @@ client.on("interactionCreate", async (interaction) => {
       const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
       if (userReturned) return;
 
-      // 1. AUTOMOD & BLACKLIST CHECKS (Now respects the toggle)
-      if (data.automodEnabled !== false) { // Defaults to true if undefined
-        const bypassRoleId = "1492630307650666546";
-        const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
-        const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
-        const containsDiscordInvite = discordInviteRegex.test(message.content);
-        const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
+      const bypassRoleId = "1492630307650666546";
+      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
+      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
+      const containsDiscordInvite = discordInviteRegex.test(message.content);
+      const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
 
-        const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
-        if (protectedWord) {
+      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+      if (protectedWord) {
+        await message.delete().catch(() => null);
+        await sendAutomodLog(message, protectedWord);
+        return;
+      }
+
+      if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
+        // Fixed: Added array fallback to prevent TypeError if data.words is undefined
+        const word = containsBlacklistedWord(message.content, [
+          ...CORE_BLACKLIST, 
+          ...(data.words || []), 
+          ...(data.blockedLinks || [])
+        ]);
+        if (word) {
           await message.delete().catch(() => null);
-          await sendAutomodLog(message, protectedWord);
+          await sendAutomodLog(message, word);
           return;
-        }
-
-        if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
-          // Determine if we should check links based on the toggle
-          const linksToCheck = data.blockLinksEnabled !== false ? (data.blockedLinks || []) : [];
-          
-          const word = containsBlacklistedWord(message.content, [
-            ...CORE_BLACKLIST, 
-            ...(data.words || []), 
-            ...linksToCheck
-          ]);
-          
-          if (word) {
-            await message.delete().catch(() => null);
-            await sendAutomodLog(message, word);
-            return;
-          }
         }
       }
 
-      // 2. AUTO-RESPONDERS
       if (data.autoResponses) {
         const contentLower = message.content.toLowerCase();
         for (const [trigger, arData] of Object.entries(data.autoResponses)) {
@@ -2635,6 +2599,7 @@ client.on("interactionCreate", async (interaction) => {
       
       let isReplyToBot = false;
       if (message.reference && message.reference.messageId) {
+        // Fixed: Check local cache first before resorting to an API fetch call
         const repliedMsg = message.channel.messages.cache.get(message.reference.messageId) 
           || await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
         
@@ -2643,7 +2608,6 @@ client.on("interactionCreate", async (interaction) => {
         }
       }
 
-      // Track messages for Persona rotation
       if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
         data.channelCounters[message.channel.id]++;
         
@@ -2656,22 +2620,12 @@ client.on("interactionCreate", async (interaction) => {
         saveData();
       }
 
-      // 3. EXECUTE STANDARD COMMANDS
       const wasCommand = await handleCommands(message, getGuildData);
       if (wasCommand) return;
 
-      // 4. AI ENGINE TRIGGER (Now respects the toggle)
       const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
 
       if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
-
-      // Check if AI is turned off
-      if (data.aiEnabled === false) {
-        if (isAiCommand) {
-          return message.reply("❌ The AI assistant is currently disabled on this server.");
-        }
-        return; // Fail silently for mentions and replies if disabled
-      }
 
       let triggerText = message.content;
 
@@ -2698,3 +2652,8 @@ client.on("interactionCreate", async (interaction) => {
       console.error("Error running inside messageCreate pipeline:", err);
     }
   });
+
+  await client.login(process.env.DISCORD_TOKEN);
+}
+
+module.exports = { startBot };
