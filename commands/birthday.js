@@ -5,6 +5,7 @@ const ALLOWED_CHANNELS = ["1481370051264254259", "1481370050597228656", "1499888
 const BDAY_ANNOUNCE_CHANNEL_ID = "1481561361044607047"; // General chat channel ID
 
 let processedToday = new Set();
+let reminderSentToday = new Set(); // Tracks if afternoon/evening reminder was sent for a user today
 let lastKey = null;
 
 async function handleBirthdayCommand(message, args, prefix, getGuildData, saveData) {
@@ -167,12 +168,19 @@ async function checkBirthdays(client, getGuildData, saveData) {
     const now = new Date();
     const day = now.getUTCDate();
     const month = now.getUTCMonth() + 1;
+    const currentHour = now.getUTCHours();
     const currentYear = now.getUTCFullYear();
+    
+    // Formatted small text UTC time string for embeds (e.g., "utc time: sep 29, 2026")
+    const utcDateString = now.toUTCString().replace(/,.*$/, "").toLowerCase(); // e.g. "tue, 29 sep 2026" or similar compact format
+    const smallUtcFooter = `utc check: ${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${currentYear} (${currentHour}:00 utc)`;
+
     const key = `${day}-${month}`;
 
     if (lastKey !== key) {
       lastKey = key;
       processedToday.clear();
+      reminderSentToday.clear();
     }
 
     const bdayWishes = [
@@ -180,6 +188,12 @@ async function checkBirthdays(client, getGuildData, saveData) {
       "Hope your special day brings you all the happiness and cake you can handle! 🍰🎉",
       "Happy birthday! Wishing you a fantastic year ahead full of wins! 🥳🎁",
       "Time to celebrate! Hope you have an absolute banger of a birthday today! 🚀🎂"
+    ];
+
+    const reminderWishes = [
+      "Friendly reminder that <@uid> is still celebrating their birthday today! If you haven't wished them a happy birthday yet, drop some love below! 💬✨",
+      "Just passing by to say it's still <@uid>'s special day! Let's keep the birthday energy going! 🎂🎉",
+      "Hey chat! Don't forget to shower <@uid> with some more birthday wishes before the day ends! 🥳🎈"
     ];
 
     for (const guild of client.guilds.cache.values()) {
@@ -193,36 +207,56 @@ async function checkBirthdays(client, getGuildData, saveData) {
 
       for (const [uid, b] of Object.entries(birthdays)) {
         const idKey = `${guild.id}-${uid}`;
+        const reminderKey = `${guild.id}-${uid}-reminder`;
         const isToday = b.day === day && b.month === month;
         const member = await guild.members.fetch(uid).catch(() => null);
         if (!member) continue;
 
         if (isToday) {
-          if (processedToday.has(idKey)) continue;
+          // 1. Morning Main Announcement
+          if (!processedToday.has(idKey)) {
+            if (b.lastWishedYear !== currentYear) {
+              if (channel && channel.isTextBased()) {
+                const randomWish = bdayWishes[Math.floor(Math.random() * bdayWishes.length)];
 
-          if (b.lastWishedYear !== currentYear) {
-            if (channel && channel.isTextBased()) {
-              const randomWish = bdayWishes[Math.floor(Math.random() * bdayWishes.length)];
+                const embed = new EmbedBuilder()
+                  .setTitle("🎉 Happy Birthday! 🎂")
+                  .setColor(0xff69b4)
+                  .setDescription(`Wishing a very happy birthday to <@${uid}>! ${randomWish}\n\n*([utc time: ${smallUtcFooter}]) yk*`)
+                  .setTimestamp();
 
-              const embed = new EmbedBuilder()
-                .setTitle("🎉 Happy Birthday! 🎂")
-                .setColor(0xff69b4)
-                .setDescription(`Wishing a very happy birthday to <@${uid}>! ${randomWish}`)
-                .setTimestamp();
+                await channel.send({ content: `🎂 <@${uid}>`, embeds: [embed] }).catch(() => null);
+              }
 
-              await channel.send({ content: `🎂 <@${uid}>`, embeds: [embed] }).catch(() => null);
+              data.birthdays[uid].lastWishedYear = currentYear;
+              dataModified = true;
             }
 
-            data.birthdays[uid].lastWishedYear = currentYear;
-            dataModified = true;
+            if (role && !member.roles.cache.has(role.id)) {
+              await member.roles.add(role).catch(() => null);
+            }
+
+            processedToday.add(idKey);
           }
 
-          if (role && !member.roles.cache.has(role.id)) {
-            await member.roles.add(role).catch(() => null);
+          // 2. Afternoon/Evening Surprise Reminder (Triggers after UTC hour 12:00 PM if not already sent)
+          if (currentHour >= 12 && !reminderSentToday.has(reminderKey)) {
+            if (channel && channel.isTextBased()) {
+              const randomReminderText = reminderWishes[Math.floor(Math.random() * reminderWishes.length)].replace(/<@uid>/g, `<@${uid}>`);
+              
+              const reminderEmbed = new EmbedBuilder()
+                .setTitle("⏰ Birthday Reminder! 🎈")
+                .setColor(0xffb6c1)
+                .setDescription(`${randomReminderText}\n\n*([utc time: ${smallUtcFooter}]) yk*`)
+                .setTimestamp();
+
+              await channel.send({ embeds: [reminderEmbed] }).catch(() => null);
+            }
+            reminderSentToday.add(reminderKey);
           }
 
-          processedToday.add(idKey);
         } else {
+          // Remove role if it's no longer their birthday
           if (role && member.roles.cache.has(role.id)) {
             await member.roles.remove(role).catch(() => null);
           }
