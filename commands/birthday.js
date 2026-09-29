@@ -2,7 +2,7 @@ const { PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 
 const BIRTHDAY_ROLE_ID = "1512121400624812072";
 const ALLOWED_CHANNELS = ["1481370051264254259", "1481370050597228656", "1499888577738309633"];
-const BDAY_ANNOUNCE_CHANNEL_ID = "1481561361044607047"; // Updated to general chat channel ID
+const BDAY_ANNOUNCE_CHANNEL_ID = "1481561361044607047"; // General chat channel ID
 
 let processedToday = new Set();
 let lastKey = null;
@@ -78,7 +78,7 @@ async function handleBirthdayCommand(message, args, prefix, getGuildData, saveDa
       const embed = new EmbedBuilder()
         .setTitle("🎂 Upcoming Server Birthdays")
         .setColor(0x5865f2)
-        .setFooter({ text: `Page ${page + 1} of ${totalPages} • Total Registered Users: ${birthdayList.length}\n💡 Type a number (e.g. "2") to jump directly to that page!` })
+        .setFooter({ text: `Page ${page + 1} of${totalPages} • Total Registered Users: ${birthdayList.length}\n💡 Type a number (e.g. "2") to jump directly to that page!` })
         .setTimestamp();
 
       let description = "";
@@ -175,6 +175,13 @@ async function checkBirthdays(client, getGuildData, saveData) {
       processedToday.clear();
     }
 
+    const bdayWishes = [
+      "Wishing you an amazing day filled with good vibes and great energy! 🎈✨",
+      "Hope your special day brings you all the happiness and cake you can handle! 🍰🎉",
+      "Happy birthday! Wishing you a fantastic year ahead full of wins! 🥳🎁",
+      "Time to celebrate! Hope you have an absolute banger of a birthday today! 🚀🎂"
+    ];
+
     for (const guild of client.guilds.cache.values()) {
       const data = getGuildData(guild.id);
       const birthdays = data?.birthdays;
@@ -193,13 +200,14 @@ async function checkBirthdays(client, getGuildData, saveData) {
         if (isToday) {
           if (processedToday.has(idKey)) continue;
 
-          // Prevent duplicate announcements on bot restart for the current year
           if (b.lastWishedYear !== currentYear) {
             if (channel && channel.isTextBased()) {
+              const randomWish = bdayWishes[Math.floor(Math.random() * bdayWishes.length)];
+
               const embed = new EmbedBuilder()
                 .setTitle("🎉 Happy Birthday! 🎂")
                 .setColor(0xff69b4)
-                .setDescription(`Wishing a very happy birthday to <@${uid}>! Have an awesome day! 🎈✨`)
+                .setDescription(`Wishing a very happy birthday to <@${uid}>! ${randomWish}`)
                 .setTimestamp();
 
               await channel.send({ content: `🎂 <@${uid}>`, embeds: [embed] }).catch(() => null);
@@ -215,7 +223,6 @@ async function checkBirthdays(client, getGuildData, saveData) {
 
           processedToday.add(idKey);
         } else {
-          // Remove role if it's no longer their birthday
           if (role && member.roles.cache.has(role.id)) {
             await member.roles.remove(role).catch(() => null);
           }
