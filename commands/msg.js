@@ -71,34 +71,26 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     return message.reply(`✅ Updated <@${targetUser.id}>'s balance. New Balance: \`${userEco.balance.toFixed(2)} DON\``);
   }
 
-  // 3. CONVERT CALCULATOR (?msg convert [amount of DON or R$])
+// 3. CONVERT CALCULATOR (?msg convert [amount of DON])
   if (sub === "convert") {
     const inputAmount = parseFloat(args[1]);
     const userEco = data.economy[message.author.id] || { balance: 0, robux: 0 };
 
     if (isNaN(inputAmount) || inputAmount <= 0) {
-      const maxRobux = ((userEco.balance || 0) / 10).toFixed(1);
+      const maxRobux = ((userEco.balance || 0) * 1.5).toFixed(1);
       return message.reply(
         `🧮 **DON ➔ Robux Calculator**\n` +
-        `• Rate: **10 DON = 1 Virtual R$**\n` +
+        `• Rate: **100 DON = 150 Virtual R$** (1 DON = 1.5 R$)\n` +
         `• Your Balance: \`${(userEco.balance || 0).toFixed(2)} DON\` ➔ **${maxRobux} R$**\n\n` +
-        `💡 *Usage:* \`${prefix}msg convert [DON amount]\` (e.g. \`${prefix}msg convert 500\`)`
+        `💡 *Usage:* \`${prefix}msg convert [DON amount]\``
       );
     }
 
-    const robuxValue = (inputAmount / 10).toFixed(1);
-    const donNeededFor200 = Math.max(0, 2000 - inputAmount);
-
-    let progressNote = "";
-    if (inputAmount < 2000) {
-      progressNote = `\n⚠️ *Needs \`${donNeededFor200.toFixed(2)} DON\` more to reach the 200 R$ exchange minimum.*`;
-    } else {
-      progressNote = `\n✅ *Meets the minimum requirement for \`${prefix}msg exchange\`!*`;
-    }
+    const robuxValue = (inputAmount * 1.5).toFixed(1);
 
     return message.reply(
       `🧮 **Conversion Calculator:**\n` +
-      `\`${inputAmount.toFixed(2)} DON\` = **${robuxValue} Virtual R$**${progressNote}`
+      `\`${inputAmount.toFixed(2)} DON\` = **${robuxValue} Virtual R$**`
     );
   }
 
@@ -106,13 +98,13 @@ async function execute(message, args, prefix, getGuildData, saveData) {
   if (sub === "exchange") {
     const amount = parseFloat(args[1]);
     const userEco = data.economy[message.author.id] || { balance: 0, robux: 0 };
-    const maxRobux = Math.floor((userEco.balance || 0) / 10);
+    const maxRobux = Math.floor((userEco.balance || 0) * 1.5);
 
     if (isNaN(amount) || amount <= 0) {
       return message.reply(
-        `❌ Usage: \`${prefix}msg exchange [amount of DON]\` (Rate: 10 DON = 1 Virtual R$)\n` +
-        `💡 Your Balance: \`${(userEco.balance || 0).toFixed(2)} DON\` (You can exchange up to **${maxRobux} R$**).\n` +
-        `⚠️ **Minimum exchange is 200 R$** (requires **2,000 DON**).`
+        `❌ Usage: \`${prefix}msg exchange [amount of DON]\` (Rate: 100 DON = 150 Virtual R$)\n` +
+        `💡 Your Balance: \`${(userEco.balance || 0).toFixed(2)} DON\` (Exchangeable up to **${maxRobux} R$**).\n` +
+        `⚠️ **Minimum exchange is 200 R$** (requires **~133.33 DON**).`
       );
     }
 
@@ -120,11 +112,12 @@ async function execute(message, args, prefix, getGuildData, saveData) {
       return message.reply(`❌ You don't have enough DON! Your balance: \`${userEco.balance.toFixed(2)} DON\``);
     }
 
-    const robuxEarned = amount / 10;
+    // Rate: 100 DON = 150 Virtual Robux (1 DON = 1.5 R$)
+    const robuxEarned = amount * 1.5;
 
     if (robuxEarned < 200) {
       return message.reply(
-        `❌ Minimum exchange is **200 R$** (requires at least **2,000 DON**).\n` +
+        `❌ Minimum exchange payout is **200 R$** (requires at least **133.34 DON**).\n` +
         `You requested **${robuxEarned.toFixed(1)} R$** (${amount} DON).`
       );
     }
