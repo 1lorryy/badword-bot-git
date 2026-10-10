@@ -559,8 +559,11 @@ function saveSnipe(message) {
     deletedAt: Date.now()
   });
 
-  data.snipes[message.channel.id] =
-    data.snipes[message.channel.id].slice(0, 5);
+  // Filter out snipes older than 24 hours and limit to top 5
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+  data.snipes[message.channel.id] = data.snipes[message.channel.id]
+    .filter(s => Date.now() - s.deletedAt < ONE_DAY)
+    .slice(0, 5);
 
   saveData();
 }
@@ -2690,6 +2693,19 @@ client.on("messageCreate", async (message) => {
       
       saveData();
     }
+
+    // ================= MESSAGE DELETE SNIPE LISTENER =================
+client.on("messageDelete", (message) => {
+  try {
+    if (!message.guild || message.author?.bot || !message.content) return;
+    const data = getGuildData(message.guild.id);
+    if (data.snipeEnabled !== false) {
+      saveSnipe(message);
+    }
+  } catch (err) {
+    console.error("Error capturing deleted message for snipe:", err);
+  }
+});
 
     // ================= UTC MESSAGE ACTIVITY TRACKER =================
     if (!message.author.bot && message.guild) {
