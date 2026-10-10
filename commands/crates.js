@@ -3,32 +3,54 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const CRATE_TYPES = {
   basic: { name: "🪵 Basic Crate", cost: 5, color: 0x8b5a2b, desc: "Affordable crate with common and rare pets." },
   epic: { name: "✨ Epic Crate", cost: 25, color: 0x9b59b6, desc: "Better odds for rare and epic pets!" },
-  mythic: { name: "🌌 Mythic Crate", cost: 100, color: 0xf1c40f, desc: "High stakes! Unlocks legendary and mythic beasts." }
+  mythic: { name: "🌌 Mythic Crate", cost: 100, color: 0xf1c40f, desc: "High stakes! Unlocks legendary and mythic beasts." },
+  legendary: { name: "⚡ Legendary Crate", cost: 350, color: 0xe67e22, desc: "Exclusive crate for legendary & celestial beings." },
+  godly: { name: "👑 Godly Crate", cost: 1000, color: 0xe74c3c, desc: "The ultimate gamble! Unlocks ultra-rare godly entities." }
 };
 
 const PET_POOL = [
-  // Basic Tier
+  // --- Basic Tier ---
+  { name: "Slime", rarity: "Common", emoji: "🟢", tier: "basic", weight: 60, value: 1 },
   { name: "Bunny", rarity: "Common", emoji: "🐰", tier: "basic", weight: 50, value: 2 },
-  { name: "Cat", rarity: "Common", emoji: "🐱", tier: "basic", weight: 50, value: 2 },
+  { name: "Cat", rarity: "Common", emoji: "🐱", tier: "basic", weight: 45, value: 3 },
+  { name: "Dog", rarity: "Common", emoji: "🐶", tier: "basic", weight: 45, value: 3 },
   { name: "Fox", rarity: "Rare", emoji: "🦊", tier: "basic", weight: 25, value: 8 },
   { name: "Panda", rarity: "Rare", emoji: "🐼", tier: "basic", weight: 20, value: 10 },
-  
-  // Epic Tier
+  { name: "Snow Owl", rarity: "Rare", emoji: "🦉", tier: "basic", weight: 15, value: 14 },
+
+  // --- Epic Tier ---
+  { name: "Frost Wolf", rarity: "Epic", emoji: "🐺", tier: "epic", weight: 40, value: 25 },
   { name: "Phoenix", rarity: "Epic", emoji: "🔥", tier: "epic", weight: 35, value: 35 },
   { name: "Griffin", rarity: "Epic", emoji: "🦅", tier: "epic", weight: 30, value: 45 },
-  { name: "Unicorn", rarity: "Legendary", emoji: "🦄", tier: "epic", weight: 10, value: 120 },
-  
-  // Mythic Tier
-  { name: "Shadow Dragon", rarity: "Legendary", emoji: "🐉", tier: "mythic", weight: 30, value: 150 },
+  { name: "Thunder Eagle", rarity: "Epic", emoji: "⚡", tier: "epic", weight: 20, value: 65 },
+  { name: "Demon Bat", rarity: "Epic", emoji: "🦇", tier: "epic", weight: 15, value: 85 },
+
+  // --- Mythic Tier ---
+  { name: "Unicorn", rarity: "Legendary", emoji: "🦄", tier: "mythic", weight: 30, value: 120 },
+  { name: "Shadow Dragon", rarity: "Legendary", emoji: "🐉", tier: "mythic", weight: 25, value: 150 },
   { name: "Golden Tiger", rarity: "Mythic", emoji: "🐅", tier: "mythic", weight: 15, value: 300 },
-  { name: "Cosmic Nebula Beast", rarity: "Mythic", emoji: "🌌", tier: "mythic", weight: 5, value: 750 }
+  { name: "Cyber Mecha Titan", rarity: "Mythic", emoji: "🤖", tier: "mythic", weight: 10, value: 450 },
+  { name: "Cosmic Nebula Beast", rarity: "Mythic", emoji: "🌌", tier: "mythic", weight: 5, value: 750 },
+
+  // --- Legendary Tier ---
+  { name: "Crystal Phoenix", rarity: "Legendary", emoji: "💎", tier: "legendary", weight: 25, value: 1100 },
+  { name: "Celestial Kitsune", rarity: "Legendary", emoji: "🦊", tier: "legendary", weight: 15, value: 1600 },
+  { name: "Void Overlord", rarity: "Legendary", emoji: "🕳️", tier: "legendary", weight: 8, value: 2400 },
+  { name: "Astral Titan", rarity: "Legendary", emoji: "✨", tier: "legendary", weight: 4, value: 3500 },
+
+  // --- Godly Tier ---
+  { name: "Infinite Godly Dominus", rarity: "Godly", emoji: "👑", tier: "godly", weight: 10, value: 6000 },
+  { name: "Eternal Galaxy Dragon", rarity: "Godly", emoji: "🪐", tier: "godly", weight: 5, value: 9500 },
+  { name: "Supreme Celestial Apex", rarity: "Godly", emoji: "🌟", tier: "godly", weight: 1, value: 15000 }
 ];
 
 function rollPet(crateType) {
   let filtered = PET_POOL.filter(p => {
     if (crateType === 'basic') return p.tier === 'basic';
     if (crateType === 'epic') return p.tier === 'basic' || p.tier === 'epic';
-    return true; // Mythic crate can roll everything
+    if (crateType === 'mythic') return p.tier === 'epic' || p.tier === 'mythic';
+    if (crateType === 'legendary') return p.tier === 'mythic' || p.tier === 'legendary';
+    return true; // Godly crate can roll everything including Godly tier
   });
 
   const totalWeight = filtered.reduce((sum, p) => sum + p.weight, 0);
@@ -44,7 +66,7 @@ function rollPet(crateType) {
 async function execute(message, args, prefix, getGuildData, saveData) {
   const data = getGuildData(message.guild.id);
   if (!data.economy) data.economy = {};
-  if (!data.pets) data.pets = {}; // Storage for user inventories: data.pets[userId] = [{name, rarity, emoji, value}]
+  if (!data.pets) data.pets = {};
 
   const userId = message.author.id;
   if (!data.economy[userId]) {
@@ -54,7 +76,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
   const firstArg = args[0]?.toLowerCase();
   const secondArg = args[1];
 
-  // 1. SELL PET COMMAND (`?sell [number]` or `?crates sell [number]`)
+  // 1. SELL PET COMMAND (?sell [number] or ?crates sell [number])
   const isSellCommand = message.content.startsWith(prefix + "sell") || message.content.startsWith(prefix + "sellpet") || firstArg === "sell" || firstArg === "sellpet";
   if (isSellCommand) {
     const indexArg = (firstArg === "sell" || firstArg === "sellpet") ? secondArg : firstArg;
@@ -77,7 +99,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     );
   }
 
-  // 2. VIEW INVENTORY (`?pets`, `?inventory`, or `?crates inventory`)
+  // 2. VIEW INVENTORY (?pets, ?inventory, or ?crates inventory)
   if (firstArg === "inventory" || firstArg === "inv" || message.content.includes("pets") && !firstArg) {
     const userPets = data.pets[userId] || [];
     if (userPets.length === 0) {
@@ -99,31 +121,38 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     return message.reply({ embeds: [embed] });
   }
 
-  // 3. OPEN CRATE SHOP MAIN MENU (`?crates`)
+  // 3. OPEN CRATE SHOP MAIN MENU (?crates)
   const userBalance = data.economy[userId].balance || 0;
 
   const embed = new EmbedBuilder()
     .setTitle("📦 Pet Crate Marketplace & Gacha")
     .setColor(0x5865f2)
     .setDescription(
-      `Welcome to the pet crate spin station! Earn points by chatting in the server and test your luck.\n\n` +
+      `Welcome to the expanded pet crate spin station! Chat in the server to earn DON, then test your luck.\n\n` +
       `💳 **Your Balance:** \`${userBalance.toFixed(2)} DON\`\n\n` +
-      `Choose a crate tier below to spin and unlock rare animals:`
+      `Choose a crate tier below to open:`
     )
     .addFields(
-      { name: "🪵 Basic Crate", value: `Cost: **${CRATE_TYPES.basic.cost} DON**\n${CRATE_TYPES.basic.desc}`, inline: true },
-      { name: "✨ Epic Crate", value: `Cost: **${CRATE_TYPES.epic.cost} DON**\n${CRATE_TYPES.epic.desc}`, inline: true },
-      { name: "🌌 Mythic Crate", value: `Cost: **${CRATE_TYPES.mythic.cost} DON**\n${CRATE_TYPES.mythic.desc}`, inline: true }
+      { name: "🪵 Basic", value: `Cost: **${CRATE_TYPES.basic.cost} DON**\n${CRATE_TYPES.basic.desc}`, inline: true },
+      { name: "✨ Epic", value: `Cost: **${CRATE_TYPES.epic.cost} DON**\n${CRATE_TYPES.epic.desc}`, inline: true },
+      { name: "🌌 Mythic", value: `Cost: **${CRATE_TYPES.mythic.cost} DON**\n${CRATE_TYPES.mythic.desc}`, inline: true },
+      { name: "⚡ Legendary", value: `Cost: **${CRATE_TYPES.legendary.cost} DON**\n${CRATE_TYPES.legendary.desc}`, inline: true },
+      { name: "👑 Godly", value: `Cost: **${CRATE_TYPES.godly.cost} DON**\n${CRATE_TYPES.godly.desc}`, inline: true }
     )
     .setFooter({ text: "Click the buttons below to open your crates!" });
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("open_crate_basic").setLabel("🪵 Open Basic (5 DON)").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("open_crate_epic").setLabel("✨ Open Epic (25 DON)").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("open_crate_mythic").setLabel("🌌 Open Mythic (100 DON)").setStyle(ButtonStyle.Success)
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("open_crate_basic").setLabel("🪵 Basic (5)").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("open_crate_epic").setLabel("✨ Epic (25)").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("open_crate_mythic").setLabel("🌌 Mythic (100)").setStyle(ButtonStyle.Success)
   );
 
-  const shopMsg = await message.reply({ embeds: [embed], components: [row] });
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("open_crate_legendary").setLabel("⚡ Legendary (350)").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("open_crate_godly").setLabel("👑 Godly (1000)").setStyle(ButtonStyle.Danger)
+  );
+
+  const shopMsg = await message.reply({ embeds: [embed], components: [row1, row2] });
 
   // Component Collector for Crate Opening Buttons
   const collector = shopMsg.createMessageComponentCollector({
@@ -137,7 +166,6 @@ async function execute(message, args, prefix, getGuildData, saveData) {
 
     if (!crate) return;
 
-    // Refresh user balance check from store
     const currentData = getGuildData(interaction.guild.id);
     const userEco = currentData.economy[userId];
 
@@ -148,7 +176,6 @@ async function execute(message, args, prefix, getGuildData, saveData) {
       });
     }
 
-    // Deduct cost and roll pet
     userEco.balance -= crate.cost;
     const wonPet = rollPet(crateKey);
 
@@ -169,7 +196,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
       .setFooter({ text: `Type ${prefix}pets to view your inventory or ${prefix}sell [number] to sell!` })
       .setTimestamp();
 
-    await interaction.update({ embeds: [resultEmbed], components: [row] });
+    await interaction.update({ embeds: [resultEmbed], components: [row1, row2] });
   });
 
   collector.on("end", () => {
