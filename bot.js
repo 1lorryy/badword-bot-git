@@ -1895,7 +1895,13 @@ try {
       });
     }
 
-name: "📦 Pet Crate & Gacha Mini-Game",
+const pageFun = new EmbedBuilder()
+    .setColor(0x2b2d31)
+    .setTitle("🎮 Fun, Social & Games")
+    .setDescription(`Interactive family systems, mini-games, pet gacha, AI, and personal customization. Prefix: \`${prefix}\``)
+    .addFields(
+      {
+        name: "📦 Pet Crate & Gacha Mini-Game",
         value:
           `• \`${prefix}crates\` — Open the pet crate shop & spin for rare animals!\n` +
           `• \`${prefix}pets\` (or \`${prefix}inventory\`) — View your collected pet collection\n` +
@@ -1903,39 +1909,38 @@ name: "📦 Pet Crate & Gacha Mini-Game",
           `• \`${prefix}trade @user\` — Securely trade rare pets with another server member\n` +
           `• \`${prefix}msg\` — Check mini-game balance, exchange points & message stats`
       },
+      {
+        name: "💍 Family & Relationships",
+        value:
+          `• \`${prefix}marry @user [ring]\` — Propose to a server member\n` +
+          `• \`${prefix}divorce [@user]\` — End a marriage\n` +
+          `• \`${prefix}marriages\` — View server marriages\n` +
+          `• \`${prefix}ship @user1 [@user2]\` — Calculate love compatibility\n` +
+          `• \`${prefix}adopt @user\` — Adopt a child into your family\n` +
+          `• \`${prefix}disown @user\` — Disown a child\n` +
+          `• \`${prefix}family [@user]\` — View family tree`
       },
-        {
-          name: "💍 Family & Relationships",
-          value:
-            `• \`${prefix}marry @user [ring]\` — Propose to a server member\n` +
-            `• \`${prefix}divorce [@user]\` — End a marriage\n` +
-            `• \`${prefix}marriages\` — View server marriages\n` +
-            `• \`${prefix}ship @user1 [@user2]\` — Calculate love compatibility\n` +
-            `• \`${prefix}adopt @user\` — Adopt a child into your family\n` +
-            `• \`${prefix}disown @user\` — Disown a child\n` +
-            `• \`${prefix}family [@user]\` — View family tree`
-        },
-        {
-          name: "🎲 Games, Polls & Giveaways",
-          value:
-            `• \`/giveaway\` — Host an advanced custom giveaway with role filters\n` +
-            `• \`${prefix}poll "Question?" "Opt1" "Opt2" [--multi]\` — Create an interactive poll\n` +
-            `• \`${prefix}8ball [question]\` — Ask the magic 8-ball\n` +
-            `• \`${prefix}coinflip\` — Flip a coin (Heads or Tails)\n` +
-            `• \`${prefix}roll [max]\` — Roll a random number (1-100)\n` +
-            `• \`${prefix}rps [rock/paper/scissors]\` — Play Rock Paper Scissors\n` +
-            `• \`${prefix}auction\` — Server auction & bidding engine`
-        },
-        {
-          name: "🎨 AI & Personalization",
-          value:
-            `• \`${prefix}ai [prompt]\` — Chat with the OpenAI bot engine\n` +
-            `• \`${prefix}customcolor\` / \`${prefix}color\` — Personal role color studio\n` +
-            `• \`${prefix}tz [zone]\` — Set or check personal timezone`
-        }
-      )
-      .setFooter({ text: "Page 5/5 • Fun & Games" })
-      .setTimestamp();
+      {
+        name: "🎲 Games, Polls & Giveaways",
+        value:
+          `• \`/giveaway\` — Host an advanced custom giveaway with role filters\n` +
+          `• \`${prefix}poll "Question?" "Opt1" "Opt2" [--multi]\` — Create an interactive poll\n` +
+          `• \`${prefix}8ball [question]\` — Ask the magic 8-ball\n` +
+          `• \`${prefix}coinflip\` — Flip a coin (Heads or Tails)\n` +
+          `• \`${prefix}roll [max]\` — Roll a random number (1-100)\n` +
+          `• \`${prefix}rps [rock/paper/scissors]\` — Play Rock Paper Scissors\n` +
+          `• \`${prefix}auction\` — Server auction & bidding engine`
+      },
+      {
+        name: "🎨 AI & Personalization",
+        value:
+          `• \`${prefix}ai [prompt]\` — Chat with the OpenAI bot engine\n` +
+          `• \`${prefix}customcolor\` / \`${prefix}color\` — Personal role color studio\n` +
+          `• \`${prefix}tz [zone]\` — Set or check personal timezone`
+      }
+    )
+    .setFooter({ text: "Page 5/5 • Fun & Games" })
+    .setTimestamp();
 
     const pages = [pageOverview, pageMod, pageSecurity, pageUtility, pageFun];
     let currentPage = 0;
