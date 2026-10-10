@@ -2576,89 +2576,15 @@ client.on("interactionCreate", async (interaction) => {
         }
     }
   });
-// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
-  client.on("messageCreate", async (message) => {
-    try {
-      if (message.author.bot || !message.guild || !message.content) return;
+// ================= CLIENT READY EVENT =================
+client.once("ready", () => {
+  console.log(`Logged in as ${client.user.tag}!`);
 
-      // ================= MESSAGE POINTS EARNING =================
-      const data = getGuildData(message.guild.id);
-      if (!data.economy) data.economy = {};
-      
-      const userId = message.author.id;
-      if (!data.economy[userId]) {
-        data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
-      }
-
-      const userData = data.economy[userId];
-      const now = Date.now();
-      const POINT_COOLDOWN = 45000; // 45 seconds cooldown between point earnings per user
-
-      // Check if cooldown has passed and message isn't just a tiny command execution
-      if (now - (userData.lastMessagePointTime || 0) > POINT_COOLDOWN && message.content.length > 3) {
-        userData.lastMessagePointTime = now;
-        
-        // Award points/currency (e.g., 0.1 to 0.5 points per active message)
-        const earnedPoints = 0.25; 
-        userData.balance = (userData.balance || 0) + earnedPoints;
-        userData.coins = (userData.coins || 0) + earnedPoints;
-        
-        saveData();
-      }
-
-// ================= UTC MESSAGE ACTIVITY TRACKER =================
-      if (!message.author.bot && message.guild) {
-        const data = getGuildData(message.guild.id);
-        if (!data.countedChannels) data.countedChannels = ["1481561361044607047"]; // Default general channel
-
-        if (data.countedChannels.includes(message.channel.id)) {
-          if (!data.messageStats) data.messageStats = {};
-          const uid = message.author.id;
-          
-          const now = new Date();
-          const utcYear = now.getUTCFullYear();
-          const utcMonth = now.getUTCMonth();
-          const utcDate = now.getUTCDate();
-          
-          const dateStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}-${String(utcDate).padStart(2, '0')}`;
-          const monthStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}`;
-
-          // Calculate UTC Monday for weekly reset tracking
-          const d = new Date(Date.UTC(utcYear, utcMonth, utcDate));
-          const day = d.getUTCDay();
-          const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
-          const monday = new Date(d.setUTCDate(diff));
-          const weekStr = monday.toISOString().split("T")[0];
-
-          if (!data.messageStats[uid]) {
-            data.messageStats[uid] = { 
-              total: 0, 
-              daily: { date: dateStr, count: 0 }, 
-              weekly: { week: weekStr, count: 0 }, 
-              monthly: { month: monthStr, count: 0 } 
-            };
-          }
-
-          const stats = data.messageStats[uid];
-
-          // Auto-reset period counters based on strict UTC triggers
-          if (stats.daily.date !== dateStr) { stats.daily.date = dateStr; stats.daily.count = 0; }
-          if (stats.weekly.week !== weekStr) { stats.weekly.week = weekStr; stats.weekly.count = 0; }
-          if (stats.monthly.month !== monthStr) { stats.monthly.month = monthStr; stats.monthly.count = 0; }
-
-          stats.total++;
-          stats.daily.count++;
-          stats.weekly.count++;
-          stats.monthly.count++;
-          saveData();
-        }
-      }
-
-// ================= HOURLY MINI-GAME PROMO =================
+  // ================= HOURLY MINI-GAME PROMO =================
   const GENERAL_CHANNEL_ID = "1481561361044607047";
   const BOT_CHANNEL_ID = "1481370051264254259";
 
-  // Runs once every 3,600,000 milliseconds (1 hour)
+  // Runs once every 3,600,000 milliseconds (1 hour) - GLOBALLY SINGLE INSTANCE
   setInterval(async () => {
     try {
       const channel = await client.channels.fetch(GENERAL_CHANNEL_ID).catch(() => null);
@@ -2675,120 +2601,197 @@ client.on("interactionCreate", async (interaction) => {
       console.error("Error sending hourly mini-game promo:", err);
     }
   }, 3600000); // 3,600,000 ms = exactly 1 hour
+});
+
+// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+client.on("messageCreate", async (message) => {
+  try {
+    if (message.author.bot || !message.guild || !message.content) return;
+
+    // ================= MESSAGE POINTS EARNING =================
+    const data = getGuildData(message.guild.id);
+    if (!data.economy) data.economy = {};
+    
+    const userId = message.author.id;
+    if (!data.economy[userId]) {
+      data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
+    }
+
+    const userData = data.economy[userId];
+    const now = Date.now();
+    const POINT_COOLDOWN = 45000; // 45 seconds cooldown between point earnings per user
+
+    // Check if cooldown has passed and message isn't just a tiny command execution
+    if (now - (userData.lastMessagePointTime || 0) > POINT_COOLDOWN && message.content.length > 3) {
+      userData.lastMessagePointTime = now;
       
-      // ================================================================
-
-      const prefix = data.prefix || DEFAULT_PREFIX;
-
-      const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
-      if (userReturned) return;
-
-      const bypassRoleId = "1492630307650666546";
-      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
-      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
-      const containsDiscordInvite = discordInviteRegex.test(message.content);
-      const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
-
-      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
-      if (protectedWord) {
-        await message.delete().catch(() => null);
-        await sendAutomodLog(message, protectedWord);
-        return;
-      }
-
-      if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
-        const word = containsBlacklistedWord(message.content, [
-          ...CORE_BLACKLIST, 
-          ...(data.words || []), 
-          ...(data.blockedLinks || [])
-        ]);
-        if (word) {
-          await message.delete().catch(() => null);
-          await sendAutomodLog(message, word);
-          return;
-        }
-      }
-
-      if (data.autoResponses) {
-        const contentLower = message.content.toLowerCase();
-        for (const [trigger, arData] of Object.entries(data.autoResponses)) {
-          if (contentLower.includes(trigger)) {
-            let payload = {};
-            if (arData.text) payload.content = arData.text;
-            if (arData.image) {
-              payload.embeds = [new EmbedBuilder().setColor(0xff69b4).setImage(arData.image)];
-            }
-            if (payload.content || payload.embeds) {
-              await message.channel.send(payload).catch(() => {});
-            }
-            break;
-          }
-        }
-      }
-
-      if (!data.channelCounters) data.channelCounters = {};
-      if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
-      if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
-
-      const isAiCommand = message.content.startsWith(`${prefix}ai`);
-      const isStatusCommand = message.content.startsWith(`${prefix}status`);
+      // Award points/currency (e.g., 0.1 to 0.5 points per active message)
+      const earnedPoints = 0.25; 
+      userData.balance = (userData.balance || 0) + earnedPoints;
+      userData.coins = (userData.coins || 0) + earnedPoints;
       
-      let isReplyToBot = false;
-      if (message.reference && message.reference.messageId) {
-        const repliedMsg = message.channel.messages.cache.get(message.reference.messageId) 
-          || await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
-        
-        if (repliedMsg && repliedMsg.author.id === client.user.id) {
-          isReplyToBot = true;
-        }
-      }
+      saveData();
+    }
 
-      if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
-        data.channelCounters[message.channel.id]++;
+    // ================= UTC MESSAGE ACTIVITY TRACKER =================
+    if (!message.author.bot && message.guild) {
+      const data = getGuildData(message.guild.id);
+      if (!data.countedChannels) data.countedChannels = ["1481561361044607047"]; // Default general channel
+
+      if (data.countedChannels.includes(message.channel.id)) {
+        if (!data.messageStats) data.messageStats = {};
+        const uid = message.author.id;
         
-        if (data.channelCounters[message.channel.id] >= 50) {
-          data.channelCounters[message.channel.id] = 0; 
-          data.currentPersonaIndex += 1; 
+        const now = new Date();
+        const utcYear = now.getUTCFullYear();
+        const utcMonth = now.getUTCMonth();
+        const utcDate = now.getUTCDate();
+        
+        const dateStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}-${String(utcDate).padStart(2, '0')}`;
+        const monthStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}`;
+
+        // Calculate UTC Monday for weekly reset tracking
+        const d = new Date(Date.UTC(utcYear, utcMonth, utcDate));
+        const day = d.getUTCDay();
+        const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(d.setUTCDate(diff));
+        const weekStr = monday.toISOString().split("T")[0];
+
+        if (!data.messageStats[uid]) {
+          data.messageStats[uid] = { 
+            total: 0, 
+            daily: { date: dateStr, count: 0 }, 
+            weekly: { week: weekStr, count: 0 }, 
+            monthly: { month: monthStr, count: 0 } 
+          };
         }
-        
-        if (typeof store !== "undefined") store[message.guild.id] = data;
+
+        const stats = data.messageStats[uid];
+
+        // Auto-reset period counters based on strict UTC triggers
+        if (stats.daily.date !== dateStr) { stats.daily.date = dateStr; stats.daily.count = 0; }
+        if (stats.weekly.week !== weekStr) { stats.weekly.week = weekStr; stats.weekly.count = 0; }
+        if (stats.monthly.month !== monthStr) { stats.monthly.month = monthStr; stats.monthly.count = 0; }
+
+        stats.total++;
+        stats.daily.count++;
+        stats.weekly.count++;
+        stats.monthly.count++;
         saveData();
       }
+    }
 
-      const wasCommand = await handleCommands(message, getGuildData);
-      if (wasCommand) return;
+    const prefix = data.prefix || DEFAULT_PREFIX;
 
-      const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
+    const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
+    if (userReturned) return;
 
-      if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
+    const bypassRoleId = "1492630307650666546";
+    const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
+    const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
+    const containsDiscordInvite = discordInviteRegex.test(message.content);
+    const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
 
-      let triggerText = message.content;
+    const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+    if (protectedWord) {
+      await message.delete().catch(() => null);
+      await sendAutomodLog(message, protectedWord);
+      return;
+    }
 
-      if (isAiCommand) {
-        triggerText = message.content.slice(`${prefix}ai`.length).trim();
-        if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
-      } else if (isBotMentioned) {
-        triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
-        if (!triggerText) {
-          return message.reply("Hey! How can I help you today?");
+    if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
+      const word = containsBlacklistedWord(message.content, [
+        ...CORE_BLACKLIST, 
+        ...(data.words || []), 
+        ...(data.blockedLinks || [])
+      ]);
+      if (word) {
+        await message.delete().catch(() => null);
+        await sendAutomodLog(message, word);
+        return;
+      }
+    }
+
+    if (data.autoResponses) {
+      const contentLower = message.content.toLowerCase();
+      for (const [trigger, arData] of Object.entries(data.autoResponses)) {
+        if (contentLower.includes(trigger)) {
+          let payload = {};
+          if (arData.text) payload.content = arData.text;
+          if (arData.image) {
+            payload.embeds = [new EmbedBuilder().setColor(0xff69b4).setImage(arData.image)];
+          }
+          if (payload.content || payload.embeds) {
+            await message.channel.send(payload).catch(() => {});
+          }
+          break;
         }
       }
-
-      await message.channel.sendTyping().catch(() => null);
-
-      const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
-      if (aiReply) {
-        return message.reply({ 
-          content: aiReply, 
-          allowedMentions: { parse: [], repliedUser: true }
-        });
-      }
-    } catch (err) {
-      console.error("Error running inside messageCreate pipeline:", err);
     }
-  });
 
-  await client.login(process.env.DISCORD_TOKEN);
+    if (!data.channelCounters) data.channelCounters = {};
+    if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
+    if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
+
+    const isAiCommand = message.content.startsWith(`${prefix}ai`);
+    const isStatusCommand = message.content.startsWith(`${prefix}status`);
+    
+    let isReplyToBot = false;
+    if (message.reference && message.reference.messageId) {
+      const repliedMsg = message.channel.messages.cache.get(message.reference.messageId) 
+        || await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+      
+      if (repliedMsg && repliedMsg.author.id === client.user.id) {
+        isReplyToBot = true;
+      }
+    }
+
+    if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
+      data.channelCounters[message.channel.id]++;
+      
+      if (data.channelCounters[message.channel.id] >= 50) {
+        data.channelCounters[message.channel.id] = 0; 
+        data.currentPersonaIndex += 1; 
+      }
+      
+      if (typeof store !== "undefined") store[message.guild.id] = data;
+      saveData();
+    }
+
+    const wasCommand = await handleCommands(message, getGuildData);
+    if (wasCommand) return;
+
+    const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
+
+    if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
+
+    let triggerText = message.content;
+
+    if (isAiCommand) {
+      triggerText = message.content.slice(`${prefix}ai`.length).trim();
+      if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
+    } else if (isBotMentioned) {
+      triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
+      if (!triggerText) {
+        return message.reply("Hey! How can I help you today?");
+      }
+    }
+
+    await message.channel.sendTyping().catch(() => null);
+
+    const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
+    if (aiReply) {
+      return message.reply({ 
+        content: aiReply, 
+        allowedMentions: { parse: [], repliedUser: true }
+      });
+    }
+  } catch (err) {
+    console.error("Error running inside messageCreate pipeline:", err);
+  }
+});
+
+await client.login(process.env.DISCORD_TOKEN);
 }
 
 module.exports = { startBot };
