@@ -20,6 +20,7 @@ const pollCommand = require("./commands/poll.js");
 const giveawayCommand = require("./commands/giveaway.js");
 const { handleRoleCommand } = require("./commands/role.js");
 const cratesCommand = require("./commands/crates.js");
+const tradeCommand = require("./commands/trade.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -671,6 +672,10 @@ async function handleCommands(message, getGuildData) {
     return cratesCmd.execute(message, args, prefix, getGuildData, saveData);
   }
 
+if (command === "trade") {
+  return tradeCommand.execute(message, args, prefix, getGuildData, saveData);
+}
+  
   if (command === "daily") {
     const userId = message.author.id;
     
@@ -1880,10 +1885,11 @@ const pageFun = new EmbedBuilder()
       .setDescription(`Interactive family systems, mini-games, pet gacha, AI, and personal customization. Prefix: \`${prefix}\``)
       .addFields(
         {
-          name: "📦 Pet Crate & Gacha Mini-Game",
-          value:
+         name: "📦 Pet Crate & Gacha Mini-Game",
+         value:
             `• \`${prefix}crates\` — Open the pet crate shop & spin for rare animals!\n` +
-            `• \`${prefix}pets\` (or \`${prefix}inventory\`) — View your collected pet collection`
+            `• \`${prefix}pets\` (or \`${prefix}inventory\`) — View your collected pet collection\n` +
+            `• \`${prefix}trade @user\` — Securely trade rare pets with another server member`
         },
         {
           name: "💍 Family & Relationships",
