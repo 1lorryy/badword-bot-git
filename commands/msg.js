@@ -105,4 +105,4 @@ async function execute(message, args, prefix, getGuildData, saveData) {
   collector.on("end", () => msg.edit({ components: [] }).catch(() => null));
 }
 
-module.exports = { execute };s
+module.exports = { execute };
