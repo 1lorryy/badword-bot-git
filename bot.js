@@ -653,12 +653,13 @@ async function handleCommands(message, getGuildData) {
   if (!command) return true;
 
   // Added mini-game commands (crates, pets, inventory, trade, msg, messages) to restricted fun list
-  const funCommandsList = [
+const funCommandsList = [
     "ship", "shop", "store", "marketplace", "8ball", "coinflip", "flip", 
     "roll", "rps", "marry", "divorce", "marriage", "marriages", 
     "adopt", "disown", "family", "children", "parents", "daily",
     "poll", "vote", "voting",
-    "crates", "crate", "pets", "inventory", "trade", "msg", "messages"
+    "crates", "crate", "pets", "inventory", "trade", "msg", "messages",
+    "sell", "sellpet"
   ];
 
   if (funCommandsList.includes(command)) {
@@ -679,6 +680,11 @@ async function handleCommands(message, getGuildData) {
   if (command === "trade") {
     const tradeCmd = require("./commands/trade.js");
     return tradeCmd.execute(message, args, prefix, getGuildData, saveData);
+  }
+
+  if (command === "sell" || command === "sellpet") {
+    const cratesCmd = require("./commands/crates.js");
+    return cratesCmd.execute(message, args, prefix, getGuildData, saveData);
   }
 
   if (command === "msg" || command === "messages") {
@@ -1889,18 +1895,14 @@ try {
       });
     }
 
-const pageFun = new EmbedBuilder()
-      .setColor(0x2b2d31)
-      .setTitle("🎮 Fun, Social & Games")
-      .setDescription(`Interactive family systems, mini-games, pet gacha, AI, and personal customization. Prefix: \`${prefix}\``)
-      .addFields(
-        {
-         name: "📦 Pet Crate & Gacha Mini-Game",
+name: "📦 Pet Crate & Gacha Mini-Game",
         value:
           `• \`${prefix}crates\` — Open the pet crate shop & spin for rare animals!\n` +
           `• \`${prefix}pets\` (or \`${prefix}inventory\`) — View your collected pet collection\n` +
+          `• \`${prefix}sell [number]\` — Sell any pet from your inventory for DON wallet cash\n` +
           `• \`${prefix}trade @user\` — Securely trade rare pets with another server member\n` +
-          `• \`${prefix}msg\` — Check mini-game balance & message activity stats`
+          `• \`${prefix}msg\` — Check mini-game balance, exchange points & message stats`
+      },
       },
         {
           name: "💍 Family & Relationships",
