@@ -1,4 +1,3 @@
-
 const { initTimers, handleTimerCommand } = require("./commands/timer.js");
 const { handleChannelToolsCommand } = require("./commands/channelTools");
 const { handlePurchaseCommand, handlePurchEditCommand } = require("./commands/buy");
@@ -20,6 +19,7 @@ const adoptionCommand = require("./commands/adoption.js");
 const pollCommand = require("./commands/poll.js");
 const giveawayCommand = require("./commands/giveaway.js");
 const { handleRoleCommand } = require("./commands/role.js");
+const cratesCommand = require("./commands/crates.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -664,6 +664,11 @@ async function handleCommands(message, getGuildData) {
       deleteAfter(message, 5000);
       return true;
     }
+  }
+
+  if (command === "crates" || command === "crate" || command === "pets") {
+    const cratesCmd = require("./commands/crates.js");
+    return cratesCmd.execute(message, args, prefix, getGuildData, saveData);
   }
 
   if (command === "daily") {
@@ -1869,11 +1874,17 @@ try {
       });
     }
 
-    const pageFun = new EmbedBuilder()
+const pageFun = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setTitle("🎮 Fun, Social & Games")
-      .setDescription(`Interactive family systems, mini-games, AI, and personal customization. Prefix: \`${prefix}\``)
+      .setDescription(`Interactive family systems, mini-games, pet gacha, AI, and personal customization. Prefix: \`${prefix}\``)
       .addFields(
+        {
+          name: "📦 Pet Crate & Gacha Mini-Game",
+          value:
+            `• \`${prefix}crates\` — Open the pet crate shop & spin for rare animals!\n` +
+            `• \`${prefix}pets\` (or \`${prefix}inventory\`) — View your collected pet collection`
+        },
         {
           name: "💍 Family & Relationships",
           value:
@@ -1888,7 +1899,7 @@ try {
         {
           name: "🎲 Games, Polls & Giveaways",
           value:
-            `• \`/giveaway\` — Host an advanced custom giveaway with role & requirement filters\n` +
+            `• \`/giveaway\` — Host an advanced custom giveaway with role filters\n` +
             `• \`${prefix}poll "Question?" "Opt1" "Opt2" [--multi]\` — Create an interactive poll\n` +
             `• \`${prefix}8ball [question]\` — Ask the magic 8-ball\n` +
             `• \`${prefix}coinflip\` — Flip a coin (Heads or Tails)\n` +
@@ -2535,7 +2546,34 @@ client.on("interactionCreate", async (interaction) => {
     }
   });
   
-// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+// ================= MESSAGE POINTS EARNING =================
+      if (!message.author.bot && message.guild) {
+        const data = getGuildData(message.guild.id);
+        if (!data.economy) data.economy = {};
+        
+        const userId = message.author.id;
+        if (!data.economy[userId]) {
+          data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
+        }
+
+        const userData = data.economy[userId];
+        const now = Date.now();
+        const POINT_COOLDOWN = 45000; // 45 seconds cooldown between point earnings per user
+
+        // Check if cooldown has passed and message isn't just a tiny command execution
+        if (now - (userData.lastMessagePointTime || 0) > POINT_COOLDOWN && message.content.length > 3) {
+          userData.lastMessagePointTime = now;
+          
+          // Award points/currency (e.g., 0.1 to 0.5 points per active message)
+          const earnedPoints = 0.25; 
+          userData.balance = (userData.balance || 0) + earnedPoints;
+          userData.coins = (userData.coins || 0) + earnedPoints;
+          
+          saveData();
+        }
+      }
+  
+  // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
     try {
       if (message.author.bot || !message.guild || !message.content) return;
