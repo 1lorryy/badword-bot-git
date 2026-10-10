@@ -59,8 +59,20 @@ async function execute(message, args, prefix, getGuildData, saveData) {
   const userEco = data.economy[userId] || { balance: 0 };
   const userPets = data.pets[userId] || [];
 
-  // Page 1: Mini-Game & Economy (Compact)
+  // Page 1: Message Activity Stats (First View)
   const page1 = new EmbedBuilder()
+    .setTitle(`📊 ${targetUser.username} • Messages`)
+    .setColor(0x2ecc71)
+    .addFields(
+      { name: "💬 Total Messages", value: `\`${userStats.total}\``, inline: false },
+      { name: "☀️ Daily", value: `\`${userStats.daily.count}\`\nResets <t:${nextMidnight}:R>`, inline: true },
+      { name: "📆 Weekly", value: `\`${userStats.weekly.count}\`\nResets <t:${nextMonday}:R>`, inline: true },
+      { name: "📅 Monthly", value: `\`${userStats.monthly.count}\`\nResets <t:${nextMonth}:R>`, inline: true }
+    )
+    .setFooter({ text: "Page 1/2 • UTC Tracked Channels" });
+
+  // Page 2: Mini-Game & Economy Stats
+  const page2 = new EmbedBuilder()
     .setTitle(`📦 ${targetUser.username} • Mini-Game`)
     .setColor(0x5865f2)
     .addFields(
@@ -68,23 +80,11 @@ async function execute(message, args, prefix, getGuildData, saveData) {
       { name: "🎒 Pets", value: `\`${userPets.length} Collected\``, inline: true },
       { name: "✨ Rarest", value: userPets.length > 0 ? `\`${userPets[userPets.length - 1].name}\`` : "`None`", inline: true }
     )
-    .setFooter({ text: "Page 1/2 • Economy & Pets" });
-
-  // Page 2: Message Activity with UTC Timestamps (Compact)
-  const page2 = new EmbedBuilder()
-    .setTitle(`📊 ${targetUser.username} • Messages`)
-    .setColor(0x2ecc71)
-    .addFields(
-      { name: "☀️ Daily", value: `\`${userStats.daily.count}\`\nResets <t:${nextMidnight}:R>`, inline: true },
-      { name: "📆 Weekly", value: `\`${userStats.weekly.count}\`\nResets <t:${nextMonday}:R>`, inline: true },
-      { name: "📅 Monthly", value: `\`${userStats.monthly.count}\`\nResets <t:${nextMonth}:R>`, inline: true },
-      { name: "💬 Total", value: `\`${userStats.total}\``, inline: true }
-    )
-    .setFooter({ text: "Page 2/2 • UTC Tracked Channels" });
+    .setFooter({ text: "Page 2/2 • Economy & Pets" });
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("p1").setLabel("📦 Mini-Game").setStyle(ButtonStyle.Primary).setDisabled(true),
-    new ButtonBuilder().setCustomId("p2").setLabel("📊 Messages").setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId("p1").setLabel("📊 Messages").setStyle(ButtonStyle.Primary).setDisabled(true),
+    new ButtonBuilder().setCustomId("p2").setLabel("📦 Mini-Game").setStyle(ButtonStyle.Secondary)
   );
 
   const msg = await message.reply({ embeds: [page1], components: [row] });
@@ -105,4 +105,4 @@ async function execute(message, args, prefix, getGuildData, saveData) {
   collector.on("end", () => msg.edit({ components: [] }).catch(() => null));
 }
 
-module.exports = { execute };
+module.exports = { execute };s
