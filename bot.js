@@ -670,18 +670,21 @@ async function handleCommands(message, getGuildData) {
     }
   }
 
-  if (command === "crates" || command === "crate" || command === "pets") {
+  // ================= ROUTING COMMANDS =================
+  if (command === "crates" || command === "crate" || command === "pets" || command === "inventory") {
     const cratesCmd = require("./commands/crates.js");
     return cratesCmd.execute(message, args, prefix, getGuildData, saveData);
   }
 
-if (command === "trade") {
-  return tradeCommand.execute(message, args, prefix, getGuildData, saveData);
-}
+  if (command === "trade") {
+    const tradeCmd = require("./commands/trade.js");
+    return tradeCmd.execute(message, args, prefix, getGuildData, saveData);
+  }
 
-if (command === "msg" || command === "messages") {
-  return msgCommand.execute(message, args, prefix, getGuildData, saveData);
-}
+  if (command === "msg" || command === "messages") {
+    const msgCmd = require("./commands/msg.js");
+    return msgCmd.execute(message, args, prefix, getGuildData, saveData);
+  }
   
   if (command === "daily") {
     const userId = message.author.id;
