@@ -21,6 +21,7 @@ const giveawayCommand = require("./commands/giveaway.js");
 const { handleRoleCommand } = require("./commands/role.js");
 const cratesCommand = require("./commands/crates.js");
 const tradeCommand = require("./commands/trade.js");
+const msgCommand = require("./commands/msg.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -651,16 +652,18 @@ async function handleCommands(message, getGuildData) {
   const command = (args.shift() || "").toLowerCase();
   if (!command) return true;
 
+  // Added mini-game commands (crates, pets, inventory, trade, msg, messages) to restricted fun list
   const funCommandsList = [
     "ship", "shop", "store", "marketplace", "8ball", "coinflip", "flip", 
     "roll", "rps", "marry", "divorce", "marriage", "marriages", 
     "adopt", "disown", "family", "children", "parents", "daily",
-    "poll", "vote", "voting"
+    "poll", "vote", "voting",
+    "crates", "crate", "pets", "inventory", "trade", "msg", "messages"
   ];
 
   if (funCommandsList.includes(command)) {
     if (!canUseFunCommand(message)) {
-      const reply = await message.reply(`❌ You can only use fun commands inside <#${BDAY_COMMAND_CHANNEL_ID}>!`);
+      const reply = await message.reply(`❌ You can only use fun and mini-game commands inside <#${BDAY_COMMAND_CHANNEL_ID}>!`);
       deleteAfter(reply, 5000);
       deleteAfter(message, 5000);
       return true;
@@ -674,6 +677,10 @@ async function handleCommands(message, getGuildData) {
 
 if (command === "trade") {
   return tradeCommand.execute(message, args, prefix, getGuildData, saveData);
+}
+
+if (command === "msg" || command === "messages") {
+  return msgCommand.execute(message, args, prefix, getGuildData, saveData);
 }
   
   if (command === "daily") {
@@ -1886,11 +1893,12 @@ const pageFun = new EmbedBuilder()
       .addFields(
         {
          name: "📦 Pet Crate & Gacha Mini-Game",
-         value:
-            `• \`${prefix}crates\` — Open the pet crate shop & spin for rare animals!\n` +
-            `• \`${prefix}pets\` (or \`${prefix}inventory\`) — View your collected pet collection\n` +
-            `• \`${prefix}trade @user\` — Securely trade rare pets with another server member`
-        },
+        value:
+          `• \`${prefix}crates\` — Open the pet crate shop & spin for rare animals!\n` +
+          `• \`${prefix}pets\` (or \`${prefix}inventory\`) — View your collected pet collection\n` +
+          `• \`${prefix}trade @user\` — Securely trade rare pets with another server member\n` +
+          `• \`${prefix}msg\` — Check mini-game balance & message activity stats`
+      },
         {
           name: "💍 Family & Relationships",
           value:
@@ -2580,7 +2588,77 @@ client.on("interactionCreate", async (interaction) => {
         
         saveData();
       }
-      // ==========================================================
+
+// ================= UTC MESSAGE ACTIVITY TRACKER =================
+      if (!message.author.bot && message.guild) {
+        const data = getGuildData(message.guild.id);
+        if (!data.countedChannels) data.countedChannels = ["1481561361044607047"]; // Default general channel
+
+        if (data.countedChannels.includes(message.channel.id)) {
+          if (!data.messageStats) data.messageStats = {};
+          const uid = message.author.id;
+          
+          const now = new Date();
+          const utcYear = now.getUTCFullYear();
+          const utcMonth = now.getUTCMonth();
+          const utcDate = now.getUTCDate();
+          
+          const dateStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}-${String(utcDate).padStart(2, '0')}`;
+          const monthStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}`;
+
+          // Calculate UTC Monday for weekly reset tracking
+          const d = new Date(Date.UTC(utcYear, utcMonth, utcDate));
+          const day = d.getUTCDay();
+          const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
+          const monday = new Date(d.setUTCDate(diff));
+          const weekStr = monday.toISOString().split("T")[0];
+
+          if (!data.messageStats[uid]) {
+            data.messageStats[uid] = { 
+              total: 0, 
+              daily: { date: dateStr, count: 0 }, 
+              weekly: { week: weekStr, count: 0 }, 
+              monthly: { month: monthStr, count: 0 } 
+            };
+          }
+
+          const stats = data.messageStats[uid];
+
+          // Auto-reset period counters based on strict UTC triggers
+          if (stats.daily.date !== dateStr) { stats.daily.date = dateStr; stats.daily.count = 0; }
+          if (stats.weekly.week !== weekStr) { stats.weekly.week = weekStr; stats.weekly.count = 0; }
+          if (stats.monthly.month !== monthStr) { stats.monthly.month = monthStr; stats.monthly.count = 0; }
+
+          stats.total++;
+          stats.daily.count++;
+          stats.weekly.count++;
+          stats.monthly.count++;
+          saveData();
+        }
+      }
+
+// ================= HOURLY MINI-GAME PROMO =================
+  const GENERAL_CHANNEL_ID = "1481561361044607047";
+  const BOT_CHANNEL_ID = "1481370051264254259";
+
+  setInterval(async () => {
+    try {
+      const channel = await client.channels.fetch(GENERAL_CHANNEL_ID).catch(() => null);
+      if (channel && channel.isTextBased()) {
+        const promoEmbed = new EmbedBuilder()
+          .setColor(0x5865f2)
+          .setTitle("🎮 Pet Crates & Trading Mini-Game!")
+          .setDescription(`Chat in General to earn points! Head over to <#${BOT_CHANNEL_ID}> to spin crates, check stats, & trade rare pets using \`?crates\`, \`?msg\`, or \`?trade\`!`)
+          .setFooter({ text: "Don Don Mini-Game • Earn points passively as you chat!" });
+
+        await channel.send({ embeds: [promoEmbed] }).catch(() => null);
+      }
+    } catch (err) {
+      console.error("Error sending hourly mini-game promo:", err);
+    }
+  }, 3600000); // 1 hour interval
+      
+      // ================================================================
 
       const prefix = data.prefix || DEFAULT_PREFIX;
 
