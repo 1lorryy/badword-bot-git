@@ -2644,6 +2644,7 @@ client.on("interactionCreate", async (interaction) => {
   const GENERAL_CHANNEL_ID = "1481561361044607047";
   const BOT_CHANNEL_ID = "1481370051264254259";
 
+  // Runs once every 3,600,000 milliseconds (1 hour)
   setInterval(async () => {
     try {
       const channel = await client.channels.fetch(GENERAL_CHANNEL_ID).catch(() => null);
@@ -2659,7 +2660,7 @@ client.on("interactionCreate", async (interaction) => {
     } catch (err) {
       console.error("Error sending hourly mini-game promo:", err);
     }
-  }, 3600000); // 1 hour interval
+  }, 3600000); // 3,600,000 ms = exactly 1 hour
       
       // ================================================================
 
