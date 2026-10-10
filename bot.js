@@ -2545,40 +2545,37 @@ client.on("interactionCreate", async (interaction) => {
         }
     }
   });
-  
-// ================= MESSAGE POINTS EARNING =================
-      if (!message.author.bot && message.guild) {
-        const data = getGuildData(message.guild.id);
-        if (!data.economy) data.economy = {};
-        
-        const userId = message.author.id;
-        if (!data.economy[userId]) {
-          data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
-        }
-
-        const userData = data.economy[userId];
-        const now = Date.now();
-        const POINT_COOLDOWN = 45000; // 45 seconds cooldown between point earnings per user
-
-        // Check if cooldown has passed and message isn't just a tiny command execution
-        if (now - (userData.lastMessagePointTime || 0) > POINT_COOLDOWN && message.content.length > 3) {
-          userData.lastMessagePointTime = now;
-          
-          // Award points/currency (e.g., 0.1 to 0.5 points per active message)
-          const earnedPoints = 0.25; 
-          userData.balance = (userData.balance || 0) + earnedPoints;
-          userData.coins = (userData.coins || 0) + earnedPoints;
-          
-          saveData();
-        }
-      }
-  
-  // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
   client.on("messageCreate", async (message) => {
     try {
       if (message.author.bot || !message.guild || !message.content) return;
 
+      // ================= MESSAGE POINTS EARNING =================
       const data = getGuildData(message.guild.id);
+      if (!data.economy) data.economy = {};
+      
+      const userId = message.author.id;
+      if (!data.economy[userId]) {
+        data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
+      }
+
+      const userData = data.economy[userId];
+      const now = Date.now();
+      const POINT_COOLDOWN = 45000; // 45 seconds cooldown between point earnings per user
+
+      // Check if cooldown has passed and message isn't just a tiny command execution
+      if (now - (userData.lastMessagePointTime || 0) > POINT_COOLDOWN && message.content.length > 3) {
+        userData.lastMessagePointTime = now;
+        
+        // Award points/currency (e.g., 0.1 to 0.5 points per active message)
+        const earnedPoints = 0.25; 
+        userData.balance = (userData.balance || 0) + earnedPoints;
+        userData.coins = (userData.coins || 0) + earnedPoints;
+        
+        saveData();
+      }
+      // ==========================================================
+
       const prefix = data.prefix || DEFAULT_PREFIX;
 
       const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
@@ -2598,7 +2595,6 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
-        // Fixed: Added array fallback to prevent TypeError if data.words is undefined
         const word = containsBlacklistedWord(message.content, [
           ...CORE_BLACKLIST, 
           ...(data.words || []), 
@@ -2637,7 +2633,6 @@ client.on("interactionCreate", async (interaction) => {
       
       let isReplyToBot = false;
       if (message.reference && message.reference.messageId) {
-        // Fixed: Check local cache first before resorting to an API fetch call
         const repliedMsg = message.channel.messages.cache.get(message.reference.messageId) 
           || await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
         
