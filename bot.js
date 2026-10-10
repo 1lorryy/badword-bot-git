@@ -659,7 +659,7 @@ const funCommandsList = [
     "adopt", "disown", "family", "children", "parents", "daily",
     "poll", "vote", "voting",
     "crates", "crate", "pets", "inventory", "trade", "msg", "messages",
-    "sell", "sellpet"
+    "sell", "sellpet", "lb", "leaderboard"
   ];
 
   if (funCommandsList.includes(command)) {
@@ -744,6 +744,11 @@ const funCommandsList = [
     if (shopCommand && typeof shopCommand.execute === "function") {
       return shopCommand.execute(message, args, prefix, getGuildData, saveData);
     }
+  }
+
+  if (command === "lb" || command === "leaderboard") {
+    const lbCmd = require("./commands/lb.js");
+    return lbCmd.execute(message, args, prefix, getGuildData, saveData);
   }
 
   if (command === "poll" || command === "vote" || command === "voting") {
@@ -1907,6 +1912,7 @@ const pageFun = new EmbedBuilder()
           `• \`${prefix}pets\` (or \`${prefix}inventory\`) — View your collected pet collection\n` +
           `• \`${prefix}sell [number]\` — Sell any pet from your inventory for DON wallet cash\n` +
           `• \`${prefix}trade @user\` — Securely trade rare pets with another server member\n` +
+          `• \`${prefix}lb\` (or \`${prefix}leaderboard\`) — View server leaderboards (DON, Robux, & Pet Worth)\n` +
           `• \`${prefix}msg\` — Check mini-game balance, exchange points & message stats`
       },
       {
