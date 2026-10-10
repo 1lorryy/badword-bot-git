@@ -51,10 +51,34 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0 };
   }
 
-  const sub = args[0]?.toLowerCase();
+  const firstArg = args[0]?.toLowerCase();
+  const secondArg = args[1];
 
-  // 1. VIEW INVENTORY (`?pets` or `?crates inventory`)
-  if (sub === "inventory" || sub === "inv" || message.content.includes("pets")) {
+  // 1. SELL PET COMMAND (`?sell [number]` or `?crates sell [number]`)
+  const isSellCommand = message.content.startsWith(prefix + "sell") || message.content.startsWith(prefix + "sellpet") || firstArg === "sell" || firstArg === "sellpet";
+  if (isSellCommand) {
+    const indexArg = (firstArg === "sell" || firstArg === "sellpet") ? secondArg : firstArg;
+    const petIndex = parseInt(indexArg, 10) - 1;
+    const userPets = data.pets[userId] || [];
+
+    if (isNaN(petIndex) || petIndex < 0 || petIndex >= userPets.length) {
+      return message.reply(`❌ Usage: \`${prefix}sell [pet number]\` (Check your pet numbers using \`${prefix}pets\` or \`${prefix}inventory\`)`);
+    }
+
+    const [soldPet] = userPets.splice(petIndex, 1);
+    const donEarned = soldPet.value || 1;
+
+    data.economy[userId].balance += donEarned;
+    saveData();
+
+    return message.reply(
+      `💰 Sold ${soldPet.emoji || "🐾"} **${soldPet.name}** (\`${soldPet.rarity}\`) for **${donEarned} DON**!\n` +
+      `💳 New Wallet Balance: \`${data.economy[userId].balance.toFixed(2)} DON\``
+    );
+  }
+
+  // 2. VIEW INVENTORY (`?pets`, `?inventory`, or `?crates inventory`)
+  if (firstArg === "inventory" || firstArg === "inv" || message.content.includes("pets") && !firstArg) {
     const userPets = data.pets[userId] || [];
     if (userPets.length === 0) {
       return message.reply(`🎒 Your pet inventory is empty! Use \`${prefix}crates\` to buy and spin crates.`);
@@ -62,20 +86,20 @@ async function execute(message, args, prefix, getGuildData, saveData) {
 
     const inventoryList = userPets
       .slice(0, 15)
-      .map((p, idx) => `**#${idx + 1}** ${p.emoji} **${p.name}** (\`${p.rarity}\`) • Val: ${p.value} DON`)
+      .map((p, idx) => `**#${idx + 1}** ${p.emoji} **${p.name}** (\`${p.rarity}\`) • Val: ${p.value} DON • \`${prefix}sell ${idx + 1}\``)
       .join("\n");
 
     const embed = new EmbedBuilder()
       .setTitle(`🎒 ${message.author.username}'s Pet Collection`)
       .setColor(0x5865f2)
       .setDescription(inventoryList)
-      .setFooter({ text: `Total Pets Collected: ${userPets.length} • Earn points by chatting!` })
+      .setFooter({ text: `Total Pets Collected: ${userPets.length} • Sell any pet using ${prefix}sell [number]` })
       .setTimestamp();
 
     return message.reply({ embeds: [embed] });
   }
 
-  // 2. OPEN CRATE SHOP MAIN MENU (`?crates`)
+  // 3. OPEN CRATE SHOP MAIN MENU (`?crates`)
   const userBalance = data.economy[userId].balance || 0;
 
   const embed = new EmbedBuilder()
@@ -142,7 +166,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
         `💰 **Pet Value:** \`${wonPet.value} DON\`\n\n` +
         `*(New Balance: ${userEco.balance.toFixed(2)} DON)*`
       )
-      .setFooter({ text: `Type ${prefix}pets to view your full collection!` })
+      .setFooter({ text: `Type ${prefix}pets to view your inventory or ${prefix}sell [number] to sell!` })
       .setTimestamp();
 
     await interaction.update({ embeds: [resultEmbed], components: [row] });
