@@ -2580,6 +2580,64 @@ client.on("interactionCreate", async (interaction) => {
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}!`);
 
+// ================= 12H TICKET INACTIVITY AUTO-CLOSE =================
+  const TICKET_CATEGORY_ID = "1481937769612968038";
+  const INACTIVITY_LIMIT = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+
+  setInterval(async () => {
+    try {
+      for (const guild of client.guilds.cache.values()) {
+        const category = guild.channels.cache.get(TICKET_CATEGORY_ID);
+        if (!category || !category.children) continue;
+
+        // Iterate through all open ticket channels in that category
+        const ticketChannels = category.children.cache.values();
+        const now = Date.now();
+
+        for (const channel of ticketChannels) {
+          if (!channel.isTextBased()) continue;
+
+          // Fetch recent messages to check activity
+          const messages = await channel.messages.fetch({ limit: 15 }).catch(() => null);
+          if (!messages || messages.size === 0) continue;
+
+          // Find the ticket owner from channel permission overwrites (member ID with access)
+          let ticketOwnerId = null;
+          for (const [id, overwrite] of channel.permissionOverwrites.cache) {
+            // overwrite.type === 1 means a Member override in discord.js v14
+            if (overwrite.type === 1 && id !== client.user.id) {
+              ticketOwnerId = id;
+              break;
+            }
+          }
+
+          if (!ticketOwnerId) continue;
+
+          // Find the last message sent specifically by the ticket owner
+          const ownerMessages = messages.filter(m => m.author.id === ticketOwnerId);
+          const lastOwnerMessage = ownerMessages.first(); // sorted newest first
+
+          // If the owner has never spoken, check channel creation time, otherwise check their last message timestamp
+          const lastActivityTime = lastOwnerMessage ? lastOwnerMessage.createdTimestamp : channel.createdTimestamp;
+
+          // Check if 12 hours have passed since the ticket owner's last activity
+          if (now - lastActivityTime > INACTIVITY_LIMIT) {
+            // DM the ticket owner
+            const ownerUser = await client.users.fetch(ticketOwnerId).catch(() => null);
+            if (ownerUser) {
+              await ownerUser.send("Your ticket was closed due to inactivity, please next time be active").catch(() => null);
+            }
+
+            // Delete / close the ticket channel
+            await channel.delete("Auto-closed due to 12 hours of inactivity from the ticket owner.").catch(() => null);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error in ticket inactivity auto-close loop:", err);
+    }
+  }, 5 * 60 * 1000); // Runs a check every 5 minutes
+  
   // ================= HOURLY MINI-GAME PROMO =================
   const GENERAL_CHANNEL_ID = "1481561361044607047";
   const BOT_CHANNEL_ID = "1481370051264254259";
