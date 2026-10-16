@@ -21,37 +21,37 @@ module.exports = {
         .addFields(
           {
             name: "📌 1. Correct Topics",
-            value: "Open tickets strictly for support, purchases, or claiming giveaway wins. No casual chat, testing, or troll tickets.",
+            value: "Open tickets strictly for **Giveaway Claims, Purchases, or General Help**[cite: 3]. No casual chat, testing, or troll tickets[cite: 3].",
             inline: true
           },
           {
             name: "📌 2. No Spam / Duplicates",
-            value: "Limit yourself to one ticket per issue. Opening duplicate or spam tickets will lead to a ticket ban.",
+            value: "Limit yourself to one ticket per issue[cite: 3]. Opening duplicate or spam tickets will lead to a ticket ban[cite: 3].",
             inline: true
           },
           {
             name: "📌 3. Provide Details Right Away",
-            value: "State your issue or question clearly in your first message so staff can assist you immediately.",
+            value: "State your issue or question clearly in your first message so staff can assist you immediately[cite: 3].",
             inline: true
           },
           {
             name: "📌 4. Do Not Ping Staff",
-            value: "Our team is notified automatically upon ticket creation. Pinging individual staff members will not speed up support.",
+            value: "Our team is notified automatically upon ticket creation[cite: 3]. Pinging individual staff members will not speed up support[cite: 3].",
             inline: true
           },
           {
             name: "📌 5. Ticket Closure Policy",
-            value: "Only staff members can close tickets. Request staff to close your ticket once your inquiry or trade is complete.",
+            value: "Only staff members can close tickets[cite: 3]. Once your ticket issue, purchase, or claim is completed, staff will close it[cite: 3].",
             inline: true
           },
           {
             name: "⭐ 6. Giveaway Vouch Requirement",
-            value: "If your ticket is for claiming a giveaway win, you **MUST** vouch for the host in <#1481374265340072047> upon receiving your prize.",
+            value: "Once the hoster pays / delivers your giveaway prize, you **MUST** leave a vouch for the host in <#1481374265340072047>.",
             inline: true
           },
           {
             name: "📌 7. Respect & Co-operation",
-            value: "Treat staff respectfully. Aggressive, rude, or non-cooperative behavior will result in warnings or mutes.",
+            value: "Treat staff respectfully[cite: 3]. Aggressive, rude, or non-cooperative behavior will result in warnings or mutes[cite: 3].",
             inline: false
           }
         );
@@ -61,7 +61,7 @@ module.exports = {
         .setColor(0x2b2d31)
         .setDescription(
           "⚖️ **8. Staff Authority & Disclaimer**\n" +
-          "Staff & Management hold full authority over ticket disputes, rule interpretations, and moderation actions. All decisions are final. Publicly arguing with staff is strictly prohibited."
+          "Staff & Management hold full authority over ticket disputes, rule interpretations, and moderation actions[cite: 3]. All decisions are final[cite: 3]. Publicly arguing with staff is strictly prohibited[cite: 3]."
         )
         .setImage("https://images-ext-1.discordapp.net/external/AWRZ4I24a_2jeeXlhLcjAvdhZ0mtHA5xT3MvknowKPk/https/image2url.com/r2/default/images/1775845711233-eeede801-13ce-4f7c-b0ac-ea6a6d81b638.jpg?format=webp")
         .setFooter({ text: "DonQuixote's Lounge • Support & Ticket Guidelines" })
