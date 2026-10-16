@@ -5,93 +5,35 @@ const path = require("path");
 const STAFF_GUIDE_FILE = process.env.STAFF_GUIDE_FILE || path.join(__dirname, "..", "staff-guide-data.json");
 
 const defaultGuideData = {
-  title: "🛡️ Don Don Complete Command & Staff Operations Guide",
+  title: "🛡️ DonQuixote's Lounge • Giveaway & Operations Master Rules",
   color: "#5865F2",
-  intro: "Complete manual for all moderation, security, utility, auto-responder, and fun systems.\n═══════════════════════════════════",
+  image: "https://media.discordapp.net/attachments/1453806812515008533/1491100480313622659/standard_1.gif?ex=6ad2ee49&is=6ad19cc9&hm=a47824643fca3c1ad179ebabf7b2a83eead9cb5dbe61d0330c5331a2d9866e6c&animated=true",
+  intro: "★ **always** read the rules before joining giveaways\n★ **failing** to follow the requirements will get <@&1481370041260966067> and punishments\n═══════════════════════════════════",
   categories: [
     {
-      name: "🛡️ Moderation & Punishments",
+      name: "🚨 Giveaway ban RULES",
       commands: [
-        "• `?warn @user [reason]` — Issue official warning",
-        "• `?warnings [@user]` — Check warn history",
-        "• `?unwarn @user [id]` — Remove specific warning",
-        "• `?clearwarns @user` — Clear all warnings",
-        "• `?mute @user [time] [reason]` — Timeout user",
-        "• `?unmute @user` — Remove active timeout",
-        "• `?kick @user [reason]` — Kick user from server",
-        "• `?ban @user [reason]` — Ban user & purge messages",
-        "• `?softban @user [reason]` — Kick & wipe 7 days",
-        "• `?unban [user_id]` — Unban using Discord ID",
-        "• `?modstats [@staff]` — Check action statistics",
-        "• `?modlogs [@user]` — View recent mod logs"
+        "↳ ‼️ **spamming/message farming/didn't do requirement**",
+        "🔒 Will receive a <@&1481370041260966067> for **2 days**",
+        "• Typing more than 3 short messages such as \"hi\", \"hello\", \"hru\" and more will lead to a <@&1481370041260966067> and future punishments"
       ]
     },
     {
-      name: "🔒 Security & Verification Controls",
+      name: "🎉 Quick Drops RULES",
       commands: [
-        "• `?verify settings` — Check anti-raid config",
-        "• `?verify scan @user` — Scan risk score & age",
-        "• `?verify massscan` — Scan unverified bulk",
-        "• `?verify verifiedrole [role]` — Set verified role",
-        "• `?verify unverifiedrole [role]` — Set quarantine role",
-        "• `?verify trusteddays [days]` — Set min account age",
-        "• `?verify autoban [on/off]` — Toggle auto-ban",
-        "• `?verify autokick [on/off]` — Toggle auto-kick"
+        "↳ ‼️ Quick Drops will be rerolled **4 times** and if not claimed, it will be **voided**",
+        "• You must claim it on time, hoster has the **last decision** whether it was claimed or not.",
+        "• You have to send the gamepass in **24 hours**.",
+        "⚠️ **BOOSTER CLAIMTIMES DO NOT AFFECT QUICKDROPS**"
       ]
     },
     {
-      name: "⚙️ Chat, Roles & Channel Management",
+      name: "⏳ Extra Claimtimes & Multipliers",
       commands: [
-        "• `?purge [1-100]` — Bulk delete messages",
-        "• `?purge @user [1-100]` — Delete user messages",
-        "• `?purge bots [1-100]` — Clean bot messages",
-        "• `?role @user [role]` — Add/remove role safely",
-        "• `?temprole @user [time] [role]` — Temporary role",
-        "• `?rolecreate [name] [color]` — Create new role",
-        "• `?roleicon @role [icon]` — Set/update role icon",
-        "• `?rename [name]` — Rename ticket channels",
-        "• `?setnick @user [nick]` — Change nickname",
-        "• `?slowmode [#channel] [time]` — Set slowmode"
-      ]
-    },
-    {
-      name: "🤖 Autoresponders & Blacklists",
-      commands: [
-        "• `?ar add [trigger] [response]` — Create response",
-        "• `?ar remove [trigger]` — Delete response",
-        "• `?ar list` — View all auto-responses",
-        "• `?bl [word]` — Add word to blacklist",
-        "• `?unbl [word]` — Remove word from blacklist",
-        "• `?words` — View blacklisted words"
-      ]
-    },
-    {
-      name: "🛠️ Utilities & General Tools",
-      commands: [
-        "• `?help` — Interactive command center",
-        "• `?afk [reason]` — Set AFK status",
-        "• `?translate [lang] [text]` — Translate message",
-        "• `?timer [time] [label]` — Set countdown timer",
-        "• `?birthday` — Set your birthday",
-        "• `?snipe` — View deleted messages",
-        "• `?joininfo [@user]` — View join placement",
-        "• `?tz [zone]` — Set personal timezone",
-        "• `?status` — Check system performance"
-      ]
-    },
-    {
-      name: "🎮 Fun, Social & Games",
-      commands: [
-        "• `?marry @user [ring]` — Propose to member",
-        "• `?divorce [@user]` — End a marriage",
-        "• `?marriages` — View server marriages",
-        "• `?ship @user1 [@user2]` — Love match test",
-        "• `?adopt @user` / `?disown` — Family system",
-        "• `?family [@user]` — Interactive family tree",
-        "• `?8ball` / `?coinflip` / `?roll` — Minigames",
-        "• `?rps` / `?auction` — Play games & bid",
-        "• `?ai [prompt]` — Chat with OpenAI engine",
-        "• `?customcolor` — Open hex color studio"
+        "• <@&1482787743527604305> get **2x claimtime**",
+        "• <@&1481370041382604874> get **3x claimtime**",
+        "• Quick Drops claimtime ranges from **30 seconds to 5 minutes**",
+        "• **Standard giveaways** will be **30 mins ct**. Special giveaways will be whatever the gw hoster suggests."
       ]
     }
   ]
@@ -112,6 +54,7 @@ function loadStaffGuide() {
       if (!data.categories) {
         data.categories = defaultGuideData.categories;
         data.intro = defaultGuideData.intro;
+        data.image = defaultGuideData.image;
         fs.writeFileSync(STAFF_GUIDE_FILE, JSON.stringify(data, null, 2));
       }
       return data;
@@ -133,7 +76,7 @@ function saveStaffGuide(data) {
 
 module.exports = {
   name: "staffguide",
-  description: "Displays complete server guidelines and command manual",
+  description: "Displays complete server giveaway guidelines and manual",
   async execute(message, args) {
     try {
       await message.delete().catch(() => null);
@@ -149,10 +92,14 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor(parsedColor)
-        .setTitle(guideData.title || "🛡️ Don Don Complete Command & Staff Operations Guide")
+        .setTitle(guideData.title || "🛡️ DonQuixote's Lounge • Giveaway & Operations Master Rules")
         .setDescription(guideData.intro || "")
-        .setFooter({ text: "Don Don Staff Operations • Complete Command Manual" })
+        .setFooter({ text: "DonQuixote's Lounge • Giveaway Guidelines & Operations" })
         .setTimestamp();
+
+      if (guideData.image) {
+        embed.setImage(guideData.image);
+      }
 
       if (guideData.categories && Array.isArray(guideData.categories)) {
         guideData.categories.forEach((category) => {
@@ -219,7 +166,7 @@ module.exports = {
 
       const commandListText = category.commands.join("\n");
       return interaction.editReply({ 
-        content: `📂 **Category [${index + 1}]: ${category.name}**\n\n**Commands contained here:**\n${commandListText}\n\n*(Tip: You can edit the \`staff-guide-data.json\` file directly in your project folder anytime to add or change commands instantly without button timeouts!)*` 
+        content: `📂 **Category [${index + 1}]: ${category.name}**\n\n**Guidelines contained here:**\n${commandListText}\n\n*(Tip: You can edit the \`staff-guide-data.json\` file directly in your project folder anytime to change guidelines instantly without button timeouts!)*` 
       });
     }
   }
