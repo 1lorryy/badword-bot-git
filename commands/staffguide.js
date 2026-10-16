@@ -12,7 +12,7 @@ module.exports = {
           .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
       }
 
-      // ================= EMBED 1: MAIN SERVER RULES =================
+// ================= EMBED 1: MAIN SERVER RULES =================
       const mainRulesEmbed = new EmbedBuilder()
         .setTitle("📜 SERVER RULES")
         .setColor(0xd9383a)
@@ -22,14 +22,12 @@ module.exports = {
           "**3.** No NSFW content or discussions. Keep it safe for all ages.\n\n" +
           "**4.** Follow Discord's Terms of Service everywhere here. No illegal actions or sharing pirated stuff.\n\n" +
           "**5.** No advertising or self-promotion without permission from staff.\n\n" +
-          "**6.** Use appropriate channels for topics — no off-topic spam.\n\n" +
+          "**6.** Use appropriate channels for topics - no off-topic spam.\n\n" +
           "**7.** Do not ping staff unnecessarily or abuse the ticket system.\n\n" +
           "**8.** English only in main chats to keep things clear.\n\n" +
           "**9.** No sharing others' personal info or doxxing. Privacy matters.\n\n" +
           "**10.** Listen to mods and respect their decisions. Arguing isn't allowed in public chat.\n\n" +
-         "### 🧠 11. COMMON SENSE RULE\n" +
-          "**Not every single rule is explicitly listed here. Use common sense. If something is obviously toxic, harmful, or stupid, claiming *\"it wasn't in the rules\"* won't save you from a punishment.**\n" +
-          "* Examples of unwritten violations include: slurs or obfuscated slurs, loophole abusing, deliberately provoking/baiting arguments, bypass attempts, or general malice.*\n\n" +
+          "**11.** Use common sense. Not every rule is listed - claiming *\"it wasn't in the rules\"* won't save you from punishment *(e.g. slurs, bypasses, loophole abuse, baiting, or malice)*.\n\n" +
           "⚠️ **Don't beg or you will be warned!**\n\n" +
           "🚨 **Reporting Severe Violations & Ticket Policy**\n" +
           "If you witness someone breaking server rules severely, please report it immediately by opening a ticket in <#1481370042892550220>.\n" +
