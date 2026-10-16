@@ -2636,7 +2636,7 @@ client.on("messageCreate", async (message) => {
       saveData();
     }
 
-    // ================= MESSAGE DELETE SNIPE LISTENER =================
+// ================= MESSAGE DELETE SNIPE LISTENER =================
 client.on("messageDelete", (message) => {
   try {
     if (!message.guild || message.author?.bot || !message.content) return;
@@ -2648,6 +2648,35 @@ client.on("messageDelete", (message) => {
     console.error("Error capturing deleted message for snipe:", err);
   }
 });
+
+// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+client.on("messageCreate", async (message) => {
+  try {
+    if (message.author.bot || !message.guild || !message.content) return;
+
+    // ================= MESSAGE POINTS EARNING =================
+    const data = getGuildData(message.guild.id);
+    if (!data.economy) data.economy = {};
+    
+    const userId = message.author.id;
+    if (!data.economy[userId]) {
+      data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
+    }
+
+    const userData = data.economy[userId];
+    const now = Date.now();
+    const POINT_COOLDOWN = 45000; // 45 seconds cooldown between point earnings per user
+
+    // Check if cooldown has passed and message isn't just a tiny command execution
+    if (now - (userData.lastMessagePointTime || 0) > POINT_COOLDOWN && message.content.length > 3) {
+      userData.lastMessagePointTime = now;
+      
+      const earnedPoints = 0.25; 
+      userData.balance = (userData.balance || 0) + earnedPoints;
+      userData.coins = (userData.coins || 0) + earnedPoints;
+      
+      saveData();
+    }
 
     // ================= UTC MESSAGE ACTIVITY TRACKER =================
     if (!message.author.bot && message.guild) {
