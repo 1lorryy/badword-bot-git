@@ -40,14 +40,19 @@ module.exports = {
             inline: true
           },
           {
-            name: "📌 5. Closure & Inactivity",
-            value: "Close your ticket once resolved. *Tickets inactive for **12 hours** are automatically closed by the bot.*",
+            name: "📌 5. Ticket Closure Policy",
+            value: "Only staff members can close tickets. Request staff to close your ticket once your inquiry or trade is complete.",
             inline: true
           },
           {
-            name: "📌 6. Respect & Co-operation",
-            value: "Treat staff respectfully. Aggressive, rude, or non-cooperative behavior will result in warnings or mutes.",
+            name: "⭐ 6. Giveaway Vouch Requirement",
+            value: "If your ticket is for claiming a giveaway win, you **MUST** vouch for the host in <#1481374265340072047> upon receiving your prize.",
             inline: true
+          },
+          {
+            name: "📌 7. Respect & Co-operation",
+            value: "Treat staff respectfully. Aggressive, rude, or non-cooperative behavior will result in warnings or mutes.",
+            inline: false
           }
         );
 
@@ -55,7 +60,7 @@ module.exports = {
       const secondaryTicketEmbed = new EmbedBuilder()
         .setColor(0x2b2d31)
         .setDescription(
-          "⚖️ **7. Staff Authority & Disclaimer**\n" +
+          "⚖️ **8. Staff Authority & Disclaimer**\n" +
           "Staff & Management hold full authority over ticket disputes, rule interpretations, and moderation actions. All decisions are final. Publicly arguing with staff is strictly prohibited."
         )
         .setImage("https://images-ext-1.discordapp.net/external/AWRZ4I24a_2jeeXlhLcjAvdhZ0mtHA5xT3MvknowKPk/https/image2url.com/r2/default/images/1775845711233-eeede801-13ce-4f7c-b0ac-ea6a6d81b638.jpg?format=webp")
@@ -66,7 +71,4 @@ module.exports = {
 
     } catch (error) {
       console.error("Error executing staffguide command:", error);
-      return message.channel.send(`❌ **An error occurred:** \`${error.message}\``);
-    }
-  }
-};
+      return message.channel.send(`❌ **
