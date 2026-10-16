@@ -2579,401 +2579,94 @@ client.on("interactionCreate", async (interaction) => {
         }
     }
   });
+// ================= CLIENT READY EVENT =================
+client.once("ready", () => {
+  console.log(`Logged in as ${client.user.tag}!`);
   
-const { initTimers, handleTimerCommand } = require("./commands/timer.js");
-const { handleChannelToolsCommand } = require("./commands/channelTools");
-const { handlePurchaseCommand, handlePurchEditCommand } = require("./commands/buy");
-const { handleAfkCommand, handleAfkMentionsAndReturn } = require("./commands/afk");
-const { handleTranslateCommand } = require("./commands/translate");
-const { handleAuctionCommand } = require("./commands/auction");
-const { handleModLogsCommand } = require("./commands/modlogs");
-const { generateAiReply } = require("./commands/aiReply");
-const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday");
-const { handleVerifyCommand } = require("./commands/verify");
-const renameCommand = require("./commands/rename.js");
-const roleIconCommand = require("./commands/roleicon.js");
-const roleCreateCommand = require("./commands/rolecreate.js");
-const customColorCommand = require("./commands/customcolor.js");
-const shopCommand = require("./commands/shop.js");
-const arCommand = require('./commands/ar.js');
-const marriageCommand = require("./commands/marriage.js");
-const adoptionCommand = require("./commands/adoption.js");
-const pollCommand = require("./commands/poll.js");
-const giveawayCommand = require("./commands/giveaway.js");
-const { handleRoleCommand } = require("./commands/role.js");
-const cratesCommand = require("./commands/crates.js");
-const tradeCommand = require("./commands/trade.js");
-const msgCommand = require("./commands/msg.js");
-const lbCommand = require("./commands/lb.js");
+  // ================= HOURLY MINI-GAME PROMO =================
+  const GENERAL_CHANNEL_ID = "1481561361044607047";
+  const BOT_CHANNEL_ID = "1481370051264254259";
 
-const snipes = {};
-const fs = require("fs");
-const path = require("path");
-
-const {
-  Client,
-  GatewayIntentBits,
-  PermissionsBitField,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  SlashCommandBuilder,
-  REST,
-  Routes,
-  InteractionContextType,
-  ApplicationIntegrationType
-} = require("discord.js");
-
-const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "guild-data.json");
-
-const DEFAULT_PREFIX = process.env.DEFAULT_PREFIX || "?";
-const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || "1492845794192134245";
-const BAN_TARGET_CHANNEL_ID = "1492845794192134245";
-const ADMIN_APPEAL_ROLE_ID = "";
-
-const SUPPORT_TICKET_CATEGORY_ID = "1481939936964775946";
-
-const ALLOWED_RENAME_CATEGORIES = [
-  "1481939936964775946",
-  "1481938314062725281",
-  "1481937769612968038"
-];
-
-const BDAY_COMMAND_CHANNEL_ID = "1481370051264254259";
-
-const BYPASS_ROLE_IDS = (process.env.BYPASS_ROLE_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
-
-const STAFF_ROLE_ID = "1481370041420087474";
-const MOD_ROLE_ID = "1481370041432932379";
-const MAIN_ADMIN_ROLE_ID = "1481370041441189959";
-
-const BLOCKED_LINKS = ["onlyfans.com", "pornhub.com", "xvideos.com", "xnxx.com", "xhamster.com", "redtube.com"];
-
-const CORE_BLACKLIST = [
-  "ass", "nigga", "nigger", "nga", "idiot", "retard", "bitchass", "dumbass", "faggot", "fagot",
-  "porn", "sex", "pussy", "boobs", "penis", "dick", "idgaf", "motherfuck", "motherfucker", "mf",
-  "asshole", "cunt", "possay", "sexcam", "bubs"
-];
-
-const PROTECTED_BLACKLIST = ["nigga", "nigger", "nga", "retard", "faggot", "fagot", "tard"];
-
-let client;
-
-function loadData() {
-  try {
-    if (!fs.existsSync(DATA_FILE)) return {};
-    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-  } catch (err) {
-    console.error("❌ Error reading data file:", err);
-    return {};
-  }
-}
-
-let store = loadData();
-
-function saveData() {
-  try {
-    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-    fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), "utf8");
-  } catch (err) {
-    console.error("❌ Error writing auto-save to file:", err);
-  }
-}
-
-function getGuildData(guildId) {
-  if (!store[guildId]) {
-    store[guildId] = {
-      prefix: DEFAULT_PREFIX,
-      words: [],
-      blockedLinks: [],
-      customCommands: {},
-      warnings: {},
-      cooldowns: {},
-      modStats: {},
-      purchaseLinks: { classes: [], ads6h: [], ads24h: [], extras: [] },
-      birthdays: {},
-      afkUsers: {},
-      channelCounters: {},
-      snipeEnabled: true,
-      snipes: {}
-    };
-    saveData();
-  }
-
-  const guild = store[guildId];
-
-  if (!Array.isArray(guild.words)) guild.words = [];
-  if (!Array.isArray(guild.blockedLinks)) guild.blockedLinks = [];
-  if (!guild.customCommands || typeof guild.customCommands !== "object") guild.customCommands = {};
-  if (!guild.warnings || typeof guild.warnings !== "object") guild.warnings = {};
-  if (!guild.cooldowns || typeof guild.cooldowns !== "object") guild.cooldowns = {};
-  if (!guild.afkUsers || typeof guild.afkUsers !== "object") guild.afkUsers = {};
-  if (!guild.channelCounters || typeof guild.channelCounters !== "object") guild.channelCounters = {};
-
-  if (!guild.purchaseLinks || typeof guild.purchaseLinks !== "object") {
-    guild.purchaseLinks = { classes: [], ads6h: [], ads24h: [], extras: [] };
-  }
-
-  for (const key of ["classes", "ads6h", "ads24h", "extras"]) {
-    if (!Array.isArray(guild.purchaseLinks[key])) {
-      guild.purchaseLinks[key] = [];
-    }
-  }
-
-  if (!guild.modStats || typeof guild.modStats !== "object") guild.modStats = {};
-  if (!guild.birthdays || typeof guild.birthdays !== "object") guild.birthdays = {};
-  if (!guild.verification || typeof guild.verification !== "object") {
-    guild.verification = {
-      verifiedRole: null,
-      unverifiedRole: null,
-      trustedDays: 7,
-      autoban: false,
-      autokick: false,
-      flagSuspiciousNames: true
-    };
-  }
-
-  if (!guild.tempRoles) guild.tempRoles = [];
-  if (!guild.prefix) guild.prefix = DEFAULT_PREFIX;
-
-  return guild;
-}
-
-async function deleteAfter(msg, ms = 5000) {
-  if (!msg) return;
-  setTimeout(() => msg.delete().catch(() => null), ms);
-}
-
-function canManageGuild(message) {
-  if (!message.member) return false;
-  return (
-    message.member.permissions.has(PermissionsBitField.Flags.Administrator) ||
-    message.member.permissions.has(PermissionsBitField.Flags.ManageChannels) ||
-    message.member.roles.cache.has(MAIN_ADMIN_ROLE_ID) ||
-    message.member.roles.cache.has(STAFF_ROLE_ID) ||
-    message.member.roles.cache.has(MOD_ROLE_ID)
-  );
-}
-
-function canBanUsers(message) {
-  if (!message.member) return false;
-  const roles = message.member.roles.cache;
-  return message.member.permissions.has(PermissionsBitField.Flags.Administrator) || roles.has(MAIN_ADMIN_ROLE_ID);
-}
-
-function isStaffMember(member) {
-  return (
-    member.roles.cache.has(STAFF_ROLE_ID) ||
-    member.roles.cache.has(MOD_ROLE_ID) ||
-    member.roles.cache.has(MAIN_ADMIN_ROLE_ID) ||
-    member.permissions.has(PermissionsBitField.Flags.Administrator)
-  );
-}
-
-function hasBypassRole(message) {
-  return message.member?.roles?.cache?.some(role => BYPASS_ROLE_IDS.includes(role.id));
-}
-
-function canUseFunCommand(message) {
-  if (isStaffMember(message.member) || canManageGuild(message)) return true;
-  return message.channel.id === BDAY_COMMAND_CHANNEL_ID;
-}
-
-async function findTargetMember(message, args) {
-  const mention = message.mentions?.members?.first();
-  if (mention) return mention;
-
-  const input = args[0];
-  if (!input) return null;
-
-  const clean = input.replace(/^@/, "");
-  const byId = await message.guild.members.fetch(clean).catch(() => null);
-  if (byId) return byId;
-
-  const search = clean.toLowerCase();
-  let found = message.guild.members.cache.find(
-    m => m.user.username.toLowerCase() === search || m.displayName.toLowerCase() === search || m.user.tag.toLowerCase() === search
-  );
-  if (found) return found;
-
-  found = message.guild.members.cache.find(
-    m => m.user.username.toLowerCase().includes(search) || m.displayName.toLowerCase().includes(search)
-  );
-  return found || null;
-}
-
-function parseDuration(input) {
-  if (!input) return null;
-  const match = String(input).toLowerCase().match(/^(\d+)(s|sec|m|min|h|hr|d|day)$/);
-  if (!match) return null;
-  const amount = parseInt(match[1], 10);
-  const unit = match[2];
-
-  if (unit === "s" || unit === "sec") return amount * 1000;
-  if (unit === "m" || unit === "min") return amount * 60 * 1000;
-  if (unit === "h" || unit === "hr") return amount * 60 * 60 * 1000;
-  if (unit === "d" || unit === "day") return amount * 24 * 60 * 60 * 1000;
-  return null;
-}
-
-function escapeRegex(text) {
-  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function containsBlacklistedWord(content, words) {
-  const text = content.toLowerCase();
-  for (const word of words) {
-    const clean = String(word).toLowerCase().trim();
-    if (!clean) continue;
-    const letters = clean.split("").map(escapeRegex).join("[\\s._-]*");
-    const regex = new RegExp(`(^|[^a-z0-9])${letters}([^a-z0-9]\vert{}$)`, "i");
-    if (regex.test(text)) return word;
-  }
-  const link = BLOCKED_LINKS.find(l => text.includes(l));
-  if (link) return link;
-  return null;
-}
-
-async function sendAutomodLog(message, word) {
-  const log = await message.guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
-  if (!log || !log.isTextBased()) return;
-
-  const embed = new EmbedBuilder()
-    .setTitle("🚫 Blacklisted Message Deleted")
-    .setColor(0xef4444)
-    .addFields(
-      { name: "User", value: `${message.author.tag}`, inline: true },
-      { name: "Channel", value: `${message.channel}`, inline: true },
-      { name: "Matched", value: `\`${word}\``, inline: true },
-      { name: "Message", value: message.content.slice(0, 1000), inline: false }
-    )
-    .setTimestamp();
-  await log.send({ embeds: [embed] }).catch(() => null);
-}
-
-async function sendModLog(embed, targetChannelId = LOG_CHANNEL_ID, content = undefined) {
-  const log = await client.channels.fetch(targetChannelId).catch(() => null);
-  if (!log || !log.isTextBased()) return;
-  await log.send({ content, embeds: [embed] }).catch(() => null);
-}
-
-function saveSnipe(message) {
-  const data = getGuildData(message.guild.id);
-  if (!data.snipes) data.snipes = {};
-  if (!data.snipes[message.channel.id]) data.snipes[message.channel.id] = [];
-
-  data.snipes[message.channel.id].unshift({
-    content: message.content || "*No text*",
-    authorId: message.author.id,
-    createdAt: message.createdTimestamp,
-    deletedAt: Date.now()
-  });
-
-  const ONE_DAY = 24 * 60 * 60 * 1000;
-  data.snipes[message.channel.id] = data.snipes[message.channel.id].filter(s => Date.now() - s.deletedAt < ONE_DAY).slice(0, 5);
-  saveData();
-}
-
-// ================= START BOT FUNCTION =================
-async function startBot() {
-  client = new Client({
-    intents: [
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.GuildMessages,
-      GatewayIntentBits.GuildMembers,
-      GatewayIntentBits.MessageContent
-    ]
-  });
-
-  client.once("ready", () => {
-    console.log(`Logged in as ${client.user.tag}!`);
-    
-    // Hourly mini-game promo
-    const GENERAL_CHANNEL_ID = "1481561361044607047";
-    const BOT_CHANNEL_ID = "1481370051264254259";
-
-    setInterval(async () => {
-      try {
-        const channel = await client.channels.fetch(GENERAL_CHANNEL_ID).catch(() => null);
-        if (channel && channel.isTextBased()) {
-          const promoEmbed = new EmbedBuilder()
-            .setColor(0x5865f2)
-            .setTitle("🎮 Pet Crates & Trading Mini-Game!")
-            .setDescription(`Chat in General to earn points! Head over to <#${BOT_CHANNEL_ID}> to spin crates, check stats, & trade rare pets using \`?crates\`, \`?msg\`, or \`?trade\`!`)
-            .setFooter({ text: "Don Don Mini-Game • Earn points passively as you chat!" });
-          await channel.send({ embeds: [promoEmbed] }).catch(() => null);
-        }
-      } catch (err) {
-        console.error("Error sending hourly mini-game promo:", err);
-      }
-    }, 3600000);
-
-    setInterval(() => {
-      checkBirthdays(client, getGuildData, saveData).catch(console.error);
-    }, 60 * 60 * 1000);
-
-    checkBirthdays(client, getGuildData, saveData).catch(console.error);
-  });
-
-  // ================= MESSAGE DELETE SNIPE LISTENER (PROPERLY OUTSIDE) =================
-  client.on("messageDelete", (message) => {
+  // Runs once every 3,600,000 milliseconds (1 hour) - GLOBALLY SINGLE INSTANCE
+  setInterval(async () => {
     try {
-      if (!message.guild || message.author?.bot || !message.content) return;
-      const data = getGuildData(message.guild.id);
-      if (data.snipeEnabled !== false) {
-        saveSnipe(message);
+      const channel = await client.channels.fetch(GENERAL_CHANNEL_ID).catch(() => null);
+      if (channel && channel.isTextBased()) {
+        const promoEmbed = new EmbedBuilder()
+          .setColor(0x5865f2)
+          .setTitle("🎮 Pet Crates & Trading Mini-Game!")
+          .setDescription(`Chat in General to earn points! Head over to <#${BOT_CHANNEL_ID}> to spin crates, check stats, & trade rare pets using \`?crates\`, \`?msg\`, or \`?trade\`!`)
+          .setFooter({ text: "Don Don Mini-Game • Earn points passively as you chat!" });
+
+        await channel.send({ embeds: [promoEmbed] }).catch(() => null);
       }
     } catch (err) {
-      console.error("Error capturing deleted message for snipe:", err);
+      console.error("Error sending hourly mini-game promo:", err);
     }
-  });
+  }, 3600000); // 3,600,000 ms = exactly 1 hour
+});
 
-  // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
-  client.on("messageCreate", async (message) => {
-    try {
-      if (message.author.bot || !message.guild || !message.content) return;
+// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+client.on("messageCreate", async (message) => {
+  try {
+    if (message.author.bot || !message.guild || !message.content) return;
 
-      // ================= MESSAGE POINTS EARNING =================
-      const data = getGuildData(message.guild.id);
-      if (!data.economy) data.economy = {};
+    // ================= MESSAGE POINTS EARNING =================
+    const data = getGuildData(message.guild.id);
+    if (!data.economy) data.economy = {};
+    
+    const userId = message.author.id;
+    if (!data.economy[userId]) {
+      data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
+    }
+
+    const userData = data.economy[userId];
+    const now = Date.now();
+    const POINT_COOLDOWN = 45000; // 45 seconds cooldown between point earnings per user
+
+    // Check if cooldown has passed and message isn't just a tiny command execution
+    if (now - (userData.lastMessagePointTime || 0) > POINT_COOLDOWN && message.content.length > 3) {
+      userData.lastMessagePointTime = now;
       
-      const userId = message.author.id;
-      if (!data.economy[userId]) {
-        data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
-      }
+      // Award points/currency (e.g., 0.1 to 0.5 points per active message)
+      const earnedPoints = 0.25; 
+      userData.balance = (userData.balance || 0) + earnedPoints;
+      userData.coins = (userData.coins || 0) + earnedPoints;
+      
+      saveData();
+    }
 
-      const userData = data.economy[userId];
-      const now = Date.now();
-      const POINT_COOLDOWN = 45000;
+    // ================= MESSAGE DELETE SNIPE LISTENER =================
+client.on("messageDelete", (message) => {
+  try {
+    if (!message.guild || message.author?.bot || !message.content) return;
+    const data = getGuildData(message.guild.id);
+    if (data.snipeEnabled !== false) {
+      saveSnipe(message);
+    }
+  } catch (err) {
+    console.error("Error capturing deleted message for snipe:", err);
+  }
+});
 
-      if (now - (userData.lastMessagePointTime || 0) > POINT_COOLDOWN && message.content.length > 3) {
-        userData.lastMessagePointTime = now;
-        const earnedPoints = 0.25; 
-        userData.balance = (userData.balance || 0) + earnedPoints;
-        userData.coins = (userData.coins || 0) + earnedPoints;
-        saveData();
-      }
-
-      // ================= UTC REAL-TIME TRACKING ENGINE =================
-      if (!data.countedChannels) data.countedChannels = ["1481561361044607047"];
+    // ================= UTC MESSAGE ACTIVITY TRACKER =================
+    if (!message.author.bot && message.guild) {
+      const data = getGuildData(message.guild.id);
+      if (!data.countedChannels) data.countedChannels = ["1481561361044607047"]; // Default general channel
 
       if (data.countedChannels.includes(message.channel.id)) {
         if (!data.messageStats) data.messageStats = {};
         const uid = message.author.id;
         
-        const currentDate = new Date();
-        const utcYear = currentDate.getUTCFullYear();
-        const utcMonth = currentDate.getUTCMonth();
-        const utcDate = currentDate.getUTCDate();
+        const now = new Date();
+        const utcYear = now.getUTCFullYear();
+        const utcMonth = now.getUTCMonth();
+        const utcDate = now.getUTCDate();
         
         const dateStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}-${String(utcDate).padStart(2, '0')}`;
         const monthStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}`;
 
+        // Calculate UTC Monday for weekly reset tracking
         const d = new Date(Date.UTC(utcYear, utcMonth, utcDate));
         const day = d.getUTCDay();
         const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
@@ -2991,6 +2684,7 @@ async function startBot() {
 
         const stats = data.messageStats[uid];
 
+        // Auto-reset period counters based on strict UTC triggers
         if (stats.daily.date !== dateStr) { stats.daily.date = dateStr; stats.daily.count = 0; }
         if (stats.weekly.week !== weekStr) { stats.weekly.week = weekStr; stats.weekly.count = 0; }
         if (stats.monthly.month !== monthStr) { stats.monthly.month = monthStr; stats.monthly.count = 0; }
@@ -3001,105 +2695,107 @@ async function startBot() {
         stats.monthly.count++;
         saveData();
       }
+    }
 
-      const prefix = data.prefix || DEFAULT_PREFIX;
+    const prefix = data.prefix || DEFAULT_PREFIX;
 
-      const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
-      if (userReturned) return;
+    const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
+    if (userReturned) return;
 
-      const bypassRoleId = "1492630307650666546";
-      const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
-      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
-      const allowDiscordInvite = hasBypassDiscordInvite && discordInviteRegex.test(message.content);
+    const bypassRoleId = "1492630307650666546";
+    const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
+    const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
+    const containsDiscordInvite = discordInviteRegex.test(message.content);
+    const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
 
-      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
-      if (protectedWord) {
+    const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+    if (protectedWord) {
+      await message.delete().catch(() => null);
+      await sendAutomodLog(message, protectedWord);
+      return;
+    }
+
+    if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
+      const word = containsBlacklistedWord(message.content, [
+        ...CORE_BLACKLIST, 
+        ...(data.words || []), 
+        ...(data.blockedLinks || [])
+      ]);
+      if (word) {
         await message.delete().catch(() => null);
-        await sendAutomodLog(message, protectedWord);
+        await sendAutomodLog(message, word);
         return;
       }
+    }
 
-      if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
-        const word = containsBlacklistedWord(message.content, [
-          ...CORE_BLACKLIST, 
-          ...(data.words || []), 
-          ...(data.blockedLinks || [])
-        ]);
-        if (word) {
-          await message.delete().catch(() => null);
-          await sendAutomodLog(message, word);
-          return;
-        }
-      }
-
-      if (data.autoResponses) {
-        const contentLower = message.content.toLowerCase();
-        for (const [trigger, arData] of Object.entries(data.autoResponses)) {
-          if (contentLower.includes(trigger)) {
-            let payload = {};
-            if (arData.text) payload.content = arData.text;
-            if (arData.image) {
-              payload.embeds = [new EmbedBuilder().setColor(0xff69b4).setImage(arData.image)];
-            }
-            if (payload.content || payload.embeds) {
-              await message.channel.send(payload).catch(() => {});
-            }
-            break;
+    if (data.autoResponses) {
+      const contentLower = message.content.toLowerCase();
+      for (const [trigger, arData] of Object.entries(data.autoResponses)) {
+        if (contentLower.includes(trigger)) {
+          let payload = {};
+          if (arData.text) payload.content = arData.text;
+          if (arData.image) {
+            payload.embeds = [new EmbedBuilder().setColor(0xff69b4).setImage(arData.image)];
           }
+          if (payload.content || payload.embeds) {
+            await message.channel.send(payload).catch(() => {});
+          }
+          break;
         }
       }
+    }
 
-      if (!data.channelCounters) data.channelCounters = {};
-      if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
-      if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
+    if (!data.channelCounters) data.channelCounters = {};
+    if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
+    if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
 
-      const isAiCommand = message.content.startsWith(`${prefix}ai`);
-      const isStatusCommand = message.content.startsWith(`${prefix}status`);
+    const isAiCommand = message.content.startsWith(`${prefix}ai`);
+    const isStatusCommand = message.content.startsWith(`${prefix}status`);
+    
+    let isReplyToBot = false;
+    if (message.reference && message.reference.messageId) {
+      const repliedMsg = message.channel.messages.cache.get(message.reference.messageId) 
+        || await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
       
-      let isReplyToBot = false;
-      if (message.reference && message.reference.messageId) {
-        const repliedMsg = message.channel.messages.cache.get(message.reference.messageId) 
-          || await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
-        
-        if (repliedMsg && repliedMsg.author.id === client.user.id) {
-          isReplyToBot = true;
-        }
+      if (repliedMsg && repliedMsg.author.id === client.user.id) {
+        isReplyToBot = true;
       }
+    }
 
-      if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
-        data.channelCounters[message.channel.id]++;
-        
-        if (data.channelCounters[message.channel.id] >= 50) {
-          data.channelCounters[message.channel.id] = 0; 
-          data.currentPersonaIndex += 1; 
-        }
-        
-        if (typeof store !== "undefined") store[message.guild.id] = data;
-        saveData();
+    if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
+      data.channelCounters[message.channel.id]++;
+      
+      if (data.channelCounters[message.channel.id] >= 50) {
+        data.channelCounters[message.channel.id] = 0; 
+        data.currentPersonaIndex += 1; 
       }
+      
+      if (typeof store !== "undefined") store[message.guild.id] = data;
+      saveData();
+    }
 
-      const wasCommand = await handleCommands(message, getGuildData);
-      if (wasCommand) return;
+    const wasCommand = await handleCommands(message, getGuildData);
+    if (wasCommand) return;
 
-      const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
+    const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
 
-      if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
+    if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
 
-      let triggerText = message.content;
+    let triggerText = message.content;
 
-      if (isAiCommand) {
-        triggerText = message.content.slice(`${prefix}ai`.length).trim();
-        if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
-      } else if (isBotMentioned) {
-        triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
-        if (!triggerText) {
-          return message.reply("Hey! How can I help you today?");
-        }
+    if (isAiCommand) {
+      triggerText = message.content.slice(`${prefix}ai`.length).trim();
+      if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
+    } else if (isBotMentioned) {
+      triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
+      if (!triggerText) {
+        return message.reply("Hey! How can I help you today?");
       }
+    }
 
-      await message.channel.sendTyping().catch(() => null);
+    await message.channel.sendTyping().catch(() => null);
 
-const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
+    const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
     if (aiReply) {
       return message.reply({ 
         content: aiReply, 
@@ -3111,7 +2807,7 @@ const aiReply = await generateAiReply(message, triggerText, [], data.currentPers
   }
 });
 
-  await client.login(process.env.DISCORD_TOKEN);
+await client.login(process.env.DISCORD_TOKEN);
 }
 
 module.exports = { startBot };
