@@ -83,8 +83,8 @@ async function generateAiReply(message, trigger, history = [], personaIndex = 0)
 
 REAL-TIME CLOCK & INFO:
 - Current Live Date & Time: ${currentDate}
-- SERVER OWNER: Don
-- BOT DEVELOPER & CREATOR: Lorry (The genius developer who codes this bot)
+- SERVER OWNER & BOT DEVELOPER/CREATOR: Lorry (The absolute genius who created and codes this bot)
+- CO-OWNER / LOUD LOUNGE OWNER: Don
 - SERVER NAME: DonQuixotes Lounge
 
 PERSONALITY & BEHAVIOR RULES:
