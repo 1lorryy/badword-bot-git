@@ -49,20 +49,14 @@ function containsSlur(text) {
   return false;
 }
 
-async function generateAiReply(message, trigger, history = []) {
+async function generateAiReply(message, trigger, history = [], personaIndex = 0) {
   if (!process.env.OPENAI_API_KEY) return null;
 
   const userPrompt = trigger || message.content || "";
 
-  // Dynamic funny deflection on input slur attempts
+  // Clean deflection on input slur attempts
   if (containsSlur(userPrompt)) {
-    const deflects = [
-      "nah bro tried sneaky tech, skill issue XD",
-      "wiped out by security filter, try again :D",
-      "bro thought he cooked with that word, zero rizz 💀",
-      "caught in 4k using forbidden words"
-    ];
-    return deflects[Math.floor(Math.random() * deflects.length)];
+    return "nah bro keep clean no need";
   }
 
   const currentDate = new Date().toUTCString();
@@ -70,30 +64,37 @@ async function generateAiReply(message, trigger, history = []) {
   // Keeps up to the last 150 messages to maintain deep conversation context
   const slicedHistory = Array.isArray(history) ? history.slice(-150) : [];
 
+  // Dynamic moods/vibes rotation synced with your channel counter persona shifts
+  const moods = [
+    "Vibe: Chill, witty, laid-back gamer.",
+    "Vibe: Sarcastic, slightly unhinged, peak Discord user.",
+    "Vibe: Hyped, energetic, uses lots of internet slang.",
+    "Vibe: Deadpan, brief, minimalist."
+  ];
+  const currentMood = moods[personaIndex % moods.length];
+
   try {
     const response = await client.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o",
       messages: [
         {
           role: "system",
-          content: `You are a regular chill user and witty AI companion hanging out in the DonQuixotes Lounge Discord server. 
+          content: `You are an authentic, swag AI companion hanging out in the DonQuixotes Lounge Discord server. 
 
-REAL-TIME CLOCK:
-• Current Live Date & Time: ${currentDate}
+REAL-TIME CLOCK & INFO:
+- Current Live Date & Time: ${currentDate}
+- SERVER OWNER: Don
+- BOT DEVELOPER & CREATOR: Lorry (The genius developer who codes this bot)
+- SERVER NAME: DonQuixotes Lounge
 
-ROLES & LORE:
-• SERVER OWNER: Don
-• BOT DEVELOPER & CREATOR: Lory (The genius developer who codes this bot)
-• SERVER NAME: DonQuixotes Lounge
-
-CRITICAL BEHAVIOR RULES (READ CAREFULLY):
+PERSONALITY & BEHAVIOR RULES:
+- CURRENT VIBE: ${currentMood}
+- Match the chat energy in real-time: be funny, slightly cheeky, moody, or casual depending on what people are talking about.
 - NEVER repeat generic bot greetings like "What's on your mind today?" or "Welcome to the server!". You are chatting normally, not running customer support.
 - If someone asks "wyd", "sup", or casual questions, answer like a real person hanging out in chat (e.g., "just chilling", "not much, coding stuff", "listening to music").
 - Human & Authentic: Talk naturally, like a regular Discord user. Avoid clinical disclaimers or "As an AI model".
-- Chat Flow: Look at the chat history and keep up with whatever topic people are talking about.
 - Conciseness: Keep responses punchy and brief (1–2 sentences max for casual chat).
-- Emotes & Slang: Use internet slang or emoticons (:D, XD, 💀) naturally and sparingly.
-- Content Boundary: Strictly enforce zero slurs or hate speech.`
+- Emotes & Slang: Use internet slang or emoticons (:D, XD, 💀) naturally and sparingly.`
         },
         ...slicedHistory,
         // Explicitly append the current user prompt at the end so it never gets lost in history formatting
@@ -102,7 +103,7 @@ CRITICAL BEHAVIOR RULES (READ CAREFULLY):
           content: `${message.author.username}: ${userPrompt}`
         }
       ],
-      temperature: 0.85,
+      temperature: 0.9,
       max_tokens: 150
     });
 
@@ -110,7 +111,7 @@ CRITICAL BEHAVIOR RULES (READ CAREFULLY):
     if (!reply) return null;
 
     if (containsSlur(reply)) {
-      return "nah bro let's keep it clean";
+      return "nah bro keep clean no need";
     }
 
     return reply;
