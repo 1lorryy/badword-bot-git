@@ -28,6 +28,9 @@ module.exports = {
           "**9.** No sharing others' personal info or doxxing. Privacy matters.\n\n" +
           "**10.** Listen to mods and respect their decisions. Arguing isn't allowed in public chat.\n\n" +
           "⚠️ **Don't beg or u will be warned!**\n\n" +
+          "🚨 **Reporting Severe Violations & Ticket Policy**\n" +
+          "If you witness someone breaking server rules severely, please report it immediately by opening a ticket in <#1481370042892550220>.\n" +
+          "⚠️ *Creating false reports, troll tickets, or abusing the ticket system will result in warnings, ticket blacklists, or mutes.*\n\n" +
           "🔗 https://discord.com/terms\n\n" +
           "⚖️ **Staff Authority & Disclaimer**\n" +
           "Staff & Management hold full ownership and ultimate discretion over all rule interpretations, warnings, mutes, kicks, bans, and server disputes. All staff decisions are final."
