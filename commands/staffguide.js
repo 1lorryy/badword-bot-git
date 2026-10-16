@@ -2,7 +2,7 @@ const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
   name: "staffguide",
-  description: "Displays clean giveaway rules and operations guidelines",
+  description: "Displays official server rules and punishment escalation ladder",
   async execute(message, args) {
     try {
       await message.delete().catch(() => null);
@@ -12,44 +12,43 @@ module.exports = {
           .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
       }
 
-      const guideEmbed = new EmbedBuilder()
-        .setTitle("🎉 DonQuixote's Lounge • Giveaway Rules")
-        .setColor(0x5865F2)
+      // ================= EMBED 1: MAIN SERVER RULES =================
+      const mainRulesEmbed = new EmbedBuilder()
+        .setTitle("📜 SERVER RULES")
+        .setColor(0xd9383a)
         .setDescription(
-          "★ **Always** read requirements before joining giveaways.\n" +
-          "★ **Failing** to follow requirements results in a <@&1481370041260966067> and punishments.\n\n" +
-          "═══════════════════════════════════"
-        )
-        .addFields(
-          {
-            name: "🚨 Giveaway Ban Rules",
-            value:
-              "• **Offenses:** Spamming, message farming, or faking requirements.\n" +
-              "• **Penalty:** Receives a <@&1481370041260966067> for **2 days**.\n" +
-              "• **Message Farming:** Typing 3+ short low-effort messages (e.g., 'hi', 'hru') triggers a ban."
-          },
-          {
-            name: "⚡ Quick Drops Policy",
-            value:
-              "• **Rerolls:** Quick drops are rerolled up to **4 times**, then **voided** if unclaimed.\n" +
-              "• **Host Decision:** The hoster has final say on whether a claim was valid.\n" +
-              "• **Fulfillment:** Gamepasses must be delivered within **24 hours**.\n" +
-              "⚠️ *Booster claim times do not affect Quick Drops.*"
-          },
-          {
-            name: "⏳ Claim Times & Multipliers",
-            value:
-              "• **Quick Drops Window:** 30 seconds to 5 minutes.\n" +
-              "• **Standard Giveaways:** Default 30 minutes claim time.\n" +
-              "• **Boosters (<@&1482787743527604305>):** **2x Claim Time**\n" +
-              "• **2x Boosters (<@&1481370041382604874>):** **3x Claim Time**"
-          }
-        )
-        .setImage("https://media.discordapp.net/attachments/1453806812515008533/1491100480313622659/standard_1.gif?ex=6ad2ee49&is=6ad19cc9&hm=a47824643fca3c1ad179ebabf7b2a83eead9cb5dbe61d0330c5331a2d9866e6c&animated=true")
-        .setFooter({ text: "DonQuixote's Lounge • Giveaway Guidelines" })
-    .setTimestamp();
+          "**1.** Respect everyone. No hate speech, bullying, or discrimination of any kind. Keep it chill.\n\n" +
+          "**2.** No spamming or flooding chat with messages, images, or emojis. Give people space to breathe.\n\n" +
+          "**3.** No NSFW content or discussions. Keep it safe for all ages.\n\n" +
+          "**4.** Follow Discord's Terms of Service everywhere here. No illegal actions or sharing pirated stuff.\n\n" +
+          "**5.** No advertising or self-promotion without permission from staff.\n\n" +
+          "**6.** Use appropriate channels for topics — no off-topic spam.\n\n" +
+          "**7.** Do not ping staff unnecessarily or abuse the ticket system.\n\n" +
+          "**8.** English only in main chats to keep things clear.\n\n" +
+          "**9.** No sharing others' personal info or doxxing. Privacy matters.\n\n" +
+          "**10.** Listen to mods and respect their decisions. Arguing isn't allowed in public chat.\n\n" +
+          "⚠️ **Don't beg or u will be warned!**\n\n" +
+          "🔗 https://discord.com/terms\n\n" +
+          "⚖️ **Staff Authority & Disclaimer**\n" +
+          "Staff & Management hold full ownership and ultimate discretion over all rule interpretations, warnings, mutes, kicks, bans, and server disputes. All staff decisions are final."
+        );
 
-      return message.channel.send({ embeds: [guideEmbed] });
+      // ================= EMBED 2: PUNISHMENT ESCALATION LADDER =================
+      const ladderEmbed = new EmbedBuilder()
+        .setColor(0x2b2d31)
+        .setDescription(
+          "💬 **verbal warn**\n" +
+          "🔹 **1st warn** safe\n" +
+          "🔹 **2nd warn** + 5 minutes mute\n" +
+          "🔹 **3rd warn** + 30 minutes mute\n" +
+          "🔹 **4th warn** + 12 hours mute\n" +
+          "🔹 **5th warn** + kick\n" +
+          "🔹 **6th warn** + Ban\n\n" +
+          "⚠️ **Note:** Punishments are subject to change depending on the **severity** of the infraction. Staff members reserve the right to issue harsher penalties, skip warning tiers, or apply custom actions (such as <@&1481370041260966067>) immediately if deemed necessary.\n\n" +
+          "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊'𝕤 𝖘𝖊𝖗𝖛𝖊𝖗 𝖗𝖚𝖑𝖊𝖘"
+        );
+
+      return message.channel.send({ embeds: [mainRulesEmbed, ladderEmbed] });
 
     } catch (error) {
       console.error("Error executing staffguide command:", error);
