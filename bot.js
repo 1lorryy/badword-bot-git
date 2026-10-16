@@ -31,6 +31,7 @@ const path = require("path");
 const {
   Client,
   GatewayIntentBits,
+  Partials,
   PermissionsBitField,
   EmbedBuilder,
   ActionRowBuilder,
@@ -2050,8 +2051,10 @@ async function startBot() {
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.GuildMembers,
-      GatewayIntentBits.MessageContent
-    ]
+      GatewayIntentBits.MessageContent,
+      GatewayIntentBits.DirectMessages // <-- Added for DM support
+    ],
+    partials: [Partials.Channel] // <-- Added so DMs trigger messageCreate properly
   });
 
   client.once("ready", () => {
@@ -2609,7 +2612,36 @@ client.once("ready", () => {
 // ================= MESSAGE CREATE INTERCEPT PIPELINE =================
 client.on("messageCreate", async (message) => {
   try {
-    if (message.author.bot || !message.guild || !message.content) return;
+    if (message.author.bot || !message.content) return;
+
+    const isDM = !message.guild; // Check if the message is a private DM
+
+    // ================= PRIVATE DM AI PIPELINE =================
+    if (isDM) {
+      await message.channel.sendTyping().catch(() => null);
+
+      let dmHistory = [];
+      try {
+        const fetchedMsgs = await message.channel.messages.fetch({ limit: 50 });
+        dmHistory = Array.from(fetchedMsgs.values())
+          .reverse()
+          .map(m => ({
+            role: m.author.id === client.user.id ? "assistant" : "user",
+            content: `${m.author.username}:${m.content}`
+          }));
+      } catch (err) {
+        console.error("Failed to fetch DM message history:", err);
+      }
+
+      const aiReply = await generateAiReply(message, message.content, dmHistory, 0);
+      if (aiReply) {
+        return message.reply({ 
+          content: aiReply, 
+          allowedMentions: { parse: [], repliedUser: true }
+        });
+      }
+      return;
+    }
 
     // ================= MESSAGE POINTS EARNING =================
     const data = getGuildData(message.guild.id);
@@ -2636,32 +2668,18 @@ client.on("messageCreate", async (message) => {
       saveData();
     }
 
-    // ================= MESSAGE DELETE SNIPE LISTENER =================
-client.on("messageDelete", (message) => {
-  try {
-    if (!message.guild || message.author?.bot || !message.content) return;
-    const data = getGuildData(message.guild.id);
-    if (data.snipeEnabled !== false) {
-      saveSnipe(message);
-    }
-  } catch (err) {
-    console.error("Error capturing deleted message for snipe:", err);
-  }
-});
-
     // ================= UTC MESSAGE ACTIVITY TRACKER =================
     if (!message.author.bot && message.guild) {
-      const data = getGuildData(message.guild.id);
       if (!data.countedChannels) data.countedChannels = ["1481561361044607047"]; // Default general channel
 
       if (data.countedChannels.includes(message.channel.id)) {
         if (!data.messageStats) data.messageStats = {};
         const uid = message.author.id;
         
-        const now = new Date();
-        const utcYear = now.getUTCFullYear();
-        const utcMonth = now.getUTCMonth();
-        const utcDate = now.getUTCDate();
+        const nowDate = new Date();
+        const utcYear = nowDate.getUTCFullYear();
+        const utcMonth = nowDate.getUTCMonth();
+        const utcDate = nowDate.getUTCDate();
         
         const dateStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}-${String(utcDate).padStart(2, '0')}`;
         const monthStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}`;
@@ -2749,7 +2767,7 @@ client.on("messageDelete", (message) => {
     if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
     if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
 
- const isAiCommand = message.content.startsWith(`${prefix}ai`);
+    const isAiCommand = message.content.startsWith(`${prefix}ai`);
     const isStatusCommand = message.content.startsWith(`${prefix}status`);
     
     let isReplyToBot = false;
@@ -2798,10 +2816,9 @@ client.on("messageDelete", (message) => {
     // ================= REAL-TIME CHANNEL HISTORY FETCHER =================
     let channelHistory = [];
     try {
-      // Fetch the last 50 messages from the channel for deep conversational memory
       const fetchedMsgs = await message.channel.messages.fetch({ limit: 50 });
       channelHistory = Array.from(fetchedMsgs.values())
-        .reverse() // Oldest first so OpenAI reads the flow naturally
+        .reverse()
         .map(m => ({
           role: m.author.id === client.user.id ? "assistant" : "user",
           content: `${m.author.username}: ${m.content}`
