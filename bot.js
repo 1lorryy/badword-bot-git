@@ -2749,7 +2749,7 @@ client.on("messageDelete", (message) => {
     if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
     if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
 
-    const isAiCommand = message.content.startsWith(`${prefix}ai`);
+ const isAiCommand = message.content.startsWith(`${prefix}ai`);
     const isStatusCommand = message.content.startsWith(`${prefix}status`);
     
     let isReplyToBot = false;
@@ -2795,7 +2795,22 @@ client.on("messageDelete", (message) => {
 
     await message.channel.sendTyping().catch(() => null);
 
-    const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
+    // ================= REAL-TIME CHANNEL HISTORY FETCHER =================
+    let channelHistory = [];
+    try {
+      // Fetch the last 50 messages from the channel for deep conversational memory
+      const fetchedMsgs = await message.channel.messages.fetch({ limit: 50 });
+      channelHistory = Array.from(fetchedMsgs.values())
+        .reverse() // Oldest first so OpenAI reads the flow naturally
+        .map(m => ({
+          role: m.author.id === client.user.id ? "assistant" : "user",
+          content: `${m.author.username}: ${m.content}`
+        }));
+    } catch (err) {
+      console.error("Failed to fetch channel message history:", err);
+    }
+
+    const aiReply = await generateAiReply(message, triggerText, channelHistory, data.currentPersonaIndex);
     if (aiReply) {
       return message.reply({ 
         content: aiReply, 
