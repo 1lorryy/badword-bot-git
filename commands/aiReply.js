@@ -61,8 +61,8 @@ async function generateAiReply(message, trigger, history = [], personaIndex = 0)
 
   const currentDate = new Date().toUTCString();
 
-  // Keeps up to the last 150 messages to maintain deep conversation context
-  const slicedHistory = Array.isArray(history) ? history.slice(-150) : [];
+  // Cranked up to the last 300 messages for heavy-duty conversation context memory
+  const slicedHistory = Array.isArray(history) ? history.slice(-300) : [];
 
   // Dynamic moods/vibes rotation synced with your channel counter persona shifts
   const moods = [
