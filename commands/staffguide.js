@@ -14,61 +14,44 @@ module.exports = {
 
       // ================= EMBED 1: MAIN SERVER RULES =================
       const mainRulesEmbed = new EmbedBuilder()
-        .setTitle("📜 DONQUIXOTES LOUNGE — OFFICIAL SERVER RULES")
+        .setTitle("📜 SERVER RULES")
         .setColor(0xd9383a)
         .setDescription(
-          "### 🧠 COMMON SENSE & UNWRITTEN RULES CLAUSE\n" +
-          "**Not every forbidden action is explicitly written below.** Common sense is strictly enforced. If something is obviously toxic, harmful, manipulative, or detrimental to the community, **doing it is still a bannable offense.** Claiming *\"it wasn't in the rules\"* will **NOT** protect you.\n\n" +
-
-          "### 🛑 ZERO TOLERANCE POLICY\n" +
-          "**1. NO SLURS, HATE SPEECH, OR DISCRIMINATION**\n" +
-          "Zero tolerance for racism, homophobia, sexism, or slurs of any kind. Keep it clean.\n\n" +
-
-          "**2. NO HARASSMENT, DOXXING, OR THREATS**\n" +
-          "No sharing personal information, witch-hunting, bullying, or threatening members.\n\n" +
-
-          "**3. NO NSFW, GORE, OR SHOCK CONTENT**\n" +
-          "Keep all text, images, and links safe for work and safe for all ages.\n\n" +
-
-          "**4. NO SCAMS, PHISHING, OR MALICIOUS LINKS**\n" +
-          "Sending grabber links, nitro scams, fake crypto links, or unauthorized ads results in an **immediate permanent ban**.\n\n" +
-
-          "### ⚡ GENERAL CHAT RULES\n" +
-          "**5. NO SPAM, FLOODING, OR EAR-RAPE**\n" +
-          "Don't spam chat, copypastas, emojis, or soundboards in voice chats. Give people breathing room.\n\n" +
-
-          "**6. NO BYPASSING THE AUTOMOD OR FILTERS**\n" +
-          "Trying to evade word filters using spaces, alternate characters, or symbols will trigger automatic mutes/bans.\n\n" +
-
-          "**7. NO SELF-PROMOTION OR UNSOLICITED DMs**\n" +
-          "Do not advertise other servers, social media, or slide into member DMs to promote things without permission.\n\n" +
-
-          "**8. ENGLISH ONLY IN MAIN CHATS**\n" +
-          "Keep public text channels in English so moderators can properly review chats.\n\n" +
-
-          "**9. RESPECT STAFF & TICKET ETIQUETTE**\n" +
-          "Listen to staff decisions. **Do not ping staff unnecessarily or abuse tickets.**\n" +
-          "⚠️ *False reports, troll tickets, or begging will result in warnings or ticket blacklists.*\n\n" +
-
-          "⚖️ **STAFF AUTHORITY & DISCLAIMER**\n" +
+          "**1.** Respect everyone. No hate speech, bullying, or discrimination of any kind. Keep it chill.\n\n" +
+          "**2.** No spamming or flooding chat with messages, images, or emojis. Give people space to breathe.\n\n" +
+          "**3.** No NSFW content or discussions. Keep it safe for all ages.\n\n" +
+          "**4.** Follow Discord's Terms of Service everywhere here. No illegal actions or sharing pirated stuff.\n\n" +
+          "**5.** No advertising or self-promotion without permission from staff.\n\n" +
+          "**6.** Use appropriate channels for topics — no off-topic spam.\n\n" +
+          "**7.** Do not ping staff unnecessarily or abuse the ticket system.\n\n" +
+          "**8.** English only in main chats to keep things clear.\n\n" +
+          "**9.** No sharing others' personal info or doxxing. Privacy matters.\n\n" +
+          "**10.** Listen to mods and respect their decisions. Arguing isn't allowed in public chat.\n\n" +
+         "### 🧠 11. COMMON SENSE RULE\n" +
+          "**Not every single rule is explicitly listed here. Use common sense. If something is obviously toxic, harmful, or stupid, claiming *\"it wasn't in the rules\"* won't save you from a punishment.**\n" +
+          "* Examples of unwritten violations include: slurs or obfuscated slurs, loophole abusing, deliberately provoking/baiting arguments, bypass attempts, or general malice.*\n\n" +
+          "⚠️ **Don't beg or you will be warned!**\n\n" +
+          "🚨 **Reporting Severe Violations & Ticket Policy**\n" +
+          "If you witness someone breaking server rules severely, please report it immediately by opening a ticket in <#1481370042892550220>.\n" +
+          "⚠️ *Creating false reports, troll tickets, or abusing the ticket system will result in warnings, ticket blacklists, or mutes.*\n\n" +
+          "🔗 https://discord.com/terms\n\n" +
+          "⚖️ **Staff Authority & Disclaimer**\n" +
           "Staff & Management hold full ownership and ultimate discretion over all rule interpretations, warnings, mutes, kicks, bans, and server disputes. All staff decisions are final."
         );
 
       // ================= EMBED 2: PUNISHMENT ESCALATION LADDER =================
       const ladderEmbed = new EmbedBuilder()
-        .setTitle("⚖️ PUNISHMENT ESCALATION LADDER")
         .setColor(0x2b2d31)
         .setDescription(
-          "### 📈 HOW WARNINGS & PENALTIES ESCALATE:\n" +
-          "💬 **Verbal Warning** — Friendly heads up\n" +
-          "🔹 **1st Official Warn** — Logged on record\n" +
-          "🔹 **2nd Warn** — Logged + **5 Minutes Mute**\n" +
-          "🔹 **3rd Warn** — Logged + **30 Minutes Mute**\n" +
-          "🔹 **4th Warn** — Logged + **12 Hours Mute**\n" +
-          "🔹 **5th Warn** — Logged + **Server Kick**\n" +
-          "🔹 **6th Warn** — Logged + **Permanent Ban**\n\n" +
-          "⚠️ **CRITICAL NOTE:** Punishments are subject to change instantly depending on the **severity** of the infraction. Severe offenses (such as slurs, raids, doxxing, or scams) will **skip the ladder entirely** resulting in immediate bans or role restrictions (like <@&1481370041260966067>).\n\n" +
-          "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊 — *Play stupid games, win stupid prizes.*"
+          "💬 **verbal warn**\n" +
+          "🔹 **1st warn** safe\n" +
+          "🔹 **2nd warn** + 5 minutes mute\n" +
+          "🔹 **3rd warn** + 30 minutes mute\n" +
+          "🔹 **4th warn** + 12 hours mute\n" +
+          "🔹 **5th warn** + kick\n" +
+          "🔹 **6th warn** + Ban\n\n" +
+          "⚠️ **Note:** Punishments are subject to change depending on the **severity** of the infraction. Staff members reserve the right to issue harsher penalties, skip warning tiers, or apply custom actions (such as <@&1481370041260966067>) immediately if deemed necessary.\n\n" +
+          "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊'𝕤 𝖘𝖊𝖗𝖛𝖊𝖗 𝖗𝖚𝖑𝖊𝖘"
         );
 
       return message.channel.send({ embeds: [mainRulesEmbed, ladderEmbed] });
