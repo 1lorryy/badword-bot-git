@@ -71,4 +71,7 @@ module.exports = {
 
     } catch (error) {
       console.error("Error executing staffguide command:", error);
-      return message.channel.send(`❌ **
+      return message.channel.send(`❌ **An error occurred:** \`${error.message}\``);
+    }
+  }
+};
