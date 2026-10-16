@@ -2,7 +2,7 @@ const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
   name: "staffguide",
-  description: "Displays clean ticket system rules and staff operations guidelines",
+  description: "Displays clean giveaway rules and operations guidelines",
   async execute(message, args) {
     try {
       await message.delete().catch(() => null);
@@ -12,62 +12,44 @@ module.exports = {
           .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
       }
 
-      // ================= EMBED 1: COMPACT TICKET RULES =================
-      const mainTicketEmbed = new EmbedBuilder()
-        .setTitle("🎟️ Ticket System Rules & Guidelines")
-        .setColor(0x5865f2)
-        .setThumbnail("https://images-ext-1.discordapp.net/external/wPS7rf5NBFu0WJzAa2PkSIwYoFlnWjMi_gvw3NJSGl0/https/images-ext-1.discordapp.net/external/tcZdCAy72cXlwHhPakw8hVCOruRtK27dMtXDOdTsUQM/https/image2url.com/r2/default/images/1775844039536-8fd2df06-6fab-4b6c-92ed-821f8fe176d9.jpg?format=webp&width=1024&height=1024")
-        .setDescription("📩 **Open ticket here:** <#1481370042892550220>\n──────────────────────────────")
+      const guideEmbed = new EmbedBuilder()
+        .setTitle("🎉 DonQuixote's Lounge • Giveaway Rules")
+        .setColor(0x5865F2)
+        .setDescription(
+          "★ **Always** read requirements before joining giveaways.\n" +
+          "★ **Failing** to follow requirements results in a <@&1481370041260966067> and punishments.\n\n" +
+          "═══════════════════════════════════"
+        )
         .addFields(
           {
-            name: "📌 1. Correct Topics",
-            value: "Open tickets strictly for **Giveaway Claims, Purchases, or General Help**. No casual chat, testing, or troll tickets.",
-            inline: true
+            name: "🚨 Giveaway Ban Rules",
+            value:
+              "• **Offenses:** Spamming, message farming, or faking requirements.\n" +
+              "• **Penalty:** Receives a <@&1481370041260966067> for **2 days**.\n" +
+              "• **Message Farming:** Typing 3+ short low-effort messages (e.g., 'hi', 'hru') triggers a ban."
           },
           {
-            name: "📌 2. No Spam / Duplicates",
-            value: "Limit yourself to one ticket per issue. Opening duplicate or spam tickets will lead to a ticket ban.",
-            inline: true
+            name: "⚡ Quick Drops Policy",
+            value:
+              "• **Rerolls:** Quick drops are rerolled up to **4 times**, then **voided** if unclaimed.\n" +
+              "• **Host Decision:** The hoster has final say on whether a claim was valid.\n" +
+              "• **Fulfillment:** Gamepasses must be delivered within **24 hours**.\n" +
+              "⚠️ *Booster claim times do not affect Quick Drops.*"
           },
           {
-            name: "📌 3. Provide Details Right Away",
-            value: "State your issue or question clearly in your first message so staff can assist you immediately.",
-            inline: true
-          },
-          {
-            name: "📌 4. Do Not Ping Staff",
-            value: "Our team is notified automatically upon ticket creation. Pinging individual staff members will not speed up support.",
-            inline: true
-          },
-          {
-            name: "📌 5. Ticket Closure Policy",
-            value: "Only staff members can close tickets. Once your ticket issue, purchase, or claim is completed, staff will close it.",
-            inline: true
-          },
-          {
-            name: "⭐ 6. Giveaway Vouch Requirement",
-            value: "Once the hoster pays / delivers your giveaway prize, you **MUST** leave a vouch for the host in <#1481374265340072047>.",
-            inline: true
-          },
-          {
-            name: "📌 7. Respect & Co-operation",
-            value: "Treat staff respectfully. Aggressive, rude, or non-cooperative behavior will result in warnings or mutes.",
-            inline: false
+            name: "⏳ Claim Times & Multipliers",
+            value:
+              "• **Quick Drops Window:** 30 seconds to 5 minutes.\n" +
+              "• **Standard Giveaways:** Default 30 minutes claim time.\n" +
+              "• **Boosters (<@&1482787743527604305>):** **2x Claim Time**\n" +
+              "• **2x Boosters (<@&1481370041382604874>):** **3x Claim Time**"
           }
-        );
-
-      // ================= EMBED 2: AUTHORITY & BANNER =================
-      const secondaryTicketEmbed = new EmbedBuilder()
-        .setColor(0x2b2d31)
-        .setDescription(
-          "⚖️ **8. Staff Authority & Disclaimer**\n" +
-          "Staff & Management hold full authority over ticket disputes, rule interpretations, and moderation actions. All decisions are final. Publicly arguing with staff is strictly prohibited."
         )
-        .setImage("https://images-ext-1.discordapp.net/external/AWRZ4I24a_2jeeXlhLcjAvdhZ0mtHA5xT3MvknowKPk/https/image2url.com/r2/default/images/1775845711233-eeede801-13ce-4f7c-b0ac-ea6a6d81b638.jpg?format=webp")
-        .setFooter({ text: "DonQuixote's Lounge • Support & Ticket Guidelines" })
-        .setTimestamp();
+        .setImage("https://media.discordapp.net/attachments/1453806812515008533/1491100480313622659/standard_1.gif?ex=6ad2ee49&is=6ad19cc9&hm=a47824643fca3c1ad179ebabf7b2a83eead9cb5dbe61d0330c5331a2d9866e6c&animated=true")
+        .setFooter({ text: "DonQuixote's Lounge • Giveaway Guidelines" })
+    .setTimestamp();
 
-      return message.channel.send({ embeds: [mainTicketEmbed, secondaryTicketEmbed] });
+      return message.channel.send({ embeds: [guideEmbed] });
 
     } catch (error) {
       console.error("Error executing staffguide command:", error);
