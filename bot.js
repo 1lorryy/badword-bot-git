@@ -3099,17 +3099,17 @@ async function startBot() {
 
       await message.channel.sendTyping().catch(() => null);
 
-      const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
-      if (aiReply) {
-        return message.reply({ 
-          content: aiReply, 
-          allowedMentions: { parse: [], repliedUser: true }
-        });
-      }
-    } catch (err) {
-      console.error("Error running inside messageCreate pipeline:", err);
+const aiReply = await generateAiReply(message, triggerText, [], data.currentPersonaIndex);
+    if (aiReply) {
+      return message.reply({ 
+        content: aiReply, 
+        allowedMentions: { parse: [], repliedUser: true }
+      });
     }
-  });
+  } catch (err) {
+    console.error("Error running inside messageCreate pipeline:", err);
+  }
+});
 
   await client.login(process.env.DISCORD_TOKEN);
 }
