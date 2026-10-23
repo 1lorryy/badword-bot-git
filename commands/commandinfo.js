@@ -3,19 +3,28 @@ const {
   ActionRowBuilder, 
   StringSelectMenuBuilder, 
   ButtonBuilder, 
-  ButtonStyle 
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle
 } = require("discord.js");
 
 module.exports = {
   name: "commandinfo",
   description: "Displays the interactive Command & Staff Operations Guide",
-  async execute(message, args, prefix, getGuildData) {
+  async execute(message, args, prefix, getGuildData, saveData) {
     try {
-      // Clean up the command trigger message to keep channel tidy
       await message.delete().catch(() => null);
 
       const data = getGuildData(message.guild.id);
       const currentPrefix = prefix || data.prefix || "?";
+      
+      if (!data.guideCommands) {
+        data.guideCommands = { mod: "", security: "", utility: "", auto: "", fun: "" };
+      }
+
+      // Helper to append extra custom lines
+      const getExtra = (cat) => data.guideCommands[cat] ? "\n" + data.guideCommands[cat] : "";
 
       // ================= EMBEDS =================
       const mainEmbed = new EmbedBuilder()
@@ -50,7 +59,8 @@ module.exports = {
           `• \`${currentPrefix}softban @user [reason]\` — Kick & wipe 7 days\n` +
           `• \`${currentPrefix}unban [user_id]\` — Unban using Discord ID\n` +
           `• \`${currentPrefix}modstats [@staff]\` — Check staff action statistics\n` +
-          `• \`${currentPrefix}modlogs [@user]\` — View recent moderation logs`
+          `• \`${currentPrefix}modlogs [@user]\` — View recent moderation logs` +
+          getExtra("mod")
         )
         .setFooter({ text: "Moderation Category" })
         .setTimestamp();
@@ -66,7 +76,8 @@ module.exports = {
           `• \`${currentPrefix}verify unverifiedrole [role]\` — Set quarantine role\n` +
           `• \`${currentPrefix}verify trusteddays [days]\` — Set minimum account age\n` +
           `• \`${currentPrefix}verify autoban [on/off]\` — Toggle auto-ban on join\n` +
-          `• \`${currentPrefix}verify autokick [on/off]\` — Toggle auto-kick on join`
+          `• \`${currentPrefix}verify autokick [on/off]\` — Toggle auto-kick on join` +
+          getExtra("security")
         )
         .setFooter({ text: "Security Category" })
         .setTimestamp();
@@ -92,18 +103,11 @@ module.exports = {
           `• \`${currentPrefix}snipe\` / \`${currentPrefix}snipes\` — View deleted messages\n` +
           `• \`${currentPrefix}joininfo [@user]\` — View join placement\n` +
           `• \`${currentPrefix}tz [zone]\` — Set personal timezone\n` +
-          `• \`${currentPrefix}status\` — Check system performance`
+          `• \`${currentPrefix}status\` — Check system performance` +
+          getExtra("utility")
         )
         .setFooter({ text: "Utility Category" })
         .setTimestamp();
-
-      // Automatically append dynamic custom commands to Utility section if any exist
-      if (data.customCommands && Object.keys(data.customCommands).length > 0) {
-        utilEmbed.addFields({
-          name: "💬 Custom Commands",
-          value: Object.keys(data.customCommands).map(c => `\`${currentPrefix}${c}\``).join(" ").slice(0, 1024)
-        });
-      }
 
       const autoEmbed = new EmbedBuilder()
         .setColor(0xeb459e)
@@ -114,7 +118,8 @@ module.exports = {
           `• \`${currentPrefix}ar list\` — View all auto-responses\n` +
           `• \`${currentPrefix}bl [word]\` — Add word to blacklist\n` +
           `• \`${currentPrefix}unbl [word]\` — Remove word from blacklist\n` +
-          `• \`${currentPrefix}words\` — View blacklisted words`
+          `• \`${currentPrefix}words\` — View blacklisted words` +
+          getExtra("auto")
         )
         .setFooter({ text: "Autoresponders Category" })
         .setTimestamp();
@@ -139,7 +144,8 @@ module.exports = {
           `• \`${currentPrefix}rps\` / \`${currentPrefix}auction\` — Play games & bid\n` +
           `• \`${currentPrefix}poll\` — Create interactive polls\n` +
           `• \`${currentPrefix}ai [prompt]\` — Chat with OpenAI engine\n` +
-          `• \`${currentPrefix}customcolor\` — Open hex color studio`
+          `• \`${currentPrefix}customcolor\` — Open hex color studio` +
+          getExtra("fun")
         )
         .setFooter({ text: "Fun & Games Category" })
         .setTimestamp();
@@ -152,6 +158,8 @@ module.exports = {
         auto: autoEmbed,
         fun: funEmbed
       };
+
+      let currentSelectedCategory = "main";
 
       // ================= COMPONENTS =================
       const selectMenu = new ActionRowBuilder().addComponents(
@@ -168,19 +176,22 @@ module.exports = {
           ])
       );
 
-      const resetButton = new ActionRowBuilder().addComponents(
+      const buttonsRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("cmdinfo_reset")
-          .setLabel("🔄 Reset to Default")
-          .setStyle(ButtonStyle.Secondary)
+          .setLabel("🔄 Reset View")
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("cmdinfo_edit")
+          .setLabel("✏️ Add New Command Here")
+          .setStyle(ButtonStyle.Primary)
       );
 
       const guideMessage = await message.channel.send({
         embeds: [mainEmbed],
-        components: [selectMenu, resetButton]
+        components: [selectMenu, buttonsRow]
       });
 
-      // Collector with 24-hour lifespan to handle button/menu clicks cleanly
       const collector = guideMessage.createMessageComponentCollector({
         time: 86400000 
       });
@@ -188,17 +199,67 @@ module.exports = {
       collector.on("collect", async (interaction) => {
         try {
           if (interaction.isStringSelectMenu() && interaction.customId === "cmdinfo_select") {
-            const val = interaction.values[0];
-            const target = pages[val] || mainEmbed;
+            currentSelectedCategory = interaction.values[0];
+            const target = pages[currentSelectedCategory] || mainEmbed;
             await interaction.update({
               embeds: [target],
-              components: [selectMenu, resetButton]
+              components: [selectMenu, buttonsRow]
             });
-          } else if (interaction.isButton() && interaction.customId === "cmdinfo_reset") {
+          } 
+          else if (interaction.isButton() && interaction.customId === "cmdinfo_reset") {
+            currentSelectedCategory = "main";
             await interaction.update({
               embeds: [mainEmbed],
-              components: [selectMenu, resetButton]
+              components: [selectMenu, buttonsRow]
             });
+          }
+          else if (interaction.isButton() && interaction.customId === "cmdinfo_edit") {
+            if (currentSelectedCategory === "main") {
+              return interaction.reply({ content: "⚠️ Please choose a specific category from the dropdown first before adding a command!", flags: 64 });
+            }
+
+            // Open popup window to type the new command
+            const modal = new ModalBuilder()
+              .setCustomId(`cmdinfo_modal_${currentSelectedCategory}`)
+              .setTitle(`Add Command to ${currentSelectedCategory.toUpperCase()}`);
+
+            const input = new TextInputBuilder()
+              .setCustomId("new_cmd_input")
+              .setLabel("Format: ?command — What it does")
+              .setStyle(TextInputStyle.Paragraph)
+              .setPlaceholder(`• ${currentPrefix}mycmd — Description of what it does`)
+              .setRequired(true);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(input));
+            await interaction.showModal(modal);
+
+            // Wait for modal submit
+            const submitted = await interaction.awaitModalSubmit({
+              filter: (i) => i.customId === `cmdinfo_modal_${currentSelectedCategory}` && i.user.id === interaction.user.id,
+              time: 60000
+            }).catch(() => null);
+
+            if (submitted) {
+              const newText = submitted.fields.getTextInputValue("new_cmd_input");
+              
+              if (!data.guideCommands[currentSelectedCategory]) {
+                data.guideCommands[currentSelectedCategory] = "";
+              }
+              
+              // Append to existing extra commands
+              data.guideCommands[currentSelectedCategory] += `\n${newText.startsWith("•") ? newText : "• " + newText}`;
+              
+              if (typeof saveData === "function") saveData();
+
+              // Update embed instantly
+              const updatedEmbed = pages[currentSelectedCategory];
+              updatedEmbed.setDescription(updatedEmbed.data.description + `\n${newText.startsWith("•") ? newText : "• " + newText}`);
+
+              await submitted.update({
+                embeds: [updatedEmbed],
+                components: [selectMenu, buttonsRow]
+              });
+            }
           }
         } catch (err) {
           console.error("Error handling commandinfo interaction:", err);
