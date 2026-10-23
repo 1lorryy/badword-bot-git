@@ -230,14 +230,14 @@ module.exports = {
             const cmdInput = new TextInputBuilder()
               .setCustomId("cmd_name")
               .setLabel("Command Name & Usage")
-              .setPlaceholder("e.g. daily or daily @user")
+              .setPlaceholder("e.g. Warn")
               .setStyle(TextInputStyle.Short)
               .setRequired(true);
 
             const descInput = new TextInputBuilder()
               .setCustomId("cmd_desc")
               .setLabel("Description / What it does")
-              .setPlaceholder("e.g. Claim your daily DON wallet reward")
+              .setPlaceholder("e.g. Issue official warn")
               .setStyle(TextInputStyle.Short)
               .setRequired(true);
 
