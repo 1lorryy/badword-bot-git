@@ -751,7 +751,7 @@ const funCommandsList = [
   }
 
 if (command === "commandinfo" || command === "cmdinfo" || command === "guide") {
-  return commandInfoCommand.execute(message, args, prefix, getGuildData);
+  return commandInfoCommand.execute(message, args, prefix, getGuildData, saveData);
 }
 
   if (command === "lb" || command === "leaderboard") {
