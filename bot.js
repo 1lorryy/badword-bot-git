@@ -23,6 +23,7 @@ const cratesCommand = require("./commands/crates.js");
 const tradeCommand = require("./commands/trade.js");
 const msgCommand = require("./commands/msg.js");
 const lbCommand = require("./commands/lb.js");
+const commandInfoCommand = require("./commands/commandinfo.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -748,6 +749,10 @@ const funCommandsList = [
       return shopCommand.execute(message, args, prefix, getGuildData, saveData);
     }
   }
+
+if (command === "commandinfo" || command === "cmdinfo" || command === "guide") {
+  return commandInfoCommand.execute(message, args, prefix, getGuildData);
+}
 
   if (command === "lb" || command === "leaderboard") {
     const lbCmd = require("./commands/lb.js");
