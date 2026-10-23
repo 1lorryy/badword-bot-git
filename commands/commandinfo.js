@@ -20,11 +20,15 @@ module.exports = {
       const currentPrefix = prefix || data.prefix || "?";
       
       if (!data.guideCommands) {
-        data.guideCommands = { mod: "", security: "", utility: "", auto: "", fun: "" };
+        data.guideCommands = { mod: [], security: [], utility: [], auto: [], fun: [] };
       }
 
-      // Helper to append extra custom lines
-      const getExtra = (cat) => data.guideCommands[cat] ? "\n" + data.guideCommands[cat] : "";
+      // Format custom added commands into exact screenshot style automatically
+      const formatCustoms = (cat) => {
+        const list = data.guideCommands[cat];
+        if (!list || !Array.isArray(list) || list.length === 0) return "";
+        return "\n" + list.map(c => `• \`${currentPrefix}${c.cmd}\` — ${c.desc}`).join("\n");
+      };
 
       // ================= EMBEDS =================
       const mainEmbed = new EmbedBuilder()
@@ -44,7 +48,7 @@ module.exports = {
         .setFooter({ text: "Don Don Staff Operations • Complete Command Manual" })
         .setTimestamp();
 
-      const modEmbed = new EmbedBuilder()
+      const getModEmbed = () => new EmbedBuilder()
         .setColor(0xed4245)
         .setTitle("🛡️ Moderation & Punishments")
         .setDescription(
@@ -60,12 +64,12 @@ module.exports = {
           `• \`${currentPrefix}unban [user_id]\` — Unban using Discord ID\n` +
           `• \`${currentPrefix}modstats [@staff]\` — Check staff action statistics\n` +
           `• \`${currentPrefix}modlogs [@user]\` — View recent moderation logs` +
-          getExtra("mod")
+          formatCustoms("mod")
         )
         .setFooter({ text: "Moderation Category" })
         .setTimestamp();
 
-      const securityEmbed = new EmbedBuilder()
+      const getSecurityEmbed = () => new EmbedBuilder()
         .setColor(0xfee75c)
         .setTitle("🔒 Security & Verification Controls")
         .setDescription(
@@ -77,12 +81,12 @@ module.exports = {
           `• \`${currentPrefix}verify trusteddays [days]\` — Set minimum account age\n` +
           `• \`${currentPrefix}verify autoban [on/off]\` — Toggle auto-ban on join\n` +
           `• \`${currentPrefix}verify autokick [on/off]\` — Toggle auto-kick on join` +
-          getExtra("security")
+          formatCustoms("security")
         )
         .setFooter({ text: "Security Category" })
         .setTimestamp();
 
-      const utilEmbed = new EmbedBuilder()
+      const getUtilEmbed = () => new EmbedBuilder()
         .setColor(0x57f287)
         .setTitle("⚙️ Chat, Roles & Channel Management")
         .setDescription(
@@ -104,12 +108,12 @@ module.exports = {
           `• \`${currentPrefix}joininfo [@user]\` — View join placement\n` +
           `• \`${currentPrefix}tz [zone]\` — Set personal timezone\n` +
           `• \`${currentPrefix}status\` — Check system performance` +
-          getExtra("utility")
+          formatCustoms("utility")
         )
         .setFooter({ text: "Utility Category" })
         .setTimestamp();
 
-      const autoEmbed = new EmbedBuilder()
+      const getAutoEmbed = () => new EmbedBuilder()
         .setColor(0xeb459e)
         .setTitle("🤖 Autoresponders & Blacklists")
         .setDescription(
@@ -119,12 +123,12 @@ module.exports = {
           `• \`${currentPrefix}bl [word]\` — Add word to blacklist\n` +
           `• \`${currentPrefix}unbl [word]\` — Remove word from blacklist\n` +
           `• \`${currentPrefix}words\` — View blacklisted words` +
-          getExtra("auto")
+          formatCustoms("auto")
         )
         .setFooter({ text: "Autoresponders Category" })
         .setTimestamp();
 
-      const funEmbed = new EmbedBuilder()
+      const getFunEmbed = () => new EmbedBuilder()
         .setColor(0x5865f2)
         .setTitle("🎮 Fun Social & Mini-Games")
         .setDescription(
@@ -145,18 +149,20 @@ module.exports = {
           `• \`${currentPrefix}poll\` — Create interactive polls\n` +
           `• \`${currentPrefix}ai [prompt]\` — Chat with OpenAI engine\n` +
           `• \`${currentPrefix}customcolor\` — Open hex color studio` +
-          getExtra("fun")
+          formatCustoms("fun")
         )
         .setFooter({ text: "Fun & Games Category" })
         .setTimestamp();
 
-      const pages = {
-        main: mainEmbed,
-        mod: modEmbed,
-        security: securityEmbed,
-        utility: utilEmbed,
-        auto: autoEmbed,
-        fun: funEmbed
+      const getEmbedForCategory = (cat) => {
+        switch(cat) {
+          case "mod": return getModEmbed();
+          case "security": return getSecurityEmbed();
+          case "utility": return getUtilEmbed();
+          case "auto": return getAutoEmbed();
+          case "fun": return getFunEmbed();
+          default: return mainEmbed;
+        }
       };
 
       let currentSelectedCategory = "main";
@@ -200,9 +206,8 @@ module.exports = {
         try {
           if (interaction.isStringSelectMenu() && interaction.customId === "cmdinfo_select") {
             currentSelectedCategory = interaction.values[0];
-            const target = pages[currentSelectedCategory] || mainEmbed;
             await interaction.update({
-              embeds: [target],
+              embeds: [getEmbedForCategory(currentSelectedCategory)],
               components: [selectMenu, buttonsRow]
             });
           } 
@@ -215,48 +220,55 @@ module.exports = {
           }
           else if (interaction.isButton() && interaction.customId === "cmdinfo_edit") {
             if (currentSelectedCategory === "main") {
-              return interaction.reply({ content: "⚠️ Please choose a specific category from the dropdown first before adding a command!", flags: 64 });
+              return interaction.reply({ content: "⚠️ Please select a specific category from the dropdown first before adding a command!", flags: 64 });
             }
 
-            // Open popup window to type the new command
             const modal = new ModalBuilder()
               .setCustomId(`cmdinfo_modal_${currentSelectedCategory}`)
               .setTitle(`Add Command to ${currentSelectedCategory.toUpperCase()}`);
 
-            const input = new TextInputBuilder()
-              .setCustomId("new_cmd_input")
-              .setLabel("Format: ?command — What it does")
-              .setStyle(TextInputStyle.Paragraph)
-              .setPlaceholder(`• ${currentPrefix}mycmd — Description of what it does`)
+            const cmdInput = new TextInputBuilder()
+              .setCustomId("cmd_name")
+              .setLabel("Command Name & Usage")
+              .setPlaceholder("e.g. daily or daily @user")
+              .setStyle(TextInputStyle.Short)
               .setRequired(true);
 
-            modal.addComponents(new ActionRowBuilder().addComponents(input));
+            const descInput = new TextInputBuilder()
+              .setCustomId("cmd_desc")
+              .setLabel("Description / What it does")
+              .setPlaceholder("e.g. Claim your daily DON wallet reward")
+              .setStyle(TextInputStyle.Short)
+              .setRequired(true);
+
+            modal.addComponents(
+              new ActionRowBuilder().addComponents(cmdInput),
+              new ActionRowBuilder().addComponents(descInput)
+            );
+
             await interaction.showModal(modal);
 
-            // Wait for modal submit
             const submitted = await interaction.awaitModalSubmit({
               filter: (i) => i.customId === `cmdinfo_modal_${currentSelectedCategory}` && i.user.id === interaction.user.id,
               time: 60000
             }).catch(() => null);
 
             if (submitted) {
-              const newText = submitted.fields.getTextInputValue("new_cmd_input");
-              
+              const cmdVal = submitted.fields.getTextInputValue("cmd_name").replace(/^\?/, '').trim();
+              const descVal = submitted.fields.getTextInputValue("cmd_desc").trim();
+
               if (!data.guideCommands[currentSelectedCategory]) {
-                data.guideCommands[currentSelectedCategory] = "";
+                data.guideCommands[currentSelectedCategory] = [];
               }
+
+              // Store command in persistent json object
+              data.guideCommands[currentSelectedCategory].push({ cmd: cmdVal, desc: descVal });
               
-              // Append to existing extra commands
-              data.guideCommands[currentSelectedCategory] += `\n${newText.startsWith("•") ? newText : "• " + newText}`;
-              
+              // Direct save call to Railway persistent volume (/data/guild-data.json)
               if (typeof saveData === "function") saveData();
 
-              // Update embed instantly
-              const updatedEmbed = pages[currentSelectedCategory];
-              updatedEmbed.setDescription(updatedEmbed.data.description + `\n${newText.startsWith("•") ? newText : "• " + newText}`);
-
               await submitted.update({
-                embeds: [updatedEmbed],
+                embeds: [getEmbedForCategory(currentSelectedCategory)],
                 components: [selectMenu, buttonsRow]
               });
             }
