@@ -2092,10 +2092,6 @@ client.on("interactionCreate", async (interaction) => {
     const data = getGuildData(interaction.guild?.id || "default");
     const currentPrefix = data.prefix || "?";
 
-    // =========================================================
-    // 💡 PASTE THE GLOBAL COMMANDINFO INTERACTION HANDLER HERE:
-    // =========================================================
-
     // 0. Handle Command Info Dropdowns, Buttons & Modals
     if (interaction.isStringSelectMenu() && interaction.customId === "cmdinfo_select") {
       const selectedCategory = interaction.values[0];
@@ -2249,7 +2245,6 @@ client.on("interactionCreate", async (interaction) => {
             ephemeral: true 
         });
 
-        // ⚠️ Staff/Appeals channel ID
         const staffChannelId = '1492845794192134245'; 
         const staffChannel = interaction.client.channels.cache.get(staffChannelId);
 
@@ -2641,7 +2636,7 @@ client.on("interactionCreate", async (interaction) => {
       }
     }
   
-// 6. Handle Slash Commands (like /feedback)
+    // 6. Handle Slash Commands (like /feedback)
     if (interaction.isChatInputCommand()) {
         if (interaction.commandName === 'feedback') {
             const modal = new ModalBuilder()
@@ -2663,7 +2658,6 @@ client.on("interactionCreate", async (interaction) => {
     // 7. Handle Modal Submissions (when the user fills it out and hits submit)
     else if (interaction.isModalSubmit()) {
         if (interaction.customId === 'myModal') {
-            // Get the value the user typed in the text input
             const favoriteAnswer = interaction.fields.getTextInputValue('favoriteInput');
 
             await interaction.reply({ 
@@ -2672,7 +2666,11 @@ client.on("interactionCreate", async (interaction) => {
             });
         }
     }
-  });
+  } catch (err) {
+    console.error("Error handling interactionCreate event:", err);
+  }
+});
+  
 // ================= CLIENT READY EVENT =================
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}!`);
