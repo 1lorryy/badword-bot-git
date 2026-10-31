@@ -23,14 +23,13 @@ module.exports = {
         data.guideCommands = { mod: [], security: [], utility: [], auto: [], fun: [] };
       }
 
-      // Format custom added commands into exact screenshot style automatically
       const formatCustoms = (cat) => {
         const list = data.guideCommands[cat];
         if (!list || !Array.isArray(list) || list.length === 0) return "";
         return "\n" + list.map(c => `• \`${currentPrefix}${c.cmd}\` — ${c.desc}`).join("\n");
       };
 
-      // ================= EMBEDS =================
+      // Helper generators for embeds
       const mainEmbed = new EmbedBuilder()
         .setColor(0x5865f2)
         .setTitle("🛡️ Don Don Complete Command & Staff Operations Guide")
@@ -167,7 +166,6 @@ module.exports = {
 
       let currentSelectedCategory = "main";
 
-      // ================= COMPONENTS =================
       const selectMenu = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("cmdinfo_select")
@@ -209,35 +207,36 @@ module.exports = {
             await interaction.update({
               embeds: [getEmbedForCategory(currentSelectedCategory)],
               components: [selectMenu, buttonsRow]
-            });
+            }).catch(() => null);
           } 
           else if (interaction.isButton() && interaction.customId === "cmdinfo_reset") {
             currentSelectedCategory = "main";
             await interaction.update({
               embeds: [mainEmbed],
               components: [selectMenu, buttonsRow]
-            });
+            }).catch(() => null);
           }
           else if (interaction.isButton() && interaction.customId === "cmdinfo_edit") {
             if (currentSelectedCategory === "main") {
-              return interaction.reply({ content: "⚠️ Please select a specific category from the dropdown first before adding a command!", flags: 64 });
+              return interaction.reply({ content: "⚠️ Please select a specific category from the dropdown first before adding a command!", flags: 64 }).catch(() => null);
             }
 
+            const modalId = `cmdinfo_m_${Date.now()}`;
             const modal = new ModalBuilder()
-              .setCustomId(`cmdinfo_modal_${currentSelectedCategory}`)
+              .setCustomId(modalId)
               .setTitle(`Add Command to ${currentSelectedCategory.toUpperCase()}`);
 
             const cmdInput = new TextInputBuilder()
               .setCustomId("cmd_name")
               .setLabel("Command Name & Usage")
-              .setPlaceholder("e.g. Warn")
+              .setPlaceholder("e.g. Warn or warn @user")
               .setStyle(TextInputStyle.Short)
               .setRequired(true);
 
             const descInput = new TextInputBuilder()
               .setCustomId("cmd_desc")
               .setLabel("Description / What it does")
-              .setPlaceholder("e.g. Issue official warn")
+              .setPlaceholder("e.g. Issue official warning")
               .setStyle(TextInputStyle.Short)
               .setRequired(true);
 
@@ -246,14 +245,18 @@ module.exports = {
               new ActionRowBuilder().addComponents(descInput)
             );
 
-            await interaction.showModal(modal);
+            await interaction.showModal(modal).catch(() => null);
 
+            // Wait for Modal Submit with zero delay lag
             const submitted = await interaction.awaitModalSubmit({
-              filter: (i) => i.customId === `cmdinfo_modal_${currentSelectedCategory}` && i.user.id === interaction.user.id,
+              filter: (i) => i.customId === modalId && i.user.id === interaction.user.id,
               time: 60000
             }).catch(() => null);
 
             if (submitted) {
+              // Defer instantly so Discord never shows "Application did not respond"
+              await submitted.deferUpdate().catch(() => null);
+
               const cmdVal = submitted.fields.getTextInputValue("cmd_name").replace(/^\?/, '').trim();
               const descVal = submitted.fields.getTextInputValue("cmd_desc").trim();
 
@@ -261,16 +264,15 @@ module.exports = {
                 data.guideCommands[currentSelectedCategory] = [];
               }
 
-              // Store command in persistent json object
               data.guideCommands[currentSelectedCategory].push({ cmd: cmdVal, desc: descVal });
               
-              // Direct save call to Railway persistent volume (/data/guild-data.json)
               if (typeof saveData === "function") saveData();
 
-              await submitted.update({
+              // Update the guide message with new command formatted cleanly
+              await guideMessage.edit({
                 embeds: [getEmbedForCategory(currentSelectedCategory)],
                 components: [selectMenu, buttonsRow]
-              });
+              }).catch(() => null);
             }
           }
         } catch (err) {
