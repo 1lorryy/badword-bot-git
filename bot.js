@@ -24,6 +24,7 @@ const tradeCommand = require("./commands/trade.js");
 const msgCommand = require("./commands/msg.js");
 const lbCommand = require("./commands/lb.js");
 const commandInfoModule = require("./commands/commandinfo.js");
+const commandInfoCommand = require("./commands/commandinfo.js");
 
 const snipes = {};
 const fs = require("fs");
