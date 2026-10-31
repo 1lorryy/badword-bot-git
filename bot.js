@@ -2088,6 +2088,94 @@ async function startBot() {
 
 // ================= INTERACTION LISTENER =================
 client.on("interactionCreate", async (interaction) => {
+  try {
+    const data = getGuildData(interaction.guild?.id || "default");
+    const currentPrefix = data.prefix || "?";
+
+    // =========================================================
+    // 💡 PASTE THE GLOBAL COMMANDINFO INTERACTION HANDLER HERE:
+    // =========================================================
+
+    // 0. Handle Command Info Dropdowns, Buttons & Modals
+    if (interaction.isStringSelectMenu() && interaction.customId === "cmdinfo_select") {
+      const selectedCategory = interaction.values[0];
+      const embed = commandInfoModule.getEmbedForCategory(selectedCategory, data, currentPrefix);
+      const components = commandInfoModule.getComponents(selectedCategory);
+
+      await interaction.update({ embeds: [embed], components: components }).catch(() => null);
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId === "cmdinfo_reset") {
+      const embed = commandInfoModule.getEmbedForCategory("main", data, currentPrefix);
+      const components = commandInfoModule.getComponents("main");
+
+      await interaction.update({ embeds: [embed], components: components }).catch(() => null);
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith("cmdinfo_edit_")) {
+      const selectedCategory = interaction.customId.replace("cmdinfo_edit_", "");
+
+      if (selectedCategory === "main") {
+        return interaction.reply({
+          content: "⚠️ Please select a category from the dropdown first before adding a command!",
+          flags: 64
+        }).catch(() => null);
+      }
+
+      const modal = new ModalBuilder()
+        .setCustomId(`cmdinfo_modal_${selectedCategory}`)
+        .setTitle(`Add Command to ${selectedCategory.toUpperCase()}`);
+
+      const cmdInput = new TextInputBuilder()
+        .setCustomId("cmd_name")
+        .setLabel("Command Name & Usage")
+        .setPlaceholder("e.g. Warn or warn @user")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+      const descInput = new TextInputBuilder()
+        .setCustomId("cmd_desc")
+        .setLabel("Description / What it does")
+        .setPlaceholder("e.g. Issue official warning")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(cmdInput),
+        new ActionRowBuilder().addComponents(descInput)
+      );
+
+      await interaction.showModal(modal).catch(() => null);
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("cmdinfo_modal_")) {
+      const selectedCategory = interaction.customId.replace("cmdinfo_modal_", "");
+      
+      await interaction.deferUpdate().catch(() => null);
+
+      const cmdVal = interaction.fields.getTextInputValue("cmd_name").replace(/^\?/, '').trim();
+      const descVal = interaction.fields.getTextInputValue("cmd_desc").trim();
+
+      if (!data.guideCommands) {
+        data.guideCommands = { mod: [], security: [], utility: [], auto: [], fun: [] };
+      }
+      if (!data.guideCommands[selectedCategory]) {
+        data.guideCommands[selectedCategory] = [];
+      }
+
+      data.guideCommands[selectedCategory].push({ cmd: cmdVal, desc: descVal });
+      saveData();
+
+      const updatedEmbed = commandInfoModule.getEmbedForCategory(selectedCategory, data, currentPrefix);
+      const components = commandInfoModule.getComponents(selectedCategory);
+
+      await interaction.editReply({ embeds: [updatedEmbed], components: components }).catch(() => null);
+      return;
+    }
+    
     // 1. Handle Warning Edit Modals
     if (interaction.isModalSubmit() && interaction.customId.startsWith("modal_edit_warn_")) {
       const parts = interaction.customId.split("_");
