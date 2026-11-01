@@ -26,6 +26,7 @@ const msgCommand = require("./commands/msg.js");
 const lbCommand = require("./commands/lb.js");
 const commandInfoModule = require("./commands/commandinfo.js");
 const commandInfoCommand = require("./commands/commandinfo.js");
+const otherRolesCommand = require("./commands/otherroles.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -678,6 +679,11 @@ const funCommandsList = [
   }
 
   // ================= ROUTING COMMANDS =================
+if (command === "otherroles" || command === "roles") {
+    const otherRolesCmd = require("./commands/otherroles.js");
+    return otherRolesCmd.execute(message, args, prefix);
+  }
+  
   if (command === "crates" || command === "crate" || command === "pets" || command === "inventory") {
     const cratesCmd = require("./commands/crates.js");
     return cratesCmd.execute(message, args, prefix, getGuildData, saveData);
@@ -1882,15 +1888,16 @@ try {
       .setDescription(`General tools, administration, and member commands. Prefix: \`${prefix}\``)
       .addFields(
         {
-            name: "👤 Role, Channel & Ticket Management",
-            value:
-              `• \`${prefix}role @user [role]\` — Toggle user role\n` +
-              `• \`${prefix}temprole @user [time] [role]\` — Give temporary role\n` +
-              `• \`${prefix}rolecreate [name] [hex]\` — Create a new role\n` +
-              `• \`${prefix}roleicon @role [icon]\` — Set custom role icon\n` +
-              `• \`${prefix}rename [new-name]\` — Rename ticket channels\n` +
-              `• \`${prefix}close [reason]\` — Close active ticket channel\n` +
-              `• \`${prefix}setnick @user [nick]\` — Change server nickname`
+          name: "👤 Role, Channel & Ticket Management",
+          value:
+            `• \`${prefix}role @user [role]\` — Toggle user role\n` +
+            `• \`${prefix}temprole @user [time] [role]\` — Give temporary role\n` +
+            `• \`${prefix}rolecreate [name] [hex]\` — Create a new role\n` +
+            `• \`${prefix}roleicon @role [icon]\` — Set custom role icon\n` +
+            `• \`${prefix}otherroles\` — Post the server special roles overview\n` +
+            `• \`${prefix}rename [new-name]\` — Rename ticket channels\n` +
+            `• \`${prefix}close [reason]\` — Close active ticket channel\n` +
+            `• \`${prefix}setnick @user [nick]\` — Change server nickname`
         },
         {
           name: "🤖 Autoresponders & Triggers",
