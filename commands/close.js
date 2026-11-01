@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { EmbedBuilder, PermissionFlagsBits, AttachmentBuilder } = require("discord.js");
 
 const TICKET_CATEGORIES = [
   "1481938314062725281", // Purchases
@@ -6,9 +6,12 @@ const TICKET_CATEGORIES = [
   "1481939936964775946"  // Support
 ];
 
+// Ticket Log Channel ID
+const LOG_CHANNEL_ID = "1481370050597228661"; 
+
 module.exports = {
   name: "close",
-  description: "Closes the current ticket channel with an optional reason",
+  description: "Closes the ticket, generates a transcript log file, and sends it to the logs channel",
   async execute(message, args, prefix) {
     message.delete().catch(() => null);
 
@@ -32,20 +35,64 @@ module.exports = {
 
     const reason = args.length > 0 ? args.join(" ") : "No reason provided";
 
-    const closeEmbed = new EmbedBuilder()
+    // 1. Notify users inside the ticket channel
+    const closingEmbed = new EmbedBuilder()
       .setColor(0xED4245)
       .setTitle("🔒 Ticket Closing Sequence Initiated")
       .setDescription(
-        `This ticket has been marked for closure by **${message.author.tag}**.\n\n` +
+        `This ticket is being closed by **${message.author.tag}**.\n\n` +
         `> **Reason:** ${reason}\n\n` +
-        `⚠️ *This channel will be permanently deleted in **5 seconds**.*`
+        `📥 *Generating chat transcript and deleting channel in **5 seconds**...*`
       )
-      .setFooter({ text: "DonDon Moderation • Ticket System" })
+      .setFooter({ text: "Don Don Moderation Systems • Ticket System" })
       .setTimestamp();
 
-    await message.channel.send({ embeds: [closeEmbed] });
+    await message.channel.send({ embeds: [closingEmbed] });
 
-    // Wait 5 seconds to let users/staff read the transcript summary, then delete the channel safely
+    // 2. Fetch up to 100 recent messages from the ticket channel
+    const fetchedMessages = await message.channel.messages.fetch({ limit: 100 }).catch(() => null);
+    let transcriptText = `==================================================\n`;
+    transcriptText += `TRANSCRIPT LOG FOR #${message.channel.name.toUpperCase()}\n`;
+    transcriptText += `Closed By: ${message.author.tag} (${message.author.id})\n`;
+    transcriptText += `Reason: ${reason}\n`;
+    transcriptText += `Date: ${new Date().toISOString()}\n`;
+    transcriptText += `==================================================\n\n`;
+
+    if (fetchedMessages) {
+      const sortedMsgs = Array.from(fetchedMessages.values()).reverse();
+      sortedMsgs.forEach(msg => {
+        const time = msg.createdAt.toISOString().replace('T', ' ').substring(0, 19);
+        transcriptText += `[${time}] ${msg.author.tag}: ${msg.content || "[Attachment/Embed]"}\n`;
+      });
+    }
+
+    // 3. Create readable .txt transcript attachment
+    const transcriptAttachment = new AttachmentBuilder(
+      Buffer.from(transcriptText, "utf-8"),
+      { name: `transcript-${message.channel.name}.txt` }
+    );
+
+    // 4. Send the log embed + transcript file directly to <#1481370050597228661>
+    const logChannel = message.guild.channels.cache.get(LOG_CHANNEL_ID);
+    if (logChannel) {
+      const logEmbed = new EmbedBuilder()
+        .setColor(0xed4245)
+        .setTitle("🔒 Ticket Closed & Logged")
+        .addFields(
+          { name: "🌐 Channel", value: `#${message.channel.name}`, inline: true },
+          { name: "👤 Closed By", value: `${message.author.tag} (\`${message.author.id}\`)`, inline: true },
+          { name: "❓ Reason", value: reason, inline: false }
+        )
+        .setFooter({ text: "Don Don Moderation Systems • Transcripts" })
+        .setTimestamp();
+
+      await logChannel.send({
+        embeds: [logEmbed],
+        files: [transcriptAttachment]
+      }).catch(err => console.error("Error sending ticket transcript log:", err));
+    }
+
+    // 5. Delete channel after 5 seconds
     setTimeout(async () => {
       try {
         await message.channel.delete(`Ticket closed by ${message.author.tag} - Reason: ${reason}`);
