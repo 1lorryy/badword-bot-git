@@ -896,13 +896,16 @@ if (command === "rename") {
     return true;
   }
 
-  if (command === "close") {
+if (command === "close") {
     if (!ALLOWED_RENAME_CATEGORIES.includes(message.channel.parentId)) {
       const reply = await message.reply("❌ The close command can only be used inside Support, Purchases, or Claim ticket categories.");
       deleteAfter(reply, 5000);
-      deleteAfter(message, 5000);
       return true;
     }
+
+    await closeCommand.execute(message, args, prefix);
+    return true;
+  }
 
     const botReply = await closeCommand.execute(message, args, prefix);
     deleteAfter(message, 5000);
