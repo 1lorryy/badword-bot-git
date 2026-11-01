@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { EmbedBuilder, PermissionFlagsBits, AttachmentBuilder } = require("discord.js");
 
 const TICKET_CATEGORIES = [
   "1481938314062725281", // Purchases
@@ -6,9 +6,11 @@ const TICKET_CATEGORIES = [
   "1481939936964775946"  // Support
 ];
 
+const LOG_CHANNEL_ID = "1481370050597228661"; 
+
 module.exports = {
   name: "close",
-  description: "Triggers the official Tickets v2 close button automatically",
+  description: "Closes the ticket, generates a Tickets v2 style log, and DMs the user transcript",
   async execute(message, args, prefix) {
     message.delete().catch(() => null);
 
@@ -30,49 +32,87 @@ module.exports = {
         .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
     }
 
-    // 1. Scan recent channel messages to find the Tickets v2 panel containing the close button
-    const fetchedMessages = await message.channel.messages.fetch({ limit: 50 }).catch(() => null);
-    let closeButtonInteractionTriggered = false;
+    const reason = args.length > 0 ? args.join(" ") : "Resolved";
 
-    if (fetchedMessages) {
-      for (const msg of fetchedMessages.values()) {
-        // Look for bot messages that contain action row buttons
-        if (msg.components && msg.components.length > 0) {
-          for (const row of msg.components) {
-            for (const component of row.components) {
-              // Check if the button is a Tickets v2 close/lock button (usually contains 'close' or 'lock' in customId)
-              if (component.data && component.data.custom_id && 
-                 (component.data.custom_id.toLowerCase().includes("close") || component.data.custom_id.toLowerCase().includes("lock"))) {
-                
-                // If Tickets v2 has an active component collector, we can notify the channel 
-                // or send a helper text so Tickets v2's event handler picks it up, 
-                // or simulate the interaction client-side if possible.
-                closeButtonInteractionTriggered = true;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // 2. If we want Tickets v2 to natively trigger its closing actions, 
-    // the cleanest method is letting your bot post a quick message or handle the transcript 
-    // while ensuring the user gets the DM via your bot's reliable custom transcript attachment.
+    // 1. Notify inside the ticket channel
     const closingEmbed = new EmbedBuilder()
-      .setColor(0xED4245)
-      .setTitle("🔒 Closing Ticket via DonDon System")
-      .setDescription(`Ticket closed by **${message.author.tag}**. Generating logs...`)
+      .setColor(0x2ECC71)
+      .setTitle("🔒 Ticket Closing Sequence Initiated")
+      .setDescription(`Closing ticket and saving transcripts in **5 seconds**...`)
       .setTimestamp();
 
     await message.channel.send({ embeds: [closingEmbed] });
 
-    // 3. Delete channel shortly after
+    // 2. Fetch messages for transcript
+    const fetchedMessages = await message.channel.messages.fetch({ limit: 100 }).catch(() => null);
+    let transcriptText = `==================================================\n`;
+    transcriptText += `TRANSCRIPT LOG FOR #${message.channel.name.toUpperCase()}\n`;
+    transcriptText += `Closed By: ${message.author.tag} (${message.author.id})\n`;
+    transcriptText += `Reason: ${reason}\n`;
+    transcriptText += `Date: ${new Date().toISOString()}\n`;
+    transcriptText += `==================================================\n\n`;
+
+    if (fetchedMessages) {
+      const sortedMsgs = Array.from(fetchedMessages.values()).reverse();
+      sortedMsgs.forEach(msg => {
+        const time = msg.createdAt.toISOString().replace('T', ' ').substring(0, 19);
+        transcriptText += `[${time}] ${msg.author.tag}: ${msg.content || "[Attachment/Embed]"}\n`;
+      });
+    }
+
+    const transcriptAttachment = new AttachmentBuilder(
+      Buffer.from(transcriptText, "utf-8"),
+      { name: `transcript-${message.channel.name}.txt` }
+    );
+
+    // 3. Find ticket author to DM them the transcript
+    const ticketMember = message.channel.members.find(
+      m => !m.user.bot && !m.permissions.has(PermissionFlagsBits.ManageMessages)
+    );
+
+    if (ticketMember) {
+      const userDmEmbed = new EmbedBuilder()
+        .setColor(0x2ECC71)
+        .setTitle("🔒 Ticket Closed")
+        .addFields(
+          { name: "🌐 Channel", value: `#${message.channel.name}`, inline: true },
+          { name: "👤 Closed By", value: `${message.author.tag}`, inline: true },
+          { name: "❓ Reason", value: reason, inline: false }
+        )
+        .setDescription("A copy of your chat transcript is attached below.")
+        .setTimestamp();
+
+      await ticketMember.send({ embeds: [userDmEmbed], files: [transcriptAttachment] }).catch(() => null);
+    }
+
+    // 4. Send the Tickets v2 style log embed to <#1481370050597228661>
+    const logChannel = message.guild.channels.cache.get(LOG_CHANNEL_ID);
+    if (logChannel) {
+      const logEmbed = new EmbedBuilder()
+        .setColor(0x2ECC71)
+        .setTitle("Ticket Closed")
+        .addFields(
+          { name: "📌 Ticket ID", value: message.channel.name.replace(/[^0-9]/g, "") || "N/A", inline: true },
+          { name: "🟢 Opened By", value: ticketMember ? `<@${ticketMember.id}>` : "Unknown", inline: true },
+          { name: "🔴 Closed By", value: `<@${message.author.id}>`, inline: true },
+          { name: "❓ Reason", value: reason, inline: false }
+        )
+        .setFooter({ text: "DonDon Operations • Transcript Log" })
+        .setTimestamp();
+
+      await logChannel.send({
+        embeds: [logEmbed],
+        files: [transcriptAttachment]
+      }).catch(err => console.error("Error sending log embed:", err));
+    }
+
+    // 5. Delete channel after 5 seconds
     setTimeout(async () => {
       try {
-        await message.channel.delete(`Ticket closed by ${message.author.tag}`);
+        await message.channel.delete(`Ticket closed by ${message.author.tag} - Reason: ${reason}`);
       } catch (err) {
-        console.error("Failed to delete channel:", err);
+        console.error("Failed to delete ticket channel:", err);
       }
-    }, 3000);
+    }, 5000);
   }
 };
