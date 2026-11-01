@@ -9,6 +9,7 @@ const { generateAiReply } = require("./commands/aiReply");
 const { checkBirthdays, handleBirthdayCommand } = require("./commands/birthday");
 const { handleVerifyCommand } = require("./commands/verify");
 const renameCommand = require("./commands/rename.js");
+const closeCommand = require("./commands/close.js");
 const roleIconCommand = require("./commands/roleicon.js");
 const roleCreateCommand = require("./commands/rolecreate.js");
 const customColorCommand = require("./commands/customcolor.js");
@@ -878,7 +879,8 @@ if (command === "commandinfo" || command === "cmdinfo" || command === "guide") {
     return roleCreateCommand.execute(message, args);
   }
 
-  if (command === "rename") {
+
+if (command === "rename") {
     if (!ALLOWED_RENAME_CATEGORIES.includes(message.channel.parentId)) {
       const reply = await message.reply("❌ The rename command can only be used inside Support, Purchases, or Claim ticket categories.");
       deleteAfter(reply, 5000);
@@ -886,7 +888,23 @@ if (command === "commandinfo" || command === "cmdinfo" || command === "guide") {
       return true;
     }
 
-    const botReply = await renameCommand.execute(message, args);
+    const botReply = await renameCommand.execute(message, args, prefix);
+    deleteAfter(message, 5000);
+    if (botReply && typeof botReply.delete === "function") {
+      deleteAfter(botReply, 5000);
+    }
+    return true;
+  }
+
+  if (command === "close") {
+    if (!ALLOWED_RENAME_CATEGORIES.includes(message.channel.parentId)) {
+      const reply = await message.reply("❌ The close command can only be used inside Support, Purchases, or Claim ticket categories.");
+      deleteAfter(reply, 5000);
+      deleteAfter(message, 5000);
+      return true;
+    }
+
+    const botReply = await closeCommand.execute(message, args, prefix);
     deleteAfter(message, 5000);
     if (botReply && typeof botReply.delete === "function") {
       deleteAfter(botReply, 5000);
@@ -1870,14 +1888,15 @@ try {
       .setDescription(`General tools, administration, and member commands. Prefix: \`${prefix}\``)
       .addFields(
         {
-          name: "👤 Role & Channel Management",
-          value:
-            `• \`${prefix}role @user [role]\` — Toggle user role\n` +
-            `• \`${prefix}temprole @user [time] [role]\` — Give temporary role\n` +
-            `• \`${prefix}rolecreate [name] [hex]\` — Create a new role\n` +
-            `• \`${prefix}roleicon @role [icon]\` — Set custom role icon\n` +
-            `• \`${prefix}rename [new-name]\` — Rename ticket channels\n` +
-            `• \`${prefix}setnick @user [nick]\` — Change server nickname`
+            name: "👤 Role, Channel & Ticket Management",
+            value:
+              `• \`${prefix}role @user [role]\` — Toggle user role\n` +
+              `• \`${prefix}temprole @user [time] [role]\` — Give temporary role\n` +
+              `• \`${prefix}rolecreate [name] [hex]\` — Create a new role\n` +
+              `• \`${prefix}roleicon @role [icon]\` — Set custom role icon\n` +
+              `• \`${prefix}rename [new-name]\` — Rename ticket channels\n` +
+              `• \`${prefix}close [reason]\` — Close active ticket channel\n` +
+              `• \`${prefix}setnick @user [nick]\` — Change server nickname`
         },
         {
           name: "🤖 Autoresponders & Triggers",
