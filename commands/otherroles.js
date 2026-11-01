@@ -45,7 +45,7 @@ module.exports = {
         `• <@&1481370041352982676> ── *Official Partnered Server*\n\n` +
 
         `🤝 **│ COMMUNITY & SPECIAL**\n` +
-        `• <@&1481370041336336448> ── *Recognized friends of <@1490695243320922163>*\n\n` +
+        `• <@&1481370041336336448> ── *Recognized friends of <@1207297962745536543>*\n\n` +
 
         `▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
         `🎟️ **HOW TO CLAIM YOUR ROLE**\n` +
