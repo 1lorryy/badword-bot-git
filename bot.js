@@ -27,6 +27,7 @@ const lbCommand = require("./commands/lb.js");
 const commandInfoModule = require("./commands/commandinfo.js");
 const commandInfoCommand = require("./commands/commandinfo.js");
 const otherRolesCommand = require("./commands/otherroles.js");
+const reactionRolesCommand = require("./commands/reactionroles.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -678,7 +679,12 @@ const funCommandsList = [
     }
   }
 
-  // ================= ROUTING COMMANDS =================
+// ================= ROUTING COMMANDS =================
+  if (command === "reactionroles" || command === "rr") {
+    const reactionRolesCmd = require("./commands/reactionroles.js");
+    return reactionRolesCmd.execute(message, args, prefix);
+  }
+  
 if (command === "otherroles" || command === "roles") {
     const otherRolesCmd = require("./commands/otherroles.js");
     return otherRolesCmd.execute(message, args, prefix);
@@ -1882,7 +1888,7 @@ try {
       .setFooter({ text: "Page 3/5 • Security" })
       .setTimestamp();
 
-    const pageUtility = new EmbedBuilder()
+const pageUtility = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setTitle("⚙️ Utility, Roles & Tools")
       .setDescription(`General tools, administration, and member commands. Prefix: \`${prefix}\``)
@@ -1894,6 +1900,7 @@ try {
             `• \`${prefix}temprole @user [time] [role]\` — Give temporary role\n` +
             `• \`${prefix}rolecreate [name] [hex]\` — Create a new role\n` +
             `• \`${prefix}roleicon @role [icon]\` — Set custom role icon\n` +
+            `• \`${prefix}reactionroles\` (or \`${prefix}rr\`) — Post interactive reaction role panel\n` +
             `• \`${prefix}otherroles\` — Post the server special roles overview\n` +
             `• \`${prefix}rename [new-name]\` — Rename ticket channels\n` +
             `• \`${prefix}close [reason]\` — Close active ticket channel\n` +
@@ -2506,8 +2513,33 @@ client.on("interactionCreate", async (interaction) => {
       }
     }
 
-    // 5. Handle Giveaways, Polls, Custom Colors, Marriage/Adoption Buttons/Modals
+    // 5. Handle Giveaways, Polls, Reaction Roles, Custom Colors, Marriage/Adoption Buttons/Modals
     if (interaction.isButton() || interaction.isModalSubmit()) {
+      
+      // 👉 Reaction Roles Button Handler Integration
+      if (interaction.isButton() && interaction.customId.startsWith("rr_")) {
+        const roleId = interaction.customId.replace("rr_", "");
+        const member = interaction.member;
+        const role = interaction.guild.roles.cache.get(roleId);
+
+        if (!role) {
+          return interaction.reply({ content: "❌ Role not found on server.", ephemeral: true });
+        }
+
+        try {
+          if (member.roles.cache.has(roleId)) {
+            await member.roles.remove(roleId);
+            return interaction.reply({ content: `➖ Removed role: **${role.name}**`, ephemeral: true });
+          } else {
+            await member.roles.add(roleId);
+            return interaction.reply({ content: `➕ Added role: **${role.name}**`, ephemeral: true });
+          }
+        } catch (err) {
+          console.error(err);
+          return interaction.reply({ content: "❌ Failed to toggle role. Check bot permissions and role hierarchy!", ephemeral: true });
+        }
+      }
+
       if (interaction.isButton() && interaction.customId.startsWith("gw_enter_")) {
         const giveawayId = interaction.customId.split("_")[2];
         const guildData = getGuildData(interaction.guild.id);
