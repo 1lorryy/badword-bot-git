@@ -2,21 +2,24 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFl
 
 // Configuration: Role mappings
 const ROLES = [
+  // Row 1: Giveaways & Events
   { id: "1481370041260966065", label: "Giveaway Ping", emoji: "🎁", style: ButtonStyle.Primary },
-  { id: "1481370040899997773", label: "Quickdrops Ping", emoji: "⚡", style: ButtonStyle.Primary },
-  { id: "1481370041260966063", label: "Sponsored Giveaway Ping", emoji: "🎉", style: ButtonStyle.Primary },
-  { id: "1481370040899997772", label: "Partnership Ping", emoji: "🤝", style: ButtonStyle.Primary },
+  { id: "1481370040899997773", label: "Quickdrops", emoji: "⚡", style: ButtonStyle.Primary },
+  { id: "1481370041260966063", label: "Sponsored GW", emoji: "🎉", style: ButtonStyle.Primary },
+  { id: "1481370040899997772", label: "Partnerships", emoji: "🤝", style: ButtonStyle.Primary },
   { id: "1481370040899997774", label: "Events Ping", emoji: "📣", style: ButtonStyle.Primary },
+
+  // Row 2: Community & Alerts
   { id: "1490742869735112917", label: "Polls Ping", emoji: "📊", style: ButtonStyle.Secondary },
-  { id: "1492370167735259196", label: "PIN OF SHAME Ping", emoji: "📌", style: ButtonStyle.Secondary },
-  { id: "1493276409320443924", label: "Dead Chat Ping", emoji: "💀", style: ButtonStyle.Secondary },
-  { id: "1481370040899997776", label: "Server Updates Ping", emoji: "📢", style: ButtonStyle.Success },
+  { id: "1492370167735259196", label: "Pin of Shame", emoji: "📌", style: ButtonStyle.Secondary },
+  { id: "1493276409320443924", label: "Dead Chat", emoji: "💀", style: ButtonStyle.Secondary },
+  { id: "1481370040899997766", label: "Server Updates", emoji: "📢", style: ButtonStyle.Success },
   { id: "1497717221584015380", label: "Bump Ping", emoji: "🔔", style: ButtonStyle.Success }
 ];
 
 module.exports = {
   name: "reactionroles",
-  description: "Posts the interactive button reaction roles panel",
+  description: "Posts the advanced button reaction roles panel",
   async execute(message, args, prefix) {
     message.delete().catch(() => null);
 
@@ -31,31 +34,39 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setColor(0x2B2D31)
       .setAuthor({
-        name: `${message.guild.name} • Self-Assignable Roles`,
+        name: `${message.guild.name} • Role Selection Hub`,
         iconURL: message.guild.iconURL({ dynamic: true })
       })
-      .setTitle("🔔 REACT / CLICK FOR ROLES")
+      .setTitle("🔔  SELF-ASSIGNABLE NOTIFICATION ROLES")
       .setDescription(
-        `*Click the buttons below to select or remove your ping roles!*\n\n` +
-        `🎁 **│ GIVEAWAYS & EVENTS**\n` +
-        `• <@&1481370041260966065>\n` +
-        `• <@&1481370040899997773>\n` +
-        `• <@&1481370041260966063>\n` +
-        `• <@&1481370040899997772>\n` +
-        `• <@&1481370040899997774>\n\n` +
+        `*Customize your server experience! Choose which announcements and ping alerts you want to receive by interacting with the buttons below.*\n\n` +
+
+        `🏆 **│ GIVEAWAY & EVENT ALERTS**\n` +
+        `• <@&1481370041260966065> ── *Official server giveaways*\n` +
+        `• <@&1481370040899997773> ── *Fast-paced drop events*\n` +
+        `• <@&1481370041260966063> ── *Promotional giveaways*\n` +
+        `• <@&1481370040899997772> ── *Partner announcements*\n` +
+        `• <@&1481370040899997774> ── *Community events & games*\n\n` +
         
-        `📢 **│ COMMUNITY & NOTIFICATIONS**\n` +
-        `• <@&1490742869735112917>\n` +
-        `• <@&1492370167735259196>\n` +
-        `• <@&1493276409320443924>\n` +
-        `• <@&1481370040899997776>\n` +
-        `• <@&1497717221584015380>\n\n` +
-        `> **Note:** Click once to receive the role. Click again to remove it!`
+        `📢 **│ COMMUNITY & SERVER NOTIFICATIONS**\n` +
+        `• <@&1490742869735112917> ── *Community opinion polls*\n` +
+        `• <@&1492370167735259196> ── *Hall of fame & shame pins*\n` +
+        `• <@&1493276409320443924> ── *Chat revival alerts*\n` +
+        `• <@&1481370040899997766> ── *Major bot & server updates*\n` +
+        `• <@&1497717221584015380> ── *Server bump reminders*\n\n` +
+
+        `▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+        `💡 **HOW IT WORKS:**\n` +
+        `> Click a button once to **receive** the role.\n` +
+        `> Click the same button again to **remove** it. All changes are instant!`
       )
-      .setFooter({ text: "DonDon Moderation Systems • Reaction Roles" })
+      .setFooter({ 
+        text: "DonDon Moderation Systems • Interactive Reaction Roles", 
+        iconURL: message.guild.iconURL({ dynamic: true }) 
+      })
       .setTimestamp();
 
-    // Create Action Rows for Buttons (Discord limits to 5 buttons per row)
+    // Create Action Rows for Buttons (5 buttons max per row)
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
 
