@@ -1,6 +1,6 @@
-
 const fs = require("fs");
 const path = require("path");
+const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const {
   ChannelType,
   PermissionFlagsBits,
@@ -33,7 +33,6 @@ const TICKET_CATEGORIES = {
 
 const ALLOWED_CATEGORY_IDS = Object.values(TICKET_CATEGORIES);
 
-// Store tickets in the same persistent folder as DATA_FILE (survives Railway redeploys)
 const BASE_DATA_DIR = process.env.DATA_FILE
   ? path.dirname(process.env.DATA_FILE)
   : __dirname;
@@ -73,7 +72,7 @@ function isTicketStaff(member) {
   if (!member) return false;
   if (member.permissions?.has(PermissionFlagsBits.Administrator)) return true;
   if (member.roles?.cache) {
-    return STAFF_ROLE_IDS.some(roleId => member.roles.cache.has(roleId));
+    return STAFF_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
   }
   return false;
 }
@@ -82,14 +81,12 @@ function resolveOpenerId(channel) {
   const saved = ticketStore.tickets[channel.id];
   if (saved?.openerId) return saved.openerId;
 
-  // Fallback from channel topic (survives even if JSON was wiped)
   const topicMatch = channel.topic?.match(/Opener:\s*(\d{17,20})/i);
   if (topicMatch) return topicMatch[1];
 
-  // Fallback from channel permission overwrites
   for (const [id, overwrite] of channel.permissionOverwrites.cache) {
     if (
-      overwrite.type === 1 && // Member overwrite
+      overwrite.type === 1 &&
       id !== channel.client.user.id &&
       overwrite.allow.has(PermissionFlagsBits.ViewChannel)
     ) {
@@ -99,13 +96,20 @@ function resolveOpenerId(channel) {
   return null;
 }
 
-// ================= HTML TRANSCRIPT BUILDER =================
-function escapeHtml(str) {
-  return String(str || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function formatShortTime(ts) {
+  const d = new Date(ts || Date.now());
+  return d.toTimeString().slice(0, 5);
+}
+
+function formatFullDateTime(ts) {
+  const d = new Date(ts || Date.now());
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 async function fetchAllChannelMessages(channel) {
@@ -127,155 +131,384 @@ async function fetchAllChannelMessages(channel) {
   return all.reverse();
 }
 
-function buildHtmlTranscript({ channel, guild, openerTag, openerId, closedBy, reason, messages }) {
-  const rows = messages
-    .map((m) => {
-      const time = new Date(m.createdTimestamp).toUTCString();
-      const avatar =
-        m.author?.displayAvatarURL?.({ extension: "png", size: 64 }) ||
-        "https://cdn.discordapp.com/embed/avatars/0.png";
-      const authorName = escapeHtml(m.author?.tag || "Unknown User");
-      const content = escapeHtml(m.content || "").replace(/\n/g, "<br>");
+// ================= TEXT WRAPPING & PNG TRANSCRIPT RENDERER =================
+function wrapTextLines(ctx, text, maxWidth) {
+  const clean = String(text || "");
+  if (!clean) return [];
+  const paragraphs = clean.split("\n");
+  const lines = [];
 
-      const attachmentsHtml = m.attachments?.size
-        ? `<div class="attachments">${Array.from(m.attachments.values())
-            .map((a) => `<a href="${escapeHtml(a.url)}" target="_blank">📎 ${escapeHtml(a.name || "attachment")}</a>`)
-            .join("<br>")}</div>`
-        : "";
+  for (const para of paragraphs) {
+    if (!para.trim()) {
+      lines.push("");
+      continue;
+    }
+    const words = para.split(/\s+/);
+    let currentLine = "";
 
-      const embedsHtml = m.embeds?.length
-        ? m.embeds
-            .map(
-              (e) =>
-                `<div class="embed">${e.title ? `<strong>${escapeHtml(e.title)}</strong><br>` : ""}${
-                  e.description ? escapeHtml(e.description).replace(/\n/g, "<br>") : ""
-                }</div>`
-            )
-            .join("")
-        : "";
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      if (ctx.measureText(testLine).width <= maxWidth) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        // If a single long word exceeds maxWidth, break it cleanly
+        if (ctx.measureText(word).width > maxWidth) {
+          let chunk = "";
+          for (const ch of word) {
+            if (ctx.measureText(chunk + ch).width <= maxWidth) {
+              chunk += ch;
+            } else {
+              lines.push(chunk);
+              chunk = ch;
+            }
+          }
+          currentLine = chunk;
+        } else {
+          currentLine = word;
+        }
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+  }
 
-      return `
-        <div class="msg">
-          <img class="avatar" src="${avatar}" alt="">
-          <div class="body">
-            <div class="meta">
-              <span class="author">${authorName}</span>
-              <span class="time">${escapeHtml(time)}</span>
-            </div>
-            <div class="content">${content || "<em>(no text)</em>"}</div>
-            ${attachmentsHtml}
-            ${embedsHtml}
-          </div>
-        </div>`;
-    })
-    .join("\n");
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Transcript - #${escapeHtml(channel.name)}</title>
-  <style>
-    body { background: #313338; color: #dbdee1; font-family: "Segoe UI", Roboto, Arial, sans-serif; margin: 0; padding: 24px; }
-    .header { background: #2b2d31; border-left: 4px solid #5865f2; padding: 16px 20px; border-radius: 8px; margin-bottom: 20px; }
-    .header h1 { margin: 0 0 8px 0; font-size: 20px; color: #ffffff; }
-    .header p { margin: 4px 0; font-size: 13px; color: #b5bac1; }
-    .msg { display: flex; gap: 12px; padding: 10px 8px; border-bottom: 1px solid #2b2d31; }
-    .avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; }
-    .meta { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-    .author { font-weight: 600; color: #ffffff; font-size: 14px; }
-    .time { font-size: 11px; color: #949ba4; }
-    .content { font-size: 14px; line-height: 1.4; word-break: break-word; }
-    .attachments, .embed { margin-top: 6px; background: #2b2d31; border-left: 3px solid #5865f2; padding: 8px 10px; border-radius: 4px; font-size: 13px; }
-    a { color: #00a8fc; text-decoration: none; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>🎫 Ticket Transcript — #${escapeHtml(channel.name)}</h1>
-    <p><strong>Server:</strong> ${escapeHtml(guild.name)}</p>
-    <p><strong>Opened By:</strong> ${escapeHtml(openerTag)} (${escapeHtml(openerId || "Unknown")})</p>
-    <p><strong>Closed By:</strong> ${escapeHtml(closedBy.tag)} (${escapeHtml(closedBy.id)})</p>
-    <p><strong>Reason:</strong> ${escapeHtml(reason)}</p>
-    <p><strong>Total Messages:</strong> ${messages.length}</p>
-  </div>
-  ${rows}
-</body>
-</html>`;
+  return lines;
 }
 
-// ================= UNIFIED CLOSE + LOG + DM TRANSCRIPT =================
-async function closeTicketChannel({ channel, guild, closedBy, reason = "No reason provided", method = "Button" }) {
+function drawRoundedRect(ctx, x, y, w, h, r) {
+  const radius = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+}
+
+async function renderTranscriptPng({
+  channel,
+  guild,
+  ticketNumber,
+  openerTag,
+  claimedByTag,
+  closedBy,
+  reason,
+  createdAt,
+  messages
+}) {
+  const width = 760;
+  const paddingX = 24;
+  const avatarSize = 38;
+  const textStartX = paddingX + avatarSize + 14;
+  const maxTextWidth = width - textStartX - paddingX - 12;
+  const cappedMessages = messages.slice(-60); // Keep image crisp & fast even in long tickets
+
+  // Load avatars in parallel (with fallback)
+  const uniqueAuthors = new Map();
+  for (const m of cappedMessages) {
+    if (m.author && !uniqueAuthors.has(m.author.id)) {
+      uniqueAuthors.set(
+        m.author.id,
+        m.author.displayAvatarURL({ extension: "png", size: 128 })
+      );
+    }
+  }
+
+  const avatarMap = new Map();
+  await Promise.all(
+    Array.from(uniqueAuthors.entries()).map(async ([id, url]) => {
+      try {
+        const img = await loadImage(url);
+        avatarMap.set(id, img);
+      } catch {
+        avatarMap.set(id, null);
+      }
+    })
+  );
+
+  // Measure total height first
+  const measureCanvas = createCanvas(width, 200);
+  const mctx = measureCanvas.getContext("2d");
+
+  const prepared = cappedMessages.map((m) => {
+    mctx.font = "15px sans-serif";
+    const bodyText =
+      m.content ||
+      (m.embeds?.[0]?.title ? `${m.embeds[0].title}${m.embeds[0].description ? ` — ${m.embeds[0].description}` : ""}` : "") ||
+      (m.attachments?.size ? `[Attachment: ${m.attachments.first().name}]` : "(empty message)");
+
+    const lines = wrapTextLines(mctx, bodyText, maxTextWidth);
+    const hasEmbedBox = Boolean(!m.content && m.embeds?.length);
+    const lineHeight = 20;
+    const textBlockHeight = Math.max(1, lines.length) * lineHeight;
+    const rowHeight = Math.max(54, 28 + textBlockHeight + (hasEmbedBox ? 8 : 0) + 12);
+
+    return {
+      msg: m,
+      lines,
+      hasEmbedBox,
+      rowHeight
+    };
+  });
+
+  const headerHeight = 148;
+  const chatTop = headerHeight + 12;
+  const chatHeight =
+    prepared.length > 0
+      ? prepared.reduce((sum, item) => sum + item.rowHeight, 0) + 16
+      : 64;
+  const totalHeight = chatTop + chatHeight + 28;
+
+  const canvas = createCanvas(width, totalHeight);
+  const ctx = canvas.getContext("2d");
+
+  // Background
+  ctx.fillStyle = "#141821";
+  ctx.fillRect(0, 0, width, totalHeight);
+
+  // Top breadcrumb & title
+  ctx.fillStyle = "#8f9bb3";
+  ctx.font = "13px sans-serif";
+  ctx.fillText(`Transcripts > #${channel.name}`, paddingX, 34);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 26px sans-serif";
+  ctx.fillText(`Transcript #${ticketNumber || channel.name}`, paddingX, 68);
+
+  // Metadata summary line
+  ctx.fillStyle = "#b8c2d6";
+  ctx.font = "13px sans-serif";
+  const summaryLine = `Opened by ${openerTag}  •  Closed by ${closedBy.username || closedBy.tag}  •  Claimed by ${claimedByTag || "Unclaimed"}`;
+  ctx.fillText(summaryLine.slice(0, 105), paddingX, 96);
+
+  ctx.fillStyle = "#8f9bb3";
+  const subLine = `Opened: ${formatFullDateTime(createdAt)}  •  Reason: ${reason}`;
+  ctx.fillText(subLine.slice(0, 110), paddingX, 118);
+
+  // Chat container card
+  drawRoundedRect(ctx, paddingX - 6, chatTop, width - (paddingX - 6) * 2, chatHeight, 12);
+  ctx.fillStyle = "#1b202c";
+  ctx.fill();
+  ctx.strokeStyle = "#293142";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  let y = chatTop + 14;
+
+  for (const item of prepared) {
+    const { msg, lines, hasEmbedBox, rowHeight } = item;
+    const authorName = msg.author?.username || msg.author?.tag || "Unknown User";
+    const isBot = Boolean(msg.author?.bot);
+    const timeStr = formatShortTime(msg.createdTimestamp);
+
+    // Avatar
+    const avImg = msg.author ? avatarMap.get(msg.author.id) : null;
+    ctx.save();
+    drawRoundedRect(ctx, paddingX + 6, y + 2, avatarSize, avatarSize, avatarSize / 2);
+    ctx.clip();
+    if (avImg) {
+      ctx.drawImage(avImg, paddingX + 6, y + 2, avatarSize, avatarSize);
+    } else {
+      ctx.fillStyle = "#5865f2";
+      ctx.fillRect(paddingX + 6, y + 2, avatarSize, avatarSize);
+    }
+    ctx.restore();
+
+    // Author + APP badge + Timestamp
+    ctx.font = "bold 14px sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(authorName, textStartX, y + 16);
+    let cursorX = textStartX + ctx.measureText(authorName).width + 8;
+
+    if (isBot) {
+      ctx.font = "bold 10px sans-serif";
+      const badgeW = ctx.measureText("APP").width + 10;
+      drawRoundedRect(ctx, cursorX, y + 4, badgeW, 15, 4);
+      ctx.fillStyle = "#5865f2";
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText("APP", cursorX + 5, y + 15);
+      cursorX += badgeW + 8;
+    }
+
+    ctx.font = "12px sans-serif";
+    ctx.fillStyle = "#8894ab";
+    ctx.fillText(timeStr, cursorX, y + 16);
+
+    // Optional green embed accent bar like screenshot
+    const msgTextY = y + 36;
+    if (hasEmbedBox) {
+      drawRoundedRect(ctx, textStartX, msgTextY - 12, 4, lines.length * 20 + 6, 2);
+      ctx.fillStyle = "#23a559";
+      ctx.fill();
+    }
+
+    // Message lines
+    ctx.font = "15px sans-serif";
+    ctx.fillStyle = "#e4e8f0";
+    const lineX = hasEmbedBox ? textStartX + 12 : textStartX;
+    lines.forEach((line, idx) => {
+      ctx.fillText(line, lineX, msgTextY + idx * 20);
+    });
+
+    // Subtle divider between messages
+    y += rowHeight;
+    if (y < chatTop + chatHeight - 16) {
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+      ctx.beginPath();
+      ctx.moveTo(paddingX + 6, y - 4);
+      ctx.lineTo(width - paddingX - 6, y - 4);
+      ctx.stroke();
+    }
+  }
+
+  if (prepared.length === 0) {
+    ctx.font = "14px sans-serif";
+    ctx.fillStyle = "#8f9bb3";
+    ctx.fillText("No messages recorded in this ticket.", paddingX + 12, chatTop + 36);
+  }
+
+  return canvas.toBuffer("image/png");
+}
+
+function buildClosedLogEmbed({
+  ticketNumber,
+  channelName,
+  openerUser,
+  openerTag,
+  closedBy,
+  claimedBy,
+  createdAt,
+  reason,
+  method
+}) {
+  return new EmbedBuilder()
+    .setTitle("Ticket Closed")
+    .setColor(0x23a559)
+    .addFields(
+      { name: "# Ticket ID", value: `${ticketNumber || channelName}`, inline: false },
+      {
+        name: "✅ Opened By",
+        value: openerUser ? `${openerUser}` : `\`${openerTag}\``,
+        inline: false
+      },
+      { name: "🔒 Closed By", value: `${closedBy}`, inline: false },
+      { name: "🕒 Open Time", value: formatFullDateTime(createdAt), inline: false },
+      { name: "👤 Claimed By", value: claimedBy || "Unclaimed", inline: false },
+      { name: "❓ Reason", value: `${reason.slice(0, 1020)} (${method})`, inline: false }
+    )
+    .setTimestamp();
+}
+
+// ================= UNIFIED CLOSE + LOG + DM PHOTO TRANSCRIPT =================
+async function closeTicketChannel({
+  channel,
+  guild,
+  closedBy,
+  reason = "No reason provided",
+  method = "Button"
+}) {
   if (!channel || channel._isClosing) return;
   channel._isClosing = true;
 
-  await channel.send(`🔒 Closing ticket... Saving transcript and sending logs.`).catch(() => null);
+  await channel
+    .send("🔒 Closing ticket... Generating transcript image and sending logs.")
+    .catch(() => null);
 
   const savedData = ticketStore.tickets[channel.id] || {};
   const openerId = resolveOpenerId(channel);
-  const openerUser = openerId ? await guild.client.users.fetch(openerId).catch(() => null) : null;
-  const openerTag = openerUser ? openerUser.tag : savedData.openerTag || "Unknown User";
+  const openerUser = openerId
+    ? await guild.client.users.fetch(openerId).catch(() => null)
+    : null;
+  const openerTag = openerUser
+    ? openerUser.username || openerUser.tag
+    : savedData.openerTag || "Unknown User";
 
-  // 1. Fetch messages & generate HTML transcript
+  const claimedByUser = savedData.claimedById
+    ? await guild.client.users.fetch(savedData.claimedById).catch(() => null)
+    : null;
+  const claimedByDisplay = claimedByUser
+    ? `${claimedByUser}`
+    : savedData.claimedByTag || "Unclaimed";
+  const claimedByPlain = claimedByUser
+    ? claimedByUser.username || claimedByUser.tag
+    : savedData.claimedByTag || "Unclaimed";
+
+  const ticketNumber = savedData.ticketNumber || channel.name;
+  const createdAt = savedData.createdAt || channel.createdTimestamp || Date.now();
+
+  // 1. Fetch messages & render PNG transcript image
   const messages = await fetchAllChannelMessages(channel);
-  const htmlContent = buildHtmlTranscript({
+  const pngBuffer = await renderTranscriptPng({
     channel,
     guild,
+    ticketNumber,
     openerTag,
-    openerId,
+    claimedByTag: claimedByPlain,
     closedBy,
     reason,
+    createdAt,
     messages
   });
 
-  const fileName = `transcript-${channel.name}-${Date.now()}.html`;
-  const htmlBuffer = Buffer.from(htmlContent, "utf8");
+  const fileName = `transcript-${channel.name}-${Date.now()}.png`;
 
-  // 2. Send log + HTML transcript to Ticket Logs Channel (1481370050597228661)
-  const logChannel = await guild.channels.fetch(TICKET_LOGS_CHANNEL_ID).catch(() => null);
+  // 2. Send log embed + PNG photo to Ticket Logs Channel (1481370050597228661)
+  const logChannel = await guild.channels
+    .fetch(TICKET_LOGS_CHANNEL_ID)
+    .catch(() => null);
   if (logChannel && logChannel.isTextBased()) {
-    const logEmbed = new EmbedBuilder()
-      .setTitle("📕 Ticket Closed")
-      .setColor(0xef4444)
-      .addFields(
-        { name: "🎫 Ticket", value: `\`#${channel.name}\``, inline: true },
-        { name: "👤 Opened By", value: openerUser ? `${openerUser} (\`${openerUser.id}\`)` : `\`${openerTag}\``, inline: true },
-        { name: "🔒 Closed By", value: `${closedBy} (\`${closedBy.id}\`)`, inline: true },
-        { name: "⚙️ Closed Via", value: `\`${method}\``, inline: true },
-        { name: "📝 Reason", value: reason.slice(0, 1024), inline: false }
-      )
-      .setTimestamp();
-
-    const logAttachment = new AttachmentBuilder(htmlBuffer, { name: fileName });
-    await logChannel.send({ embeds: [logEmbed], files: [logAttachment] }).catch((err) => {
-      console.error("❌ Failed to send ticket log:", err);
+    const logEmbed = buildClosedLogEmbed({
+      ticketNumber,
+      channelName: channel.name,
+      openerUser,
+      openerTag,
+      closedBy,
+      claimedBy: claimedByDisplay,
+      createdAt,
+      reason,
+      method
     });
+
+    const logAttachment = new AttachmentBuilder(pngBuffer, { name: fileName });
+    await logChannel
+      .send({ embeds: [logEmbed], files: [logAttachment] })
+      .catch((err) => {
+        console.error("❌ Failed to send ticket log:", err);
+      });
   }
 
-  // 3. Send summary + HTML transcript to the Ticket Creator's DMs
+  // 3. Send closed summary + PNG photo to the Ticket Creator's DMs
   if (openerUser) {
-    const dmEmbed = new EmbedBuilder()
-      .setTitle(`🎫 Your Ticket in ${guild.name} Was Closed`)
-      .setColor(0x5865f2)
-      .setDescription("Here is a copy of your ticket details and full HTML transcript.")
-      .addFields(
-        { name: "Ticket Channel", value: `#${channel.name}`, inline: true },
-        { name: "Closed By", value: closedBy.tag, inline: true },
-        { name: "Reason", value: reason.slice(0, 1024), inline: false }
-      )
-      .setTimestamp();
+    const dmEmbed = buildClosedLogEmbed({
+      ticketNumber,
+      channelName: channel.name,
+      openerUser,
+      openerTag,
+      closedBy,
+      claimedBy: claimedByDisplay,
+      createdAt,
+      reason,
+      method
+    }).setTitle(`Ticket Closed — ${guild.name}`);
 
-    const dmAttachment = new AttachmentBuilder(htmlBuffer, { name: fileName });
-    await openerUser.send({ embeds: [dmEmbed], files: [dmAttachment] }).catch(() => null);
+    const dmAttachment = new AttachmentBuilder(pngBuffer, { name: fileName });
+    await openerUser
+      .send({ embeds: [dmEmbed], files: [dmAttachment] })
+      .catch(() => null);
   }
 
   // 4. Remove from active ticket store & auto-save immediately before deleting channel
   delete ticketStore.tickets[channel.id];
   saveTickets();
 
-  await channel.delete(`Ticket closed by ${closedBy.tag} (${method}): ${reason}`).catch((err) => {
-    console.error("❌ Failed to delete ticket channel:", err);
-  });
+  await channel
+    .delete(`Ticket closed by ${closedBy.tag} (${method}): ${reason}`)
+    .catch((err) => {
+      console.error("❌ Failed to delete ticket channel:", err);
+    });
 }
 
 // ================= TICKET CREATION & INTERACTION HANDLER =================
@@ -283,8 +516,10 @@ async function handleTicketInteraction(interaction) {
   const { guild, user, member } = interaction;
   if (!guild) return;
 
-  // Close With Reason Modal Submit (Staff Only)
-  if (interaction.isModalSubmit() && interaction.customId === "tkt_close_reason_modal") {
+  if (
+    interaction.isModalSubmit() &&
+    interaction.customId === "tkt_close_reason_modal"
+  ) {
     if (!isTicketStaff(member)) {
       return interaction.reply({
         content: "❌ Only staff members can close tickets.",
@@ -292,7 +527,9 @@ async function handleTicketInteraction(interaction) {
       });
     }
 
-    const reason = interaction.fields.getTextInputValue("close_reason").trim() || "No reason provided";
+    const reason =
+      interaction.fields.getTextInputValue("close_reason").trim() ||
+      "No reason provided";
     await interaction.deferUpdate().catch(() => null);
 
     return closeTicketChannel({
@@ -304,11 +541,9 @@ async function handleTicketInteraction(interaction) {
     });
   }
 
-  // Open new ticket or trigger close buttons
   if (interaction.isButton() && interaction.customId.startsWith("tkt_")) {
     const id = interaction.customId.toLowerCase();
 
-    // Button Close (Staff Only)
     if (id === "tkt_close") {
       if (!isTicketStaff(member)) {
         return interaction.reply({
@@ -326,7 +561,6 @@ async function handleTicketInteraction(interaction) {
       });
     }
 
-    // Close With Reason Modal Trigger (Staff Only)
     if (id === "tkt_close_reason") {
       if (!isTicketStaff(member)) {
         return interaction.reply({
@@ -349,7 +583,47 @@ async function handleTicketInteraction(interaction) {
       return interaction.showModal(modal);
     }
 
-    // Determine category type for opening a ticket
+    if (id === "tkt_claim") {
+      if (!isTicketStaff(member)) {
+        return interaction.reply({
+          content: "❌ Only staff members can claim tickets.",
+          ephemeral: true
+        });
+      }
+
+      const existing = ticketStore.tickets[interaction.channel.id] || {
+        channelId: interaction.channel.id,
+        guildId: guild.id,
+        openerId: resolveOpenerId(interaction.channel),
+        createdAt: interaction.channel.createdTimestamp || Date.now()
+      };
+
+      const isSameClaimer = existing.claimedById === user.id;
+      if (isSameClaimer) {
+        existing.claimedById = null;
+        existing.claimedByTag = null;
+        ticketStore.tickets[interaction.channel.id] = existing;
+        saveTickets();
+
+        return interaction.reply({
+          content: `Unclaimed ticket by ${user}.`
+        });
+      }
+
+      existing.claimedById = user.id;
+      existing.claimedByTag = user.username || user.tag;
+      ticketStore.tickets[interaction.channel.id] = existing;
+      saveTickets();
+
+      const claimEmbed = new EmbedBuilder()
+        .setTitle("Claimed Ticket")
+        .setColor(0x23a559)
+        .setDescription(`Your ticket will be handled by ${user}`)
+        .setTimestamp();
+
+      return interaction.reply({ embeds: [claimEmbed] });
+    }
+
     let type = null;
     if (id.includes("support")) type = "support";
     else if (id.includes("claim")) type = "claim";
@@ -362,7 +636,9 @@ async function handleTicketInteraction(interaction) {
     const categoryId = TICKET_CATEGORIES[type];
     ticketStore.counter += 1;
     const ticketNum = String(ticketStore.counter).padStart(4, "0");
-    const cleanUser = user.username.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12) || "user";
+    const cleanUser =
+      user.username.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12) ||
+      "user";
     const channelName = `${type}-${cleanUser}-${ticketNum}`;
 
     const permissionOverwrites = [
@@ -410,12 +686,13 @@ async function handleTicketInteraction(interaction) {
       permissionOverwrites
     });
 
-    // Save immediately to disk so redeploys/crashes never lose this ticket
     ticketStore.tickets[ticketChannel.id] = {
       channelId: ticketChannel.id,
       guildId: guild.id,
       openerId: user.id,
-      openerTag: user.tag,
+      openerTag: user.username || user.tag,
+      claimedById: null,
+      claimedByTag: null,
       type,
       ticketNumber: ticketNum,
       createdAt: Date.now()
@@ -423,25 +700,28 @@ async function handleTicketInteraction(interaction) {
     saveTickets();
 
     const welcomeEmbed = new EmbedBuilder()
-      .setTitle(`🎫 ${type.charAt(0).toUpperCase() + type.slice(1)} Ticket #${ticketNum}`)
-      .setColor(0x5865f2)
-      .setDescription(
-        `Welcome ${user}!\n` +
-        `Please describe your request clearly while our ticket support team arrives.\n\n` +
-        `Staff can close this ticket anytime with \`?close [reason]\` or the buttons below.`
+      .setTitle(
+        `🎫 ${type.charAt(0).toUpperCase() + type.slice(1)} Ticket #${ticketNum}`
       )
+      .setColor(0x23a559)
+      .setDescription(
+        `Thank you for contacting ${type}.\n` +
+          `In the meantime, please share all relevant details so our team can assist you.\n\n` +
+          `Staff can close this ticket anytime with \`?close [reason]\` or the buttons below.`
+      )
+      .setFooter({ text: "Ticket System" })
       .setTimestamp();
 
     const controlRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId("tkt_close")
-        .setLabel("Close")
+        .setCustomId("tkt_close_reason")
+        .setLabel("Close With Reason")
         .setEmoji("🔒")
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
-        .setCustomId("tkt_close_reason")
-        .setLabel("Close With Reason")
-        .setEmoji("📝")
+        .setCustomId("tkt_claim")
+        .setLabel("Claim")
+        .setEmoji("🙋")
         .setStyle(ButtonStyle.Secondary)
     );
 
