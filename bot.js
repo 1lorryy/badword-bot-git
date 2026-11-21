@@ -691,9 +691,10 @@ if (command === "otherroles" || command === "roles") {
     return otherRolesCmd.execute(message, args, prefix);
   }
 
-  if (command === "ticketpanel" || command === "tpanel") {
+if (command === "ticketpanel" || command === "tpanel") {
   const ticketPanelCmd = require("./commands/ticketpanel.js");
-  return ticketPanelCmd.execute(message, args, prefix);
+  await ticketPanelCmd.execute(message, args, prefix);
+  return true;
 }
   
   if (command === "crates" || command === "crate" || command === "pets" || command === "inventory") {
