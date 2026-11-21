@@ -1,6 +1,5 @@
 const fs = require("fs");
 const path = require("path");
-const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const {
   ChannelType,
   PermissionFlagsBits,
@@ -135,11 +134,6 @@ function resolveOpenerId(channel) {
   return null;
 }
 
-function formatShortTime(ts) {
-  const d = new Date(ts || Date.now());
-  return d.toTimeString().slice(0, 5);
-}
-
 function formatFullDateTime(ts) {
   const d = new Date(ts || Date.now());
   return d.toLocaleString("en-GB", {
@@ -170,236 +164,392 @@ async function fetchAllChannelMessages(channel) {
   return all.reverse();
 }
 
-// ================= TEXT WRAPPING & PNG TRANSCRIPT RENDERER =================
-function wrapTextLines(ctx, text, maxWidth) {
-  const clean = String(text || "");
-  if (!clean) return [];
-  const paragraphs = clean.split("\n");
-  const lines = [];
+// ================= HTML TRANSCRIPT RENDERER =================
+function escapeHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
-  for (const para of paragraphs) {
-    if (!para.trim()) {
-      lines.push("");
-      continue;
-    }
-    const words = para.split(/\s+/);
-    let currentLine = "";
+async function attachmentToSafeDataUrl(att, maxBytes = 2.5 * 1024 * 1024) {
+  const isImage =
+    Boolean(att.contentType && att.contentType.startsWith("image/")) ||
+    /\.(png|jpe?g|gif|webp)$/i.test(att.name || "");
+  if (!isImage || !att.url) return null;
+  if (typeof att.size === "number" && att.size > maxBytes) return null;
 
-    for (const word of words) {
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
-      if (ctx.measureText(testLine).width <= maxWidth) {
-        currentLine = testLine;
-      } else {
-        if (currentLine) lines.push(currentLine);
-        if (ctx.measureText(word).width > maxWidth) {
-          let chunk = "";
-          for (const ch of word) {
-            if (ctx.measureText(chunk + ch).width <= maxWidth) {
-              chunk += ch;
-            } else {
-              lines.push(chunk);
-              chunk = ch;
-            }
-          }
-          currentLine = chunk;
-        } else {
-          currentLine = word;
-        }
-      }
-    }
-    if (currentLine) lines.push(currentLine);
+  try {
+    const res = await fetch(att.url);
+    if (!res.ok) return null;
+    const arrayBuffer = await res.arrayBuffer();
+    if (arrayBuffer.byteLength > maxBytes) return null;
+
+    const mime =
+      att.contentType && att.contentType.startsWith("image/")
+        ? att.contentType.split(";")[0]
+        : "image/png";
+    const b64 = Buffer.from(arrayBuffer).toString("base64");
+    return `data:${mime};base64,${b64}`;
+  } catch {
+    return null;
   }
-
-  return lines;
 }
 
-function drawRoundedRect(ctx, x, y, w, h, r) {
-  const radius = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + w, y, x + w, y + h, radius);
-  ctx.arcTo(x + w, y + h, x, y + h, radius);
-  ctx.arcTo(x, y + h, x, y, radius);
-  ctx.arcTo(x, y, x + w, y, radius);
-  ctx.closePath();
+function classifyParticipant(userId, openerId, addedUserIds, isBot, guild) {
+  if (isBot) return { label: "BOT", cls: "role-bot" };
+  if (openerId && userId === openerId) return { label: "OPENER", cls: "role-opener" };
+
+  const member = guild?.members?.cache?.get(userId);
+  const isStaff =
+    member &&
+    (member.permissions?.has(PermissionFlagsBits.Administrator) ||
+      TICKET_MANAGER_ROLE_IDS.some((rid) => member.roles?.cache?.has(rid)));
+
+  if (isStaff) return { label: "STAFF", cls: "role-staff" };
+  if (Array.isArray(addedUserIds) && addedUserIds.includes(userId)) {
+    return { label: "ADDED", cls: "role-added" };
+  }
+  return { label: "MEMBER", cls: "role-member" };
 }
 
-async function renderTranscriptPng({
+async function renderTranscriptHtml({
   channel,
   guild,
   ticketNumber,
+  openerId,
   openerTag,
+  addedUserIds = [],
   claimedByTag,
   closedBy,
   reason,
   createdAt,
   messages
 }) {
-  const width = 760;
-  const paddingX = 24;
-  const avatarSize = 38;
-  const textStartX = paddingX + avatarSize + 14;
-  const maxTextWidth = width - textStartX - paddingX - 12;
-  const cappedMessages = messages.slice(-60);
+  const participantMap = new Map();
+  const rowsList = [];
 
-  const uniqueAuthors = new Map();
-  for (const m of cappedMessages) {
-    if (m.author && !uniqueAuthors.has(m.author.id)) {
-      uniqueAuthors.set(
-        m.author.id,
-        m.author.displayAvatarURL({ extension: "png", size: 128 })
+  for (const m of messages) {
+    const authorId = m.author?.id || "0";
+    const authorName = m.author?.username || m.author?.tag || "Unknown User";
+    const isBot = Boolean(m.author?.bot);
+    const avatarUrl =
+      m.author?.displayAvatarURL({ extension: "png", size: 128 }) ||
+      "https://cdn.discordapp.com/embed/avatars/0.png";
+
+    const roleInfo = classifyParticipant(authorId, openerId, addedUserIds, isBot, guild);
+    if (!participantMap.has(authorId)) {
+      participantMap.set(authorId, {
+        id: authorId,
+        name: authorName,
+        roleLabel: roleInfo.label,
+        roleCls: roleInfo.cls,
+        count: 0
+      });
+    }
+    participantMap.get(authorId).count += 1;
+
+    const timeStr = formatFullDateTime(m.createdTimestamp);
+    const contentHtml = m.content
+      ? `<div class="msg-text">${escapeHtml(m.content).replace(/\n/g, "<br>")}</div>`
+      : "";
+
+    let attachmentsHtml = "";
+    if (m.attachments?.size) {
+      const items = await Promise.all(
+        Array.from(m.attachments.values()).map(async (att) => {
+          const safeUrl = escapeHtml(att.url || "");
+          const safeName = escapeHtml(att.name || "attachment");
+          const sizeText =
+            typeof att.size === "number"
+              ? ` (${(att.size / 1024).toFixed(1)} KB)`
+              : "";
+          const embeddedSrc = await attachmentToSafeDataUrl(att);
+
+          if (embeddedSrc) {
+            return `
+              <div class="attachment">
+                <a href="${embeddedSrc}" target="_blank" rel="noopener">
+                  <img src="${embeddedSrc}" alt="${safeName}" loading="lazy">
+                </a>
+                <div class="att-caption">Saved image: <strong>${safeName}</strong>${sizeText}${safeUrl ? ` &bull; <a href="${safeUrl}" target="_blank" rel="noopener">Original URL</a>` : ""}</div>
+              </div>
+            `;
+          }
+
+          const imgFallbackNote =
+            att.contentType && att.contentType.startsWith("image/")
+              ? " (image too large to embed—kept link)"
+              : "";
+
+          return `
+            <div class="attachment file-card">
+              <a href="${safeUrl}" target="_blank" rel="noopener">📎 ${safeName}</a>
+              <span class="muted">${sizeText}${escapeHtml(imgFallbackNote)}</span>
+            </div>
+          `;
+        })
       );
+      attachmentsHtml = items.join("");
     }
+
+    const embedsHtml = m.embeds?.length
+      ? m.embeds
+          .map((emb) => {
+            const accent = emb.color
+              ? `#${emb.color.toString(16).padStart(6, "0")}`
+              : "#23a559";
+            const title = emb.title
+              ? `<div class="embed-title">${escapeHtml(emb.title)}</div>`
+              : "";
+            const desc = emb.description
+              ? `<div class="embed-desc">${escapeHtml(emb.description).replace(/\n/g, "<br>")}</div>`
+              : "";
+            const fields = emb.fields?.length
+              ? `<div class="embed-fields">${emb.fields
+                  .map(
+                    (f) =>
+                      `<div class="embed-field"><div class="field-name">${escapeHtml(f.name)}</div><div class="field-val">${escapeHtml(f.value).replace(/\n/g, "<br>")}</div></div>`
+                  )
+                  .join("")}</div>`
+              : "";
+            return `<div class="embed" style="border-left-color:${accent}">${title}${desc}${fields}</div>`;
+          })
+          .join("")
+      : "";
+
+    const fallbackEmpty =
+      !contentHtml && !attachmentsHtml && !embedsHtml
+        ? `<div class="msg-text muted"><em>(empty message)</em></div>`
+        : "";
+
+    rowsList.push(`
+      <div class="msg-row" data-role="${escapeHtml(roleInfo.label.toLowerCase())}" data-author-id="${escapeHtml(authorId)}">
+        <img class="avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(authorName)}" loading="lazy">
+        <div class="msg-body">
+          <div class="msg-meta">
+            <span class="author">${escapeHtml(authorName)}</span>
+            <span class="role-pill ${escapeHtml(roleInfo.cls)}">${escapeHtml(roleInfo.label)}</span>
+            <span class="user-id">ID: ${escapeHtml(authorId)}</span>
+            <span class="timestamp">${escapeHtml(timeStr)}</span>
+          </div>
+          ${contentHtml}
+          ${embedsHtml}
+          ${attachmentsHtml}
+          ${fallbackEmpty}
+        </div>
+      </div>
+    `);
   }
 
-  const avatarMap = new Map();
-  await Promise.all(
-    Array.from(uniqueAuthors.entries()).map(async ([id, url]) => {
-      try {
-        const img = await loadImage(url);
-        avatarMap.set(id, img);
-      } catch {
-        avatarMap.set(id, null);
-      }
-    })
-  );
+  const rosterHtml = Array.from(participantMap.values())
+    .map(
+      (p) =>
+        `<span class="roster-chip"><span class="role-pill ${escapeHtml(p.roleCls)}">${escapeHtml(p.roleLabel)}</span> <strong>${escapeHtml(p.name)}</strong> <span class="muted">(${p.count})</span></span>`
+    )
+    .join("");
 
-  const measureCanvas = createCanvas(width, 200);
-  const mctx = measureCanvas.getContext("2d");
+  const rowsHtml = rowsList.join("\n");
 
-  const prepared = cappedMessages.map((m) => {
-    mctx.font = "15px sans-serif";
-    const bodyText =
-      m.content ||
-      (m.embeds?.[0]?.title
-        ? `${m.embeds[0].title}${m.embeds[0].description ? ` — ${m.embeds[0].description}` : ""}`
-        : "") ||
-      (m.attachments?.size ? `[Attachment: ${m.attachments.first().name}]` : "(empty message)");
-
-    const lines = wrapTextLines(mctx, bodyText, maxTextWidth);
-    const hasEmbedBox = Boolean(!m.content && m.embeds?.length);
-    const lineHeight = 20;
-    const textBlockHeight = Math.max(1, lines.length) * lineHeight;
-    const rowHeight = Math.max(54, 28 + textBlockHeight + (hasEmbedBox ? 8 : 0) + 12);
-
-    return {
-      msg: m,
-      lines,
-      hasEmbedBox,
-      rowHeight
-    };
-  });
-
-  const headerHeight = 148;
-  const chatTop = headerHeight + 12;
-  const chatHeight =
-    prepared.length > 0
-      ? prepared.reduce((sum, item) => sum + item.rowHeight, 0) + 16
-      : 64;
-  const totalHeight = chatTop + chatHeight + 28;
-
-  const canvas = createCanvas(width, totalHeight);
-  const ctx = canvas.getContext("2d");
-
-  ctx.fillStyle = "#141821";
-  ctx.fillRect(0, 0, width, totalHeight);
-
-  ctx.fillStyle = "#8f9bb3";
-  ctx.font = "13px sans-serif";
-  ctx.fillText(`Transcripts > #${channel.name}`, paddingX, 34);
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 26px sans-serif";
-  ctx.fillText(`Transcript #${ticketNumber || channel.name}`, paddingX, 68);
-
-  ctx.fillStyle = "#b8c2d6";
-  ctx.font = "13px sans-serif";
-  const summaryLine = `Opened by ${openerTag}  •  Closed by ${closedBy.username || closedBy.tag}  •  Claimed by ${claimedByTag || "Unclaimed"}`;
-  ctx.fillText(summaryLine.slice(0, 105), paddingX, 96);
-
-  ctx.fillStyle = "#8f9bb3";
-  const subLine = `Opened: ${formatFullDateTime(createdAt)}  •  Reason: ${reason}`;
-  ctx.fillText(subLine.slice(0, 110), paddingX, 118);
-
-  drawRoundedRect(ctx, paddingX - 6, chatTop, width - (paddingX - 6) * 2, chatHeight, 12);
-  ctx.fillStyle = "#1b202c";
-  ctx.fill();
-  ctx.strokeStyle = "#293142";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  let y = chatTop + 14;
-
-  for (const item of prepared) {
-    const { msg, lines, hasEmbedBox, rowHeight } = item;
-    const authorName = msg.author?.username || msg.author?.tag || "Unknown User";
-    const isBot = Boolean(msg.author?.bot);
-    const timeStr = formatShortTime(msg.createdTimestamp);
-
-    const avImg = msg.author ? avatarMap.get(msg.author.id) : null;
-    ctx.save();
-    drawRoundedRect(ctx, paddingX + 6, y + 2, avatarSize, avatarSize, avatarSize / 2);
-    ctx.clip();
-    if (avImg) {
-      ctx.drawImage(avImg, paddingX + 6, y + 2, avatarSize, avatarSize);
-    } else {
-      ctx.fillStyle = "#5865f2";
-      ctx.fillRect(paddingX + 6, y + 2, avatarSize, avatarSize);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transcript #${escapeHtml(ticketNumber || channel.name)} — ${escapeHtml(guild.name)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px 16px 48px;
+      background: #141821;
+      color: #e4e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.45;
     }
-    ctx.restore();
-
-    ctx.font = "bold 14px sans-serif";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(authorName, textStartX, y + 16);
-    let cursorX = textStartX + ctx.measureText(authorName).width + 8;
-
-    if (isBot) {
-      ctx.font = "bold 10px sans-serif";
-      const badgeW = ctx.measureText("APP").width + 10;
-      drawRoundedRect(ctx, cursorX, y + 4, badgeW, 15, 4);
-      ctx.fillStyle = "#5865f2";
-      ctx.fill();
-
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText("APP", cursorX + 5, y + 15);
-      cursorX += badgeW + 8;
+    .container { max-width: 940px; margin: 0 auto; }
+    .header {
+      background: #1b202c;
+      border: 1px solid #293142;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
     }
-
-    ctx.font = "12px sans-serif";
-    ctx.fillStyle = "#8894ab";
-    ctx.fillText(timeStr, cursorX, y + 16);
-
-    const msgTextY = y + 36;
-    if (hasEmbedBox) {
-      drawRoundedRect(ctx, textStartX, msgTextY - 12, 4, lines.length * 20 + 6, 2);
-      ctx.fillStyle = "#23a559";
-      ctx.fill();
+    .breadcrumb { font-size: 12px; color: #8f9bb3; margin-bottom: 6px; }
+    h1 { margin: 0 0 14px; font-size: 22px; color: #ffffff; }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px 18px;
+      font-size: 13px;
+      color: #b8c2d6;
+      margin-bottom: 16px;
     }
-
-    ctx.font = "15px sans-serif";
-    ctx.fillStyle = "#e4e8f0";
-    const lineX = hasEmbedBox ? textStartX + 12 : textStartX;
-    lines.forEach((line, idx) => {
-      ctx.fillText(line, lineX, msgTextY + idx * 20);
-    });
-
-    y += rowHeight;
-    if (y < chatTop + chatHeight - 16) {
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-      ctx.beginPath();
-      ctx.moveTo(paddingX + 6, y - 4);
-      ctx.lineTo(width - paddingX - 6, y - 4);
-      ctx.stroke();
+    .meta-item strong {
+      color: #8f9bb3;
+      font-weight: 600;
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
-  }
-
-  if (prepared.length === 0) {
-    ctx.font = "14px sans-serif";
-    ctx.fillStyle = "#8f9bb3";
-    ctx.fillText("No messages recorded in this ticket.", paddingX + 12, chatTop + 36);
-  }
-
-  return canvas.toBuffer("image/png");
+    .roster {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-top: 12px;
+      border-top: 1px solid #293142;
+      margin-bottom: 14px;
+    }
+    .roster-chip {
+      background: #141821;
+      border: 1px solid #293142;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 12.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; }
+    .filter-btn {
+      background: #252c3d;
+      color: #dce3f0;
+      border: 1px solid #354059;
+      border-radius: 6px;
+      padding: 5px 11px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .filter-btn.active {
+      background: #5865f2;
+      border-color: #5865f2;
+      color: #fff;
+    }
+    .chat-box {
+      background: #1b202c;
+      border: 1px solid #293142;
+      border-radius: 12px;
+      padding: 10px 0;
+    }
+    .msg-row {
+      display: flex;
+      gap: 14px;
+      padding: 10px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .msg-row:last-child { border-bottom: none; }
+    .msg-row:hover { background: rgba(255, 255, 255, 0.025); }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      margin-top: 2px;
+      background: #5865f2;
+    }
+    .msg-body { min-width: 0; flex: 1; }
+    .msg-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
+    .author { font-weight: 600; font-size: 14.5px; color: #ffffff; }
+    .user-id { font-size: 11px; color: #6e7a94; font-family: monospace; }
+    .timestamp { font-size: 11.5px; color: #8894ab; margin-left: auto; }
+    .role-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    .role-opener { background: rgba(35, 165, 89, 0.2); color: #57f287; border: 1px solid rgba(35, 165, 89, 0.45); }
+    .role-staff { background: rgba(237, 66, 69, 0.2); color: #ff8789; border: 1px solid rgba(237, 66, 69, 0.45); }
+    .role-added { background: rgba(250, 166, 26, 0.2); color: #ffd166; border: 1px solid rgba(250, 166, 26, 0.45); }
+    .role-member { background: rgba(143, 155, 179, 0.16); color: #c7d0e0; border: 1px solid rgba(143, 155, 179, 0.3); }
+    .role-bot { background: rgba(88, 101, 242, 0.22); color: #9aa4ff; border: 1px solid rgba(88, 101, 242, 0.45); }
+    .msg-text { font-size: 14.5px; color: #e4e8f0; word-wrap: break-word; overflow-wrap: anywhere; }
+    .muted { color: #8f9bb3; }
+    .embed {
+      margin-top: 8px;
+      background: #141821;
+      border-left: 4px solid #23a559;
+      border-radius: 6px;
+      padding: 10px 14px;
+      max-width: 560px;
+    }
+    .embed-title { font-weight: 600; font-size: 14px; color: #ffffff; margin-bottom: 4px; }
+    .embed-desc { font-size: 13.5px; color: #cdd5e6; word-wrap: break-word; }
+    .embed-fields { margin-top: 8px; display: grid; gap: 6px; }
+    .field-name { font-size: 12px; font-weight: 600; color: #b8c2d6; }
+    .field-val { font-size: 13px; color: #e4e8f0; }
+    .attachment { margin-top: 8px; }
+    .attachment img {
+      max-width: min(460px, 100%);
+      max-height: 380px;
+      border-radius: 8px;
+      display: block;
+      border: 1px solid #293142;
+    }
+    .att-caption { font-size: 11.5px; color: #8f9bb3; margin-top: 4px; }
+    .file-card {
+      background: #141821;
+      border: 1px solid #293142;
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+    }
+    .attachment a { color: #6ea8fe; text-decoration: none; }
+    .attachment a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="breadcrumb">${escapeHtml(guild.name)} &rsaquo; #${escapeHtml(channel.name)}</div>
+      <h1>Ticket Transcript #${escapeHtml(ticketNumber || channel.name)}</h1>
+      <div class="meta-grid">
+        <div class="meta-item"><strong>Opened By</strong>${escapeHtml(openerTag)}</div>
+        <div class="meta-item"><strong>Claimed By</strong>${escapeHtml(claimedByTag || "Unclaimed")}</div>
+        <div class="meta-item"><strong>Closed By</strong>${escapeHtml(closedBy.username || closedBy.tag)}</div>
+        <div class="meta-item"><strong>Opened At</strong>${escapeHtml(formatFullDateTime(createdAt))}</div>
+        <div class="meta-item"><strong>Messages</strong>${messages.length}</div>
+        <div class="meta-item"><strong>Close Reason</strong>${escapeHtml(reason)}</div>
+      </div>
+      <div class="roster">${rosterHtml}</div>
+      <div class="filters">
+        <button class="filter-btn active" onclick="filterRole('all', this)">All</button>
+        <button class="filter-btn" onclick="filterRole('opener', this)">Opener</button>
+        <button class="filter-btn" onclick="filterRole('staff', this)">Staff</button>
+        <button class="filter-btn" onclick="filterRole('added', this)">Added</button>
+        <button class="filter-btn" onclick="filterRole('bot', this)">Bot</button>
+      </div>
+    </div>
+    <div class="chat-box">
+      ${rowsHtml || `<div class="msg-row"><div class="msg-body"><div class="msg-text muted">No messages recorded in this ticket.</div></div></div>`}
+    </div>
+  </div>
+  <script>
+    function filterRole(role, btn) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      document.querySelectorAll('.msg-row').forEach(row => {
+        row.style.display = (role === 'all' || row.dataset.role === role) ? '' : 'none';
+      });
+    }
+  </script>
+</body>
+</html>`;
 }
 
 function buildClosedLogEmbed({
@@ -431,7 +581,7 @@ function buildClosedLogEmbed({
     .setTimestamp();
 }
 
-// ================= UNIFIED CLOSE + LOG + DM PHOTO TRANSCRIPT =================
+// ================= UNIFIED CLOSE + LOG + DM HTML TRANSCRIPT =================
 async function closeTicketChannel({
   channel,
   guild,
@@ -443,7 +593,7 @@ async function closeTicketChannel({
   channel._isClosing = true;
 
   await channel
-    .send("🔒 Closing ticket... Generating transcript image and sending logs.")
+    .send("🔒 Closing ticket... Generating HTML transcript and sending logs.")
     .catch(() => null);
 
   const savedData = ticketStore.tickets[channel.id] || {};
@@ -469,19 +619,21 @@ async function closeTicketChannel({
   const createdAt = savedData.createdAt || channel.createdTimestamp || Date.now();
 
   const messages = await fetchAllChannelMessages(channel);
-  const pngBuffer = await renderTranscriptPng({
+  const htmlString = await renderTranscriptHtml({
     channel,
     guild,
     ticketNumber,
+    openerId,
     openerTag,
+    addedUserIds: savedData.addedUserIds || [],
     claimedByTag: claimedByPlain,
     closedBy,
     reason,
     createdAt,
     messages
   });
-
-  const fileName = `transcript-${channel.name}-${Date.now()}.png`;
+  const htmlBuffer = Buffer.from(htmlString, "utf8");
+  const fileName = `transcript-${channel.name}-${Date.now()}.html`;
 
   const logChannel = await guild.channels
     .fetch(TICKET_LOGS_CHANNEL_ID)
@@ -499,7 +651,7 @@ async function closeTicketChannel({
       method
     });
 
-    const logAttachment = new AttachmentBuilder(pngBuffer, { name: fileName });
+    const logAttachment = new AttachmentBuilder(htmlBuffer, { name: fileName });
     await logChannel
       .send({ embeds: [logEmbed], files: [logAttachment] })
       .catch((err) => {
@@ -520,7 +672,7 @@ async function closeTicketChannel({
       method
     }).setTitle(`Ticket Closed — ${guild.name}`);
 
-    const dmAttachment = new AttachmentBuilder(pngBuffer, { name: fileName });
+    const dmAttachment = new AttachmentBuilder(htmlBuffer, { name: fileName });
     await openerUser
       .send({ embeds: [dmEmbed], files: [dmAttachment] })
       .catch(() => null);
