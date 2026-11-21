@@ -1,7 +1,4 @@
-async execute(message, args) {
-  console.log("🔧 ?add triggered by:", message.author?.tag, "in:", message.channel?.id, "args:", args);
-  
-  const ticketSystem = require("../ticketSystem.js");
+const ticketSystem = require("../ticketSystem.js");
 
 const ALLOWED_TICKET_CATEGORIES = [
   "1481939936964775946", // Support Ticket Category
@@ -13,6 +10,8 @@ module.exports = {
   name: "add",
   description: "Adds a user to the current ticket channel (staff and ticket support only)",
   async execute(message, args) {
+    console.log("🔧 ?add triggered by:", message.author?.tag, "in:", message.channel?.id, "args:", args);
+
     if (!message.guild || !message.channel) return;
 
     const inCategory = ALLOWED_TICKET_CATEGORIES.includes(message.channel.parentId);
