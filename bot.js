@@ -2183,7 +2183,7 @@ client.on("interactionCreate", async (interaction) => {
 
     if (interaction.isModalSubmit() && interaction.customId.startsWith("cmdinfo_modal_")) {
       const selectedCategory = interaction.customId.replace("cmdinfo_modal_", "");
-
+      
       await interaction.deferUpdate().catch(() => null);
 
       const cmdVal = interaction.fields.getTextInputValue("cmd_name").replace(/^\?/, '').trim();
@@ -2205,7 +2205,7 @@ client.on("interactionCreate", async (interaction) => {
       await interaction.editReply({ embeds: [updatedEmbed], components: components }).catch(() => null);
       return;
     }
-
+    
     // 1. Handle Warning Edit Modals
     if (interaction.isModalSubmit() && interaction.customId.startsWith("modal_edit_warn_")) {
       const parts = interaction.customId.split("_");
@@ -2234,70 +2234,70 @@ client.on("interactionCreate", async (interaction) => {
 
     // 2. Handle Ban Appeal Button (Opens the Modal)
     if (interaction.isButton() && interaction.customId === 'open_appeal_modal') {
-      const modal = new ModalBuilder()
-        .setCustomId('ban_appeal_modal_submit')
-        .setTitle('Formal Server Ban Appeal');
+        const modal = new ModalBuilder()
+            .setCustomId('ban_appeal_modal_submit')
+            .setTitle('Formal Server Ban Appeal');
 
-      const q1 = new TextInputBuilder()
-        .setCustomId('appeal_reason_why')
-        .setLabel('1. Describe the events leading up to your ban.')
-        .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('Explain objectively what happened from your perspective.')
-        .setRequired(true);
+        const q1 = new TextInputBuilder()
+            .setCustomId('appeal_reason_why')
+            .setLabel('1. Describe the events leading up to your ban.')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Explain objectively what happened from your perspective.')
+            .setRequired(true);
 
-      const q2 = new TextInputBuilder()
-        .setCustomId('appeal_accountability')
-        .setLabel('2. Do you acknowledge your rule violation?')
-        .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('Reflect on your actions and how they impacted the community.')
-        .setRequired(true);
+        const q2 = new TextInputBuilder()
+            .setCustomId('appeal_accountability')
+            .setLabel('2. Do you acknowledge your rule violation?')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Reflect on your actions and how they impacted the community.')
+            .setRequired(true);
 
-      const q3 = new TextInputBuilder()
-        .setCustomId('appeal_future_plan')
-        .setLabel('3. What will you do differently if unbanned?')
-        .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('Outline how you plan to adhere to guidelines moving forward.')
-        .setRequired(true);
+        const q3 = new TextInputBuilder()
+            .setCustomId('appeal_future_plan')
+            .setLabel('3. What will you do differently if unbanned?')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Outline how you plan to adhere to guidelines moving forward.')
+            .setRequired(true);
 
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(q1),
-        new ActionRowBuilder().addComponents(q2),
-        new ActionRowBuilder().addComponents(q3)
-      );
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(q1),
+            new ActionRowBuilder().addComponents(q2),
+            new ActionRowBuilder().addComponents(q3)
+        );
 
-      return await interaction.showModal(modal);
+        return await interaction.showModal(modal);
     }
 
     // 3. Handle Ban Appeal Modal Submission
     if (interaction.isModalSubmit() && interaction.customId === 'ban_appeal_modal_submit') {
-      const answerEvents = interaction.fields.getTextInputValue('appeal_reason_why');
-      const answerAccountability = interaction.fields.getTextInputValue('appeal_accountability');
-      const answerPlan = interaction.fields.getTextInputValue('appeal_future_plan');
+        const answerEvents = interaction.fields.getTextInputValue('appeal_reason_why');
+        const answerAccountability = interaction.fields.getTextInputValue('appeal_accountability');
+        const answerPlan = interaction.fields.getTextInputValue('appeal_future_plan');
 
-      await interaction.reply({
-        content: '✅ Your formal ban appeal has been submitted successfully to the staff team for review!',
-        ephemeral: true
-      });
+        await interaction.reply({ 
+            content: '✅ Your formal ban appeal has been submitted successfully to the staff team for review!', 
+            ephemeral: true 
+        });
 
-      const staffChannelId = '1492845794192134245';
-      const staffChannel = interaction.client.channels.cache.get(staffChannelId);
+        const staffChannelId = '1492845794192134245'; 
+        const staffChannel = interaction.client.channels.cache.get(staffChannelId);
 
-      if (staffChannel) {
-        const appealReviewEmbed = new EmbedBuilder()
-          .setTitle('📥 Formal Ban Appeal Received')
-          .setColor(0x3b82f6)
-          .addFields(
-            { name: '👤 Appellant User', value: `${interaction.user.tag} (\`${interaction.user.id}\`)`, inline: false },
-            { name: '📜 1. Incident Description', value: answerEvents, inline: false },
-            { name: '🧠 2. Accountability & Reflection', value: answerAccountability, inline: false },
-            { name: '🤝 3. Plan for Future Conduct', value: answerPlan, inline: false }
-          )
-          .setTimestamp()
-          .setFooter({ text: "Don Don Moderation Systems - Appeals" });
+        if (staffChannel) {
+            const appealReviewEmbed = new EmbedBuilder()
+                .setTitle('📥 Formal Ban Appeal Received')
+                .setColor(0x3b82f6)
+                .addFields(
+                    { name: '👤 Appellant User', value: `${interaction.user.tag} (\`${interaction.user.id}\`)`, inline: false },
+                    { name: '📜 1. Incident Description', value: answerEvents, inline: false },
+                    { name: '🧠 2. Accountability & Reflection', value: answerAccountability, inline: false },
+                    { name: '🤝 3. Plan for Future Conduct', value: answerPlan, inline: false }
+                )
+                .setTimestamp()
+                .setFooter({ text: "Don Don Moderation Systems - Appeals" });
 
-        await staffChannel.send({ embeds: [appealReviewEmbed] });
-      }
-      return;
+            await staffChannel.send({ embeds: [appealReviewEmbed] });
+        }
+        return;
     }
 
     // 4. Handle Chat Input Slash Commands
@@ -2372,9 +2372,9 @@ client.on("interactionCreate", async (interaction) => {
         }
 
         if (user1.id === user2.id) {
-          return await interaction.reply({
-            content: "❌ You can't ship someone with themselves!",
-            ephemeral: true
+          return await interaction.reply({ 
+            content: "❌ You can't ship someone with themselves!", 
+            ephemeral: true 
           });
         }
 
@@ -2418,9 +2418,9 @@ client.on("interactionCreate", async (interaction) => {
             `${comment}`
           )
           .setThumbnail(imgUrl)
-          .setFooter({
-            text: `Shipped by ${interaction.user.username}`,
-            iconURL: interaction.user.displayAvatarURL({ dynamic: true })
+          .setFooter({ 
+            text: `Shipped by ${interaction.user.username}`, 
+            iconURL: interaction.user.displayAvatarURL({ dynamic: true }) 
           });
 
         return await interaction.reply({ embeds: [shipEmbed] });
@@ -2431,20 +2431,20 @@ client.on("interactionCreate", async (interaction) => {
         const cooldownTime = 24 * 60 * 60 * 1000;
         const now = Date.now();
 
-        const guildData = getGuildData(interaction.guild.id);
-        if (!guildData.economy) guildData.economy = {};
-        if (!guildData.economy[userId]) guildData.economy[userId] = { balance: 0, lastDaily: 0 };
+        const data = getGuildData(interaction.guild.id);
+        if (!data.economy) data.economy = {};
+        if (!data.economy[userId]) data.economy[userId] = { balance: 0, lastDaily: 0 };
 
-        const userData = guildData.economy[userId];
+        const userData = data.economy[userId];
 
         if (now - userData.lastDaily < cooldownTime) {
           const timeLeft = cooldownTime - (now - userData.lastDaily);
           const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
           const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-
-          return await interaction.reply({
-            content: `⏳ You have already claimed your daily reward! Please wait another **${hoursLeft}h ${minutesLeft}m**.`,
-            ephemeral: true
+          
+          return await interaction.reply({ 
+            content: `⏳ You have already claimed your daily reward! Please wait another **${hoursLeft}h ${minutesLeft}m**.`, 
+            ephemeral: true 
           });
         }
 
@@ -2457,7 +2457,7 @@ client.on("interactionCreate", async (interaction) => {
           content: `🎉 You successfully claimed your daily reward and received **1 DON**! Your new balance is **${userData.balance} DON**.`
         });
       }
-
+      
       if (interaction.commandName === 'shop') {
         const fakeMessage = {
           author: interaction.user,
@@ -2468,18 +2468,18 @@ client.on("interactionCreate", async (interaction) => {
             return await interaction.reply(payload);
           }
         };
-        const guildData = getGuildData(interaction.guild.id);
-        const prefix = guildData.prefix || DEFAULT_PREFIX;
+        const data = getGuildData(interaction.guild.id);
+        const prefix = data.prefix || DEFAULT_PREFIX;
         return shopCommand.execute(fakeMessage, [], prefix, getGuildData, saveData, interaction);
       }
-
+      
       if (["marry", "divorce", "marriages", "adopt"].includes(interaction.commandName)) {
         await interaction.deferReply({ ephemeral: true }).catch(() => {});
 
-        const targetUser =
-          interaction.options.getUser("user") ||
-          interaction.options.getUser("child") ||
-          interaction.options.getUser("target") ||
+        const targetUser = 
+          interaction.options.getUser("user") || 
+          interaction.options.getUser("child") || 
+          interaction.options.getUser("target") || 
           interaction.options.getUser("spouse");
 
         let cmdArgs = [];
@@ -2497,41 +2497,25 @@ client.on("interactionCreate", async (interaction) => {
           member: interaction.member || { id: interaction.user.id, user: interaction.user, roles: { cache: new Map() }, permissions: { has: () => false } },
           guild: interaction.guild,
           channel: interaction.channel,
-          mentions: {
-            members: {
-              first: () => targetUser ? interaction.guild?.members.cache.get(targetUser.id) : null
+          mentions: { 
+            members: { 
+              first: () => targetUser ? interaction.guild?.members.cache.get(targetUser.id) : null 
             },
             users: {
               first: () => targetUser || null
             }
           },
           reply: async (payload) => {
-            const replyData = typeof payload === "string" ? { content: payload } : payload;
+            const data = typeof payload === "string" ? { content: payload } : payload;
             if (interaction.deferred || interaction.replied) {
-              return await interaction.editReply({ ...replyData });
+              return await interaction.editReply({ ...data });
             }
-            return await interaction.reply({ ...replyData, ephemeral: true });
+            return await interaction.reply({ ...data, ephemeral: true });
           },
           delete: async () => null
         };
 
         return await handleCommands(fakeMessage, getGuildData);
-      }
-
-      if (interaction.commandName === 'feedback') {
-        const modal = new ModalBuilder()
-          .setCustomId('myModal')
-          .setTitle('My Awesome Form');
-
-        const favoriteInput = new TextInputBuilder()
-          .setCustomId('favoriteInput')
-          .setLabel("What's your favorite thing?")
-          .setStyle(TextInputStyle.Short);
-
-        const firstActionRow = new ActionRowBuilder().addComponents(favoriteInput);
-        modal.addComponents(firstActionRow);
-
-        await interaction.showModal(modal);
       }
     }
 
@@ -2545,7 +2529,7 @@ client.on("interactionCreate", async (interaction) => {
       ) {
         return await ticketSystem.handleTicketInteraction(interaction);
       }
-
+      
       // 👉 Reaction Roles Button Handler Integration
       if (interaction.isButton() && interaction.customId.startsWith("rr_")) {
         const roleId = interaction.customId.replace("rr_", "");
@@ -2573,7 +2557,7 @@ client.on("interactionCreate", async (interaction) => {
       if (interaction.isButton() && interaction.customId.startsWith("gw_enter_")) {
         const giveawayId = interaction.customId.split("_")[2];
         const guildData = getGuildData(interaction.guild.id);
-
+        
         if (!guildData.giveaways || !guildData.giveaways[giveawayId]) {
           return interaction.reply({ content: "❌ This giveaway no longer exists.", ephemeral: true });
         }
@@ -2609,12 +2593,12 @@ client.on("interactionCreate", async (interaction) => {
         const pollId = parts[1];
         const optionIdx = parseInt(parts[2]);
 
-        const guildData = getGuildData(interaction.guild.id);
-        if (!guildData.polls || !guildData.polls[pollId]) {
+        const data = getGuildData(interaction.guild.id);
+        if (!data.polls || !data.polls[pollId]) {
           return interaction.reply({ content: "❌ This poll no longer exists or data was wiped.", ephemeral: true });
         }
 
-        const poll = guildData.polls[pollId];
+        const poll = data.polls[pollId];
 
         if (Date.now() > poll.expiresAt) {
           return interaction.reply({ content: "❌ This poll has already expired and is locked.", ephemeral: true });
@@ -2644,7 +2628,7 @@ client.on("interactionCreate", async (interaction) => {
           }
         }
 
-        saveData(interaction.guild.id, guildData);
+        saveData(interaction.guild.id, data);
 
         const numberEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
         const totalVotes = Object.keys(poll.votes).length;
@@ -2717,17 +2701,296 @@ client.on("interactionCreate", async (interaction) => {
       ) {
         return adoptionCommand.handleInteraction(interaction, getGuildData, saveData);
       }
+    }
+  
+    // 6. Handle Slash Commands (like /feedback)
+    if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === 'feedback') {
+            const modal = new ModalBuilder()
+                .setCustomId('myModal')
+                .setTitle('My Awesome Form');
 
-      if (interaction.isModalSubmit() && interaction.customId === 'myModal') {
-        const favoriteAnswer = interaction.fields.getTextInputValue('favoriteInput');
+            const favoriteInput = new TextInputBuilder()
+                .setCustomId('favoriteInput')
+                .setLabel("What's your favorite thing?")
+                .setStyle(TextInputStyle.Short);
 
-        await interaction.reply({
-          content: `Thank you! Your favorite thing is: **${favoriteAnswer}**`,
-          ephemeral: true
-        });
-      }
+            const firstActionRow = new ActionRowBuilder().addComponents(favoriteInput);
+            modal.addComponents(firstActionRow);
+
+            await interaction.showModal(modal);
+        }
+    }
+
+    // 7. Handle Modal Submissions (when the user fills it out and hits submit)
+    else if (interaction.isModalSubmit()) {
+        if (interaction.customId === 'myModal') {
+            const favoriteAnswer = interaction.fields.getTextInputValue('favoriteInput');
+
+            await interaction.reply({ 
+                content: `Thank you! Your favorite thing is: **${favoriteAnswer}**`, 
+                ephemeral: true 
+            });
+        }
     }
   } catch (err) {
     console.error("Error handling interactionCreate event:", err);
+  }
+});
+  
+// ================= CLIENT READY EVENT =================
+client.once("ready", () => {
+  console.log(`Logged in as ${client.user.tag}!`);
+  
+  // ================= HOURLY MINI-GAME PROMO =================
+  const GENERAL_CHANNEL_ID = "1481561361044607047";
+  const BOT_CHANNEL_ID = "1481370051264254259";
+
+  // Runs once every 3,600,000 milliseconds (1 hour) - GLOBALLY SINGLE INSTANCE
+  setInterval(async () => {
+    try {
+      const channel = await client.channels.fetch(GENERAL_CHANNEL_ID).catch(() => null);
+      if (channel && channel.isTextBased()) {
+        const promoEmbed = new EmbedBuilder()
+          .setColor(0x5865f2)
+          .setTitle("🎮 Pet Crates & Trading Mini-Game!")
+          .setDescription(`Chat in General to earn points! Head over to <#${BOT_CHANNEL_ID}> to spin crates, check stats, & trade rare pets using \`?crates\`, \`?msg\`, or \`?trade\`!`)
+          .setFooter({ text: "Don Don Mini-Game • Earn points passively as you chat!" });
+
+        await channel.send({ embeds: [promoEmbed] }).catch(() => null);
+      }
+    } catch (err) {
+      console.error("Error sending hourly mini-game promo:", err);
+    }
+  }, 3600000); // 3,600,000 ms = exactly 1 hour
+});
+
+// ================= MESSAGE CREATE INTERCEPT PIPELINE =================
+client.on("messageCreate", async (message) => {
+  try {
+    if (message.author.bot || !message.content) return;
+
+    const isDM = !message.guild; // Check if the message is a private DM
+
+    // ================= PRIVATE DM AI PIPELINE =================
+    if (isDM) {
+      await message.channel.sendTyping().catch(() => null);
+
+      let dmHistory = [];
+      try {
+        const fetchedMsgs = await message.channel.messages.fetch({ limit: 50 });
+        dmHistory = Array.from(fetchedMsgs.values())
+          .reverse()
+          .map(m => ({
+            role: m.author.id === client.user.id ? "assistant" : "user",
+            content: `${m.author.username}:${m.content}`
+          }));
+      } catch (err) {
+        console.error("Failed to fetch DM message history:", err);
+      }
+
+      const aiReply = await generateAiReply(message, message.content, dmHistory, 0);
+      if (aiReply) {
+        return message.reply({ 
+          content: aiReply, 
+          allowedMentions: { parse: [], repliedUser: true }
+        });
+      }
+      return;
+    }
+
+    // ================= MESSAGE POINTS EARNING =================
+    const data = getGuildData(message.guild.id);
+    if (!data.economy) data.economy = {};
+    
+    const userId = message.author.id;
+    if (!data.economy[userId]) {
+      data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
+    }
+
+    const userData = data.economy[userId];
+    const now = Date.now();
+    const POINT_COOLDOWN = 45000; // 45 seconds cooldown between point earnings per user
+
+    // Check if cooldown has passed and message isn't just a tiny command execution
+    if (now - (userData.lastMessagePointTime || 0) > POINT_COOLDOWN && message.content.length > 3) {
+      userData.lastMessagePointTime = now;
+      
+      // Award points/currency (e.g., 0.1 to 0.5 points per active message)
+      const earnedPoints = 0.25; 
+      userData.balance = (userData.balance || 0) + earnedPoints;
+      userData.coins = (userData.coins || 0) + earnedPoints;
+      
+      saveData();
+    }
+
+    // ================= UTC MESSAGE ACTIVITY TRACKER =================
+    if (!message.author.bot && message.guild) {
+      if (!data.countedChannels) data.countedChannels = ["1481561361044607047"]; // Default general channel
+
+      if (data.countedChannels.includes(message.channel.id)) {
+        if (!data.messageStats) data.messageStats = {};
+        const uid = message.author.id;
+        
+        const nowDate = new Date();
+        const utcYear = nowDate.getUTCFullYear();
+        const utcMonth = nowDate.getUTCMonth();
+        const utcDate = nowDate.getUTCDate();
+        
+        const dateStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}-${String(utcDate).padStart(2, '0')}`;
+        const monthStr = `${utcYear}-${String(utcMonth + 1).padStart(2, '0')}`;
+
+        // Calculate UTC Monday for weekly reset tracking
+        const d = new Date(Date.UTC(utcYear, utcMonth, utcDate));
+        const day = d.getUTCDay();
+        const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(d.setUTCDate(diff));
+        const weekStr = monday.toISOString().split("T")[0];
+
+        if (!data.messageStats[uid]) {
+          data.messageStats[uid] = { 
+            total: 0, 
+            daily: { date: dateStr, count: 0 }, 
+            weekly: { week: weekStr, count: 0 }, 
+            monthly: { month: monthStr, count: 0 } 
+          };
+        }
+
+        const stats = data.messageStats[uid];
+
+        // Auto-reset period counters based on strict UTC triggers
+        if (stats.daily.date !== dateStr) { stats.daily.date = dateStr; stats.daily.count = 0; }
+        if (stats.weekly.week !== weekStr) { stats.weekly.week = weekStr; stats.weekly.count = 0; }
+        if (stats.monthly.month !== monthStr) { stats.monthly.month = monthStr; stats.monthly.count = 0; }
+
+        stats.total++;
+        stats.daily.count++;
+        stats.weekly.count++;
+        stats.monthly.count++;
+        saveData();
+      }
+    }
+
+    const prefix = data.prefix || DEFAULT_PREFIX;
+
+    const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
+    if (userReturned) return;
+
+    const bypassRoleId = "1492630307650666546";
+    const hasBypassDiscordInvite = message.member?.roles.cache.has(bypassRoleId) || false;
+    const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
+    const containsDiscordInvite = discordInviteRegex.test(message.content);
+    const allowDiscordInvite = hasBypassDiscordInvite && containsDiscordInvite;
+
+    const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+    if (protectedWord) {
+      await message.delete().catch(() => null);
+      await sendAutomodLog(message, protectedWord);
+      return;
+    }
+
+    if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
+      const word = containsBlacklistedWord(message.content, [
+        ...CORE_BLACKLIST, 
+        ...(data.words || []), 
+        ...(data.blockedLinks || [])
+      ]);
+      if (word) {
+        await message.delete().catch(() => null);
+        await sendAutomodLog(message, word);
+        return;
+      }
+    }
+
+    if (data.autoResponses) {
+      const contentLower = message.content.toLowerCase();
+      for (const [trigger, arData] of Object.entries(data.autoResponses)) {
+        if (contentLower.includes(trigger)) {
+          let payload = {};
+          if (arData.text) payload.content = arData.text;
+          if (arData.image) {
+            payload.embeds = [new EmbedBuilder().setColor(0xff69b4).setImage(arData.image)];
+          }
+          if (payload.content || payload.embeds) {
+            await message.channel.send(payload).catch(() => {});
+          }
+          break;
+        }
+      }
+    }
+
+    if (!data.channelCounters) data.channelCounters = {};
+    if (!data.channelCounters[message.channel.id]) data.channelCounters[message.channel.id] = 0;
+    if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
+
+    const isAiCommand = message.content.startsWith(`${prefix}ai`);
+    const isStatusCommand = message.content.startsWith(`${prefix}status`);
+    
+    let isReplyToBot = false;
+    if (message.reference && message.reference.messageId) {
+      const repliedMsg = message.channel.messages.cache.get(message.reference.messageId) 
+        || await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+      
+      if (repliedMsg && repliedMsg.author.id === client.user.id) {
+        isReplyToBot = true;
+      }
+    }
+
+    if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
+      data.channelCounters[message.channel.id]++;
+      
+      if (data.channelCounters[message.channel.id] >= 50) {
+        data.channelCounters[message.channel.id] = 0; 
+        data.currentPersonaIndex += 1; 
+      }
+      
+      if (typeof store !== "undefined") store[message.guild.id] = data;
+      saveData();
+    }
+
+    const wasCommand = await handleCommands(message, getGuildData);
+    if (wasCommand) return;
+
+    const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
+
+    if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
+
+    let triggerText = message.content;
+
+    if (isAiCommand) {
+      triggerText = message.content.slice(`${prefix}ai`.length).trim();
+      if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
+    } else if (isBotMentioned) {
+      triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
+      if (!triggerText) {
+        return message.reply("Hey! How can I help you today?");
+      }
+    }
+
+    await message.channel.sendTyping().catch(() => null);
+
+    // ================= REAL-TIME CHANNEL HISTORY FETCHER =================
+    let channelHistory = [];
+    try {
+      const fetchedMsgs = await message.channel.messages.fetch({ limit: 50 });
+      channelHistory = Array.from(fetchedMsgs.values())
+        .reverse()
+        .map(m => ({
+          role: m.author.id === client.user.id ? "assistant" : "user",
+          content: `${m.author.username}: ${m.content}`
+        }));
+    } catch (err) {
+      console.error("Failed to fetch channel message history:", err);
+    }
+
+    const aiReply = await generateAiReply(message, triggerText, channelHistory, data.currentPersonaIndex);
+    if (aiReply) {
+      return message.reply({ 
+        content: aiReply, 
+        allowedMentions: { parse: [], repliedUser: true }
+      });
+    }
+  } catch (err) {
+    console.error("Error running inside messageCreate pipeline:", err);
   }
 });
