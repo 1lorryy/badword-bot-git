@@ -12,7 +12,7 @@ module.exports = {
           .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
       }
 
-// ================= EMBED 1: MAIN SERVER RULES =================
+      // ================= EMBED 1: MAIN SERVER RULES =================
       const mainRulesEmbed = new EmbedBuilder()
         .setTitle("📜 SERVER RULES")
         .setColor(0xd9383a)
@@ -46,10 +46,11 @@ module.exports = {
           "🔹 **2nd warn** + 5 minutes mute\n" +
           "🔹 **3rd warn** + 30 minutes mute\n" +
           "🔹 **4th warn** + 12 hours mute\n" +
-          "🔹 **5th warn** + kick\n" +
-          "🔹 **6th warn** + Ban\n\n" +
+          "🔹 **5th warn** + 7 day ban\n" +
+          "🔹 **6th warn** + permanent ban\n\n" +
+          "⏳ **Expiration:** Warnings expire **30 days** after your **latest** warning. This means any new warnings will reset the **30 day timer**.\n\n" +
           "⚠️ **Note:** Punishments are subject to change depending on the **severity** of the infraction. Staff members reserve the right to issue harsher penalties, skip warning tiers, or apply custom actions (such as <@&1481370041260966067>) immediately if deemed necessary.\n\n" +
-          "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊'𝕤 𝖘𝖊𝖗𝖛𝖊𝖗 𝖗𝖚𝖑𝖊𝖘"
+          "𝕯𝖔𝖓𝕼𝖚𝖎𝖝𝖔𝖙𝖊𝖘 𝕷𝖔𝖚𝖓𝖌𝖊'𝖘 𝖘𝖊𝖗𝖛𝖊𝖗 𝖗𝖚𝖑𝖊𝖘"
         );
 
       return message.channel.send({ embeds: [mainRulesEmbed, ladderEmbed] });
