@@ -697,6 +697,11 @@ if (command === "ticketpanel" || command === "tpanel") {
   await ticketPanelCmd.execute(message, args, prefix);
   return true;
 }
+
+  if (command === "add") {
+    await addCommand.execute(message, args, prefix);
+    return true;
+  }
   
   if (command === "crates" || command === "crate" || command === "pets" || command === "inventory") {
     const cratesCmd = require("./commands/crates.js");
