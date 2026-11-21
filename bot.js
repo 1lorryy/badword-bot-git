@@ -29,6 +29,7 @@ const commandInfoCommand = require("./commands/commandinfo.js");
 const otherRolesCommand = require("./commands/otherroles.js");
 const reactionRolesCommand = require("./commands/reactionroles.js");
 const ticketSystem = require("./ticketSystem.js");
+const addCommand = require("./commands/add.js");
 
 const snipes = {};
 const fs = require("fs");
