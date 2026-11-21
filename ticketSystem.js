@@ -25,6 +25,11 @@ const STAFF_ROLE_IDS = [
   "1481370041441189959"
 ];
 
+const TICKET_MANAGER_ROLE_IDS = [
+  TICKET_PING_ROLE_ID,
+  ...STAFF_ROLE_IDS
+];
+
 const TICKET_CATEGORIES = {
   support: "1481939936964775946",
   claim: "1481937769612968038",
@@ -75,6 +80,40 @@ function isTicketStaff(member) {
     return STAFF_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
   }
   return false;
+}
+
+function canManageTicketMembers(member) {
+  if (!member) return false;
+  if (member.permissions?.has(PermissionFlagsBits.Administrator)) return true;
+  if (member.roles?.cache) {
+    return TICKET_MANAGER_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
+  }
+  return false;
+}
+
+async function addUserToTicket({ channel, guild, targetUser, addedBy }) {
+  if (!channel || !guild || !targetUser) {
+    return { ok: false, error: "❌ Missing ticket channel or target user." };
+  }
+
+  await channel.permissionOverwrites.edit(targetUser.id, {
+    ViewChannel: true,
+    SendMessages: true,
+    ReadMessageHistory: true,
+    AttachFiles: true,
+    EmbedLinks: true
+  });
+
+  if (ticketStore.tickets[channel.id]) {
+    const entry = ticketStore.tickets[channel.id];
+    if (!Array.isArray(entry.addedUserIds)) entry.addedUserIds = [];
+    if (!entry.addedUserIds.includes(targetUser.id)) {
+      entry.addedUserIds.push(targetUser.id);
+      saveTickets();
+    }
+  }
+
+  return { ok: true, addedBy };
 }
 
 function resolveOpenerId(channel) {
@@ -152,7 +191,6 @@ function wrapTextLines(ctx, text, maxWidth) {
         currentLine = testLine;
       } else {
         if (currentLine) lines.push(currentLine);
-        // If a single long word exceeds maxWidth, break it cleanly
         if (ctx.measureText(word).width > maxWidth) {
           let chunk = "";
           for (const ch of word) {
@@ -202,9 +240,8 @@ async function renderTranscriptPng({
   const avatarSize = 38;
   const textStartX = paddingX + avatarSize + 14;
   const maxTextWidth = width - textStartX - paddingX - 12;
-  const cappedMessages = messages.slice(-60); // Keep image crisp & fast even in long tickets
+  const cappedMessages = messages.slice(-60);
 
-  // Load avatars in parallel (with fallback)
   const uniqueAuthors = new Map();
   for (const m of cappedMessages) {
     if (m.author && !uniqueAuthors.has(m.author.id)) {
@@ -227,7 +264,6 @@ async function renderTranscriptPng({
     })
   );
 
-  // Measure total height first
   const measureCanvas = createCanvas(width, 200);
   const mctx = measureCanvas.getContext("2d");
 
@@ -235,7 +271,9 @@ async function renderTranscriptPng({
     mctx.font = "15px sans-serif";
     const bodyText =
       m.content ||
-      (m.embeds?.[0]?.title ? `${m.embeds[0].title}${m.embeds[0].description ? ` — ${m.embeds[0].description}` : ""}` : "") ||
+      (m.embeds?.[0]?.title
+        ? `${m.embeds[0].title}${m.embeds[0].description ? ` — ${m.embeds[0].description}` : ""}`
+        : "") ||
       (m.attachments?.size ? `[Attachment: ${m.attachments.first().name}]` : "(empty message)");
 
     const lines = wrapTextLines(mctx, bodyText, maxTextWidth);
@@ -263,11 +301,9 @@ async function renderTranscriptPng({
   const canvas = createCanvas(width, totalHeight);
   const ctx = canvas.getContext("2d");
 
-  // Background
   ctx.fillStyle = "#141821";
   ctx.fillRect(0, 0, width, totalHeight);
 
-  // Top breadcrumb & title
   ctx.fillStyle = "#8f9bb3";
   ctx.font = "13px sans-serif";
   ctx.fillText(`Transcripts > #${channel.name}`, paddingX, 34);
@@ -276,7 +312,6 @@ async function renderTranscriptPng({
   ctx.font = "bold 26px sans-serif";
   ctx.fillText(`Transcript #${ticketNumber || channel.name}`, paddingX, 68);
 
-  // Metadata summary line
   ctx.fillStyle = "#b8c2d6";
   ctx.font = "13px sans-serif";
   const summaryLine = `Opened by ${openerTag}  •  Closed by ${closedBy.username || closedBy.tag}  •  Claimed by ${claimedByTag || "Unclaimed"}`;
@@ -286,7 +321,6 @@ async function renderTranscriptPng({
   const subLine = `Opened: ${formatFullDateTime(createdAt)}  •  Reason: ${reason}`;
   ctx.fillText(subLine.slice(0, 110), paddingX, 118);
 
-  // Chat container card
   drawRoundedRect(ctx, paddingX - 6, chatTop, width - (paddingX - 6) * 2, chatHeight, 12);
   ctx.fillStyle = "#1b202c";
   ctx.fill();
@@ -302,7 +336,6 @@ async function renderTranscriptPng({
     const isBot = Boolean(msg.author?.bot);
     const timeStr = formatShortTime(msg.createdTimestamp);
 
-    // Avatar
     const avImg = msg.author ? avatarMap.get(msg.author.id) : null;
     ctx.save();
     drawRoundedRect(ctx, paddingX + 6, y + 2, avatarSize, avatarSize, avatarSize / 2);
@@ -315,7 +348,6 @@ async function renderTranscriptPng({
     }
     ctx.restore();
 
-    // Author + APP badge + Timestamp
     ctx.font = "bold 14px sans-serif";
     ctx.fillStyle = "#ffffff";
     ctx.fillText(authorName, textStartX, y + 16);
@@ -337,7 +369,6 @@ async function renderTranscriptPng({
     ctx.fillStyle = "#8894ab";
     ctx.fillText(timeStr, cursorX, y + 16);
 
-    // Optional green embed accent bar like screenshot
     const msgTextY = y + 36;
     if (hasEmbedBox) {
       drawRoundedRect(ctx, textStartX, msgTextY - 12, 4, lines.length * 20 + 6, 2);
@@ -345,7 +376,6 @@ async function renderTranscriptPng({
       ctx.fill();
     }
 
-    // Message lines
     ctx.font = "15px sans-serif";
     ctx.fillStyle = "#e4e8f0";
     const lineX = hasEmbedBox ? textStartX + 12 : textStartX;
@@ -353,7 +383,6 @@ async function renderTranscriptPng({
       ctx.fillText(line, lineX, msgTextY + idx * 20);
     });
 
-    // Subtle divider between messages
     y += rowHeight;
     if (y < chatTop + chatHeight - 16) {
       ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
@@ -439,7 +468,6 @@ async function closeTicketChannel({
   const ticketNumber = savedData.ticketNumber || channel.name;
   const createdAt = savedData.createdAt || channel.createdTimestamp || Date.now();
 
-  // 1. Fetch messages & render PNG transcript image
   const messages = await fetchAllChannelMessages(channel);
   const pngBuffer = await renderTranscriptPng({
     channel,
@@ -455,7 +483,6 @@ async function closeTicketChannel({
 
   const fileName = `transcript-${channel.name}-${Date.now()}.png`;
 
-  // 2. Send log embed + PNG photo to Ticket Logs Channel (1481370050597228661)
   const logChannel = await guild.channels
     .fetch(TICKET_LOGS_CHANNEL_ID)
     .catch(() => null);
@@ -480,7 +507,6 @@ async function closeTicketChannel({
       });
   }
 
-  // 3. Send closed summary + PNG photo to the Ticket Creator's DMs
   if (openerUser) {
     const dmEmbed = buildClosedLogEmbed({
       ticketNumber,
@@ -500,7 +526,6 @@ async function closeTicketChannel({
       .catch(() => null);
   }
 
-  // 4. Remove from active ticket store & auto-save immediately before deleting channel
   delete ticketStore.tickets[channel.id];
   saveTickets();
 
@@ -693,6 +718,7 @@ async function handleTicketInteraction(interaction) {
       openerTag: user.username || user.tag,
       claimedById: null,
       claimedByTag: null,
+      addedUserIds: [],
       type,
       ticketNumber: ticketNum,
       createdAt: Date.now()
@@ -744,6 +770,8 @@ async function handleTicketInteraction(interaction) {
 module.exports = {
   handleTicketInteraction,
   closeTicketChannel,
+  addUserToTicket,
+  canManageTicketMembers,
   isTicketChannel,
   ALLOWED_CATEGORY_IDS
 };
