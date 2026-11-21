@@ -1,118 +1,40 @@
-const { EmbedBuilder, PermissionFlagsBits, AttachmentBuilder } = require("discord.js");
+const ticketSystem = require("../ticketSystem.js");
 
-const TICKET_CATEGORIES = [
-  "1481938314062725281", // Purchases
-  "1481937769612968038", // Claims
-  "1481939936964775946"  // Support
+const ALLOWED_TICKET_CATEGORIES = [
+  "1481939936964775946", // Support Ticket Category
+  "1481938314062725281", // Purchases Category
+  "1481937769612968038"  // Claim Category
 ];
-
-const LOG_CHANNEL_ID = "1481370050597228661"; 
 
 module.exports = {
   name: "close",
-  description: "Closes the ticket, generates a Tickets v2 style log, and DMs the user transcript",
-  async execute(message, args, prefix) {
-    message.delete().catch(() => null);
+  description: "Immediately closes a ticket, saves transcript, and sends log + transcript to logs channel and user DMs",
+  async execute(message, args) {
+    if (!message.guild || !message.channel) return;
 
-    const isStaff = message.member.permissions.has(PermissionFlagsBits.ManageChannels) ||
-                    message.member.permissions.has(PermissionFlagsBits.ManageMessages);
+    const inCategory = ALLOWED_TICKET_CATEGORIES.includes(message.channel.parentId);
+    const isTracked =
+      typeof ticketSystem.isTicketChannel === "function"
+        ? ticketSystem.isTicketChannel(message.channel.id)
+        : false;
 
-    const isAdmin = message.member.permissions.has(PermissionFlagsBits.Administrator) || 
-                    message.guild.ownerId === message.author.id;
-
-    if (!isStaff && !isAdmin) {
-      return message.channel.send("❌ **Access Denied:** Only staff members can close tickets.")
-        .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
+    if (!inCategory && !isTracked) {
+      return message.reply("❌ This command can only be used inside a ticket channel.");
     }
 
-    const isInTicketCategory = TICKET_CATEGORIES.includes(message.channel.parentId);
+    const reason = args.join(" ").trim() || "No reason provided";
 
-    if (!isInTicketCategory && !isAdmin) {
-      return message.channel.send("❌ **Restricted:** The `?close` command can only be used inside ticket channels!")
-        .then(m => setTimeout(() => m.delete().catch(() => null), 5000));
-    }
-
-    const reason = args.length > 0 ? args.join(" ") : "Resolved";
-
-    // 1. Notify inside the ticket channel
-    const closingEmbed = new EmbedBuilder()
-      .setColor(0x2ECC71)
-      .setTitle("🔒 Ticket Closing Sequence Initiated")
-      .setDescription(`Closing ticket and saving transcripts in **5 seconds**...`)
-      .setTimestamp();
-
-    await message.channel.send({ embeds: [closingEmbed] });
-
-    // 2. Fetch messages for transcript
-    const fetchedMessages = await message.channel.messages.fetch({ limit: 100 }).catch(() => null);
-    let transcriptText = `==================================================\n`;
-    transcriptText += `TRANSCRIPT LOG FOR #${message.channel.name.toUpperCase()}\n`;
-    transcriptText += `Closed By: ${message.author.tag} (${message.author.id})\n`;
-    transcriptText += `Reason: ${reason}\n`;
-    transcriptText += `Date: ${new Date().toISOString()}\n`;
-    transcriptText += `==================================================\n\n`;
-
-    if (fetchedMessages) {
-      const sortedMsgs = Array.from(fetchedMessages.values()).reverse();
-      sortedMsgs.forEach(msg => {
-        const time = msg.createdAt.toISOString().replace('T', ' ').substring(0, 19);
-        transcriptText += `[${time}] ${msg.author.tag}: ${msg.content || "[Attachment/Embed]"}\n`;
+    if (typeof ticketSystem.closeTicketChannel === "function") {
+      await ticketSystem.closeTicketChannel({
+        channel: message.channel,
+        guild: message.guild,
+        closedBy: message.author,
+        reason,
+        method: "?close"
       });
+      return true;
     }
 
-    const transcriptAttachment = new AttachmentBuilder(
-      Buffer.from(transcriptText, "utf-8"),
-      { name: `transcript-${message.channel.name}.txt` }
-    );
-
-    // 3. Find ticket author to DM them the transcript
-    const ticketMember = message.channel.members.find(
-      m => !m.user.bot && !m.permissions.has(PermissionFlagsBits.ManageMessages)
-    );
-
-    if (ticketMember) {
-      const userDmEmbed = new EmbedBuilder()
-        .setColor(0x2ECC71)
-        .setTitle("🔒 Ticket Closed")
-        .addFields(
-          { name: "🌐 Channel", value: `#${message.channel.name}`, inline: true },
-          { name: "👤 Closed By", value: `${message.author.tag}`, inline: true },
-          { name: "❓ Reason", value: reason, inline: false }
-        )
-        .setDescription("A copy of your chat transcript is attached below.")
-        .setTimestamp();
-
-      await ticketMember.send({ embeds: [userDmEmbed], files: [transcriptAttachment] }).catch(() => null);
-    }
-
-    // 4. Send the Tickets v2 style log embed to <#1481370050597228661>
-    const logChannel = message.guild.channels.cache.get(LOG_CHANNEL_ID);
-    if (logChannel) {
-      const logEmbed = new EmbedBuilder()
-        .setColor(0x2ECC71)
-        .setTitle("Ticket Closed")
-        .addFields(
-          { name: "📌 Ticket ID", value: message.channel.name.replace(/[^0-9]/g, "") || "N/A", inline: true },
-          { name: "🟢 Opened By", value: ticketMember ? `<@${ticketMember.id}>` : "Unknown", inline: true },
-          { name: "🔴 Closed By", value: `<@${message.author.id}>`, inline: true },
-          { name: "❓ Reason", value: reason, inline: false }
-        )
-        .setFooter({ text: "DonDon Operations • Transcript Log" })
-        .setTimestamp();
-
-      await logChannel.send({
-        embeds: [logEmbed],
-        files: [transcriptAttachment]
-      }).catch(err => console.error("Error sending log embed:", err));
-    }
-
-    // 5. Delete channel after 5 seconds
-    setTimeout(async () => {
-      try {
-        await message.channel.delete(`Ticket closed by ${message.author.tag} - Reason: ${reason}`);
-      } catch (err) {
-        console.error("Failed to delete ticket channel:", err);
-      }
-    }, 5000);
+    return message.reply("❌ `closeTicketChannel` is not exported from `ticketSystem.js` yet.");
   }
 };
