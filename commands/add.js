@@ -1,4 +1,7 @@
-const ticketSystem = require("../ticketSystem.js");
+async execute(message, args) {
+  console.log("🔧 ?add triggered by:", message.author?.tag, "in:", message.channel?.id, "args:", args);
+  
+  const ticketSystem = require("../ticketSystem.js");
 
 const ALLOWED_TICKET_CATEGORIES = [
   "1481939936964775946", // Support Ticket Category
