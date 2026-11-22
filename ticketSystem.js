@@ -90,6 +90,40 @@ function canManageTicketMembers(member) {
   return false;
 }
 
+function buildClaimRow(claimedById, viewerId = null) {
+  if (!claimedById) {
+    return new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("tkt_claim")
+        .setLabel("Claim")
+        .setEmoji("🙋")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(false)
+    );
+  }
+
+  const isOwner = viewerId && viewerId === claimedById;
+  if (isOwner) {
+    return new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("tkt_unclaim")
+        .setLabel("Unclaim")
+        .setEmoji("🔓")
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(false)
+    );
+  }
+
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("tkt_claim")
+      .setLabel("Claimed")
+      .setEmoji("🔒")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(true)
+  );
+}
+
 async function addUserToTicket({ channel, guild, targetUser, addedBy }) {
   if (!channel || !guild || !targetUser) {
     return { ok: false, error: "❌ Missing ticket channel or target user." };
@@ -775,15 +809,10 @@ async function handleTicketInteraction(interaction) {
         createdAt: interaction.channel.createdTimestamp || Date.now()
       };
 
-      const isSameClaimer = existing.claimedById === user.id;
-      if (isSameClaimer) {
-        existing.claimedById = null;
-        existing.claimedByTag = null;
-        ticketStore.tickets[interaction.channel.id] = existing;
-        saveTickets();
-
+      if (existing.claimedById && existing.claimedById !== user.id) {
         return interaction.reply({
-          content: `Unclaimed ticket by ${user}.`
+          content: `❌ This ticket is already claimed by <@${existing.claimedById}>. Only they can unclaim it.`,
+          ephemeral: true
         });
       }
 
@@ -798,7 +827,51 @@ async function handleTicketInteraction(interaction) {
         .setDescription(`Your ticket will be handled by ${user}`)
         .setTimestamp();
 
+      await interaction.message
+        .edit({ components: [buildClaimRow(user.id, user.id)] })
+        .catch(() => null);
+
       return interaction.reply({ embeds: [claimEmbed] });
+    }
+
+    if (id === "tkt_unclaim") {
+      if (!isTicketStaff(member)) {
+        return interaction.reply({
+          content: "❌ Only staff members can manage ticket claims.",
+          ephemeral: true
+        });
+      }
+
+      const existing = ticketStore.tickets[interaction.channel.id] || {};
+      if (!existing.claimedById) {
+        await interaction.message
+          .edit({ components: [buildClaimRow(null)] })
+          .catch(() => null);
+        return interaction.reply({
+          content: "ℹ️ This ticket isn't currently claimed.",
+          ephemeral: true
+        });
+      }
+
+      if (existing.claimedById !== user.id) {
+        return interaction.reply({
+          content: `❌ Only <@${existing.claimedById}> can unclaim this ticket.`,
+          ephemeral: true
+        });
+      }
+
+      existing.claimedById = null;
+      existing.claimedByTag = null;
+      ticketStore.tickets[interaction.channel.id] = existing;
+      saveTickets();
+
+      await interaction.message
+        .edit({ components: [buildClaimRow(null)] })
+        .catch(() => null);
+
+      return interaction.reply({
+        content: `🔓 Ticket unclaimed by ${user}. Another staff member can now claim it.`
+      });
     }
 
     let type = null;
@@ -890,27 +963,26 @@ async function handleTicketInteraction(interaction) {
       .setFooter({ text: "Ticket System" })
       .setTimestamp();
 
-    const controlRow = new ActionRowBuilder().addComponents(
+    const closeRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("tkt_close_reason")
         .setLabel("Close With Reason")
         .setEmoji("🔒")
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId("tkt_claim")
-        .setLabel("Claim")
-        .setEmoji("🙋")
-        .setStyle(ButtonStyle.Secondary)
+        .setStyle(ButtonStyle.Danger)
     );
 
     await ticketChannel.send({
       content: `${user} <@&${TICKET_PING_ROLE_ID}>`,
       embeds: [welcomeEmbed],
-      components: [controlRow],
+      components: [closeRow],
       allowedMentions: {
         users: [user.id],
         roles: [TICKET_PING_ROLE_ID]
       }
+    });
+
+    await ticketChannel.send({
+      components: [buildClaimRow(null)]
     });
 
     return interaction.editReply({
