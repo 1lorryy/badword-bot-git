@@ -2088,6 +2088,63 @@ async function processExpiredTempRoles(client) {
   }
 }
 
+// ================= 30-DAY ROLLING WARNING EXPIRATION ENGINE =================
+const WARN_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
+const WARN_EXPIRY_LOG_CHANNEL_ID = "1492845794192134245";
+
+async function processExpiredWarnings(client) {
+  const now = Date.now();
+
+  for (const guildId in store) {
+    const guildData = store[guildId];
+    if (!guildData?.warnings || typeof guildData.warnings !== "object") continue;
+
+    let dataChanged = false;
+
+    for (const [userId, userWarns] of Object.entries(guildData.warnings)) {
+      if (!Array.isArray(userWarns) || userWarns.length === 0) continue;
+
+      const latestTimestamp = userWarns.reduce((maxTs, w) => {
+        const parsed = w?.date ? new Date(w.date).getTime() : 0;
+        return Number.isFinite(parsed) && parsed > maxTs ? parsed : maxTs;
+      }, 0);
+
+      if (!latestTimestamp) continue;
+
+      if (now - latestTimestamp >= WARN_EXPIRY_MS) {
+        const clearedCount = userWarns.length;
+        const latestDateIso = new Date(latestTimestamp).toISOString();
+
+        guildData.warnings[userId] = [];
+        dataChanged = true;
+
+        const embed = new EmbedBuilder()
+          .setTitle("⏳ Warnings Expired & Cleared")
+          .setColor(0x3b82f6)
+          .setDescription(
+            `Cleared **${clearedCount}** warning(s) for <@${userId}> after **30 days** with no new warnings.`
+          )
+          .addFields(
+            { name: "👤 User", value: `<@${userId}> \`(${userId})\``, inline: true },
+            { name: "🗑️ Cleared Count", value: `\`${clearedCount}\``, inline: true },
+            {
+              name: "🕒 Latest Warning",
+              value: `<t:${Math.floor(latestTimestamp / 1000)}:R> (${latestDateIso.slice(0, 10)})`,
+              inline: false
+            }
+          )
+          .setTimestamp();
+
+        await sendModLog(embed, WARN_EXPIRY_LOG_CHANNEL_ID);
+      }
+    }
+
+    if (dataChanged) {
+      saveData();
+    }
+  }
+}
+
 // ================= BOT START =================
 async function startBot() {
   client = new Client({
