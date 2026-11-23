@@ -770,11 +770,12 @@ if (command === "commandinfo" || command === "cmdinfo" || command === "guide") {
   return commandInfoCommand.execute(message, args, prefix, getGuildData, saveData);
 }
 
-  if (command === "lb" || command === "leaderboard") {
+if (command === "lb" || command === "leaderboard") {
+    console.log("[LB] Routing command:", { guildId: message.guild?.id, args });
     const lbCmd = require("./commands/lb.js");
     return lbCmd.execute(message, args, prefix, getGuildData, saveData);
   }
-
+  
   if (command === "poll" || command === "vote" || command === "voting") {
     if (pollCommand && typeof pollCommand.execute === "function") {
       return pollCommand.execute(message, args, prefix, getGuildData, saveData);
