@@ -28,8 +28,6 @@ const commandInfoModule = require("./commands/commandinfo.js");
 const commandInfoCommand = require("./commands/commandinfo.js");
 const otherRolesCommand = require("./commands/otherroles.js");
 const reactionRolesCommand = require("./commands/reactionroles.js");
-const ticketSystem = require("./ticketSystem.js");
-const addCommand = require("./commands/add.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -686,17 +684,6 @@ const funCommandsList = [
     const reactionRolesCmd = require("./commands/reactionroles.js");
     return reactionRolesCmd.execute(message, args, prefix);
   }
-  
-if (command === "otherroles" || command === "roles") {
-    const otherRolesCmd = require("./commands/otherroles.js");
-    return otherRolesCmd.execute(message, args, prefix);
-  }
-
-if (command === "ticketpanel" || command === "tpanel") {
-  const ticketPanelCmd = require("./commands/ticketpanel.js");
-  await ticketPanelCmd.execute(message, args, prefix);
-  return true;
-}
 
   if (command === "add") {
     await addCommand.execute(message, args, prefix);
@@ -904,30 +891,11 @@ if (command === "commandinfo" || command === "cmdinfo" || command === "guide") {
     return roleCreateCommand.execute(message, args);
   }
 
-if (command === "rename") {
-    if (!ALLOWED_RENAME_CATEGORIES.includes(message.channel.parentId)) {
-      const reply = await message.reply("❌ The rename command can only be used inside Support, Purchases, or Claim ticket categories.");
-      deleteAfter(reply, 5000);
-      deleteAfter(message, 5000);
-      return true;
-    }
-
     const botReply = await renameCommand.execute(message, args, prefix);
     deleteAfter(message, 5000);
     if (botReply && typeof botReply.delete === "function") {
       deleteAfter(botReply, 5000);
     }
-    return true;
-  }
-
-  if (command === "close") {
-    if (!ALLOWED_RENAME_CATEGORIES.includes(message.channel.parentId)) {
-      const reply = await message.reply("❌ The close command can only be used inside Support, Purchases, or Claim ticket categories.");
-      deleteAfter(reply, 5000);
-      return true;
-    }
-
-    await closeCommand.execute(message, args, prefix);
     return true;
   }
 
@@ -1907,7 +1875,7 @@ const pageUtility = new EmbedBuilder()
       .setDescription(`General tools, administration, and member commands. Prefix: \`${prefix}\``)
       .addFields(
         {
-          name: "👤 Role, Channel & Ticket Management",
+          name: "👤 Role, Channel Management",
           value:
             `• \`${prefix}role @user [role]\` — Toggle user role\n` +
             `• \`${prefix}temprole @user [time] [role]\` — Give temporary role\n` +
@@ -1915,8 +1883,6 @@ const pageUtility = new EmbedBuilder()
             `• \`${prefix}roleicon @role [icon]\` — Set custom role icon\n` +
             `• \`${prefix}reactionroles\` (or \`${prefix}rr\`) — Post interactive reaction role panel\n` +
             `• \`${prefix}otherroles\` — Post the server special roles overview\n` +
-            `• \`${prefix}rename [new-name]\` — Rename ticket channels\n` +
-            `• \`${prefix}close [reason]\` — Close active ticket channel\n` +
             `• \`${prefix}setnick @user [nick]\` — Change server nickname`
         },
         {
@@ -2582,17 +2548,6 @@ client.on("interactionCreate", async (interaction) => {
         return await handleCommands(fakeMessage, getGuildData);
       }
     }
-
-    // 5. Handle Tickets, Giveaways, Polls, Reaction Roles, Custom Colors, Marriage/Adoption Buttons/Modals
-    if (interaction.isButton() || interaction.isModalSubmit()) {
-
-      // 👉 Ticket System Buttons & Close Reason Modal
-      if (
-        interaction.customId?.startsWith("tkt_") ||
-        interaction.customId === "tkt_close_reason_modal"
-      ) {
-        return await ticketSystem.handleTicketInteraction(interaction);
-      }
       
       // 👉 Reaction Roles Button Handler Integration
       if (interaction.isButton() && interaction.customId.startsWith("rr_")) {
