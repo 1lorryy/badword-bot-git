@@ -88,7 +88,7 @@ async function resolveUsernamesFast(guild, client, userIds) {
       try {
         const u = await Promise.race([
           client.users.fetch(id).catch(() => null),
-          new Promise((resolve) => setTimeout(() => resolve(null), 900))
+          new Promise((resolve) => setTimeout(() => resolve(null), 800))
         ]);
         if (u?.username) nameMap.set(id, u.username);
       } catch {
@@ -96,7 +96,7 @@ async function resolveUsernamesFast(guild, client, userIds) {
       }
     };
 
-    await Promise.all(missingIds.slice(0, 20).map(fetchOne));
+    await Promise.all(missingIds.slice(0, 15).map(fetchOne));
   }
 
   for (const id of userIds) {
@@ -219,15 +219,20 @@ function getRow(pageIndex) {
   );
 }
 
-async function execute(message, args = [], prefix = "?") {
+async function execute(message, args = [], prefix = "?", getGuildData) {
   try {
     if (!message?.guild) {
       return message?.reply?.("❌ Use this command inside a server.");
     }
 
-    const data = typeof global.getGuildData === "function"
-      ? global.getGuildData(message.guild.id) || {}
-      : {};
+    const guildDataFn =
+      typeof getGuildData === "function"
+        ? getGuildData
+        : typeof global.getGuildData === "function"
+          ? global.getGuildData
+          : null;
+
+    const data = guildDataFn ? guildDataFn(message.guild.id) || {} : {};
 
     const ecoMap = data.economy && typeof data.economy === "object" ? data.economy : {};
     const petsMap = data.pets && typeof data.pets === "object" ? data.pets : {};
@@ -245,3 +250,69 @@ async function execute(message, args = [], prefix = "?") {
     const nameMap = await resolveUsernamesFast(message.guild, message.client, allIds);
 
     const usersData = allIds.map((id) => {
+      const eco = ecoMap[id] || {};
+      const pets = Array.isArray(petsMap[id]) ? petsMap[id] : [];
+
+      const rawBal = Number(eco.balance);
+      const balance = Number.isFinite(rawBal) ? rawBal : 0;
+      const totalPetWorth = getTotalPetWorth(pets);
+      const indexedPets = countIndexedPets({ petDex: dexMap }, id, pets);
+      const funRobux = Number((balance * FUN_ROBUX_PER_DON).toFixed(2));
+      const powerScore = Number((balance + totalPetWorth * 0.5 + indexedPets * 15).toFixed(2));
+
+      return {
+        id,
+        username: nameMap.get(id) || `Player ${id.slice(-4)}`,
+        balance,
+        funRobux,
+        totalPetWorth,
+        petCount: pets.length,
+        indexedPets,
+        powerScore
+      };
+    });
+
+    const pages = buildPages(usersData, prefix || "?");
+    let currentPage = resolvePageFromArgs(args);
+
+    const lbMsg = await message.reply({
+      embeds: [pages[currentPage]],
+      components: [getRow(currentPage)],
+      allowedMentions: { users: [] }
+    });
+
+    const collector = lbMsg.createMessageComponentCollector({
+      filter: (i) => i.user.id === message.author.id,
+      time: 120000
+    });
+
+    collector.on("collect", async (i) => {
+      try {
+        if (i.customId === "lb_p1") currentPage = 0;
+        else if (i.customId === "lb_p2") currentPage = 1;
+        else if (i.customId === "lb_p3") currentPage = 2;
+        else if (i.customId === "lb_p4") currentPage = 3;
+        else return;
+
+        await i.update({
+          embeds: [pages[currentPage]],
+          components: [getRow(currentPage)],
+          allowedMentions: { users: [] }
+        });
+      } catch {
+        // ignore interaction update errors
+      }
+    });
+
+    collector.on("end", () => {
+      lbMsg.edit({ components: [] }).catch(() => null);
+    });
+
+    return lbMsg;
+  } catch (err) {
+    console.error("[LB] Command error:", err);
+    return message.reply("❌ Could not load the leaderboard right now.").catch(() => null);
+  }
+}
+
+module.exports = { execute };
