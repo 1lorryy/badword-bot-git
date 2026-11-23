@@ -707,6 +707,11 @@ if (command === "index" || command === "dex" || command === "pokedex") {
     return cratesCmd.execute(message, args, prefix, getGuildData, saveData);
   }
 
+  if (command === "sellall" || command === "sell-all") {
+  const cratesCmd = require("./commands/crates.js");
+  return cratesCmd.execute(message, args, prefix, getGuildData, saveData);
+}
+
   if (command === "msg" || command === "messages") {
     const msgCmd = require("./commands/msg.js");
     return msgCmd.execute(message, args, prefix, getGuildData, saveData);
@@ -1920,7 +1925,8 @@ const pageFun = new EmbedBuilder()
           `• \`${prefix}crates\` — Open the pet crate shop & spin for rare animals!\n` +
           `• \`${prefix}pets\` (or \`${prefix}inventory\`) — View your collected pet collection\n` +
           `• \`${prefix}index [page]\` (or \`${prefix}dex\`) — View the pet index & track unlocked vs. *not owned* pets\n` +
-          `• \`${prefix}sell [number]\` — Sell any pet from your inventory for DON wallet cash\n` +
+          `• \`${prefix}sell [number]\` — Sell a single pet from your inventory for DON wallet cash\n` +
+          `• \`${prefix}sellall\` — Instantly sell all pets in your inventory for DON wallet cash\n` +
           `• \`${prefix}trade @user\` — Securely trade rare pets with another server member\n` +
           `• \`${prefix}lb\` (or \`${prefix}leaderboard\`) — Server leaderboards (DON, Fun R$, Pet Worth, & Index)\n` +
           `• \`${prefix}msg\` — Check mini-game balance, low fun-rate exchange & message stats`
