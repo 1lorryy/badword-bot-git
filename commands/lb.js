@@ -1,8 +1,11 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
+// 50 DON = 1 fun Robux (0.02 per DON)
 const FUN_ROBUX_PER_DON = 0.02;
+const DON_PER_FUN_ROBUX = 50;
 const TOTAL_INDEX_PETS = 30;
-const MEDALS = ["🥇", "🥈", "🥉"];
+const TOP_LIMIT = 5;
+const MEDALS = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
 
 function formatDon(amount) {
   const num = Number(amount);
@@ -10,19 +13,15 @@ function formatDon(amount) {
   return Number.isInteger(num) ? `${num}` : num.toFixed(2);
 }
 
-function getRankPrefix(index) {
-  return MEDALS[index] ? `${MEDALS[index]} **#${index + 1}**` : `**#${index + 1}**`;
+function buildMiniBar(value, maxValue, segments = 8) {
+  const safeMax = Number(maxValue) > 0 ? Number(maxValue) : 1;
+  const ratio = Math.max(0, Math.min(1, (Number(value) || 0) / safeMax));
+  const filled = Math.round(ratio * segments);
+  return `${"▰".repeat(filled)}${"▱".repeat(segments - filled)}`;
 }
 
-function countUniquePets(pets) {
-  if (!Array.isArray(pets)) return 0;
-  const seen = new Set();
-  for (const p of pets) {
-    if (!p || typeof p !== "object") continue;
-    const key = p.id || String(p.name || "").trim().toLowerCase();
-    if (key) seen.add(key);
-  }
-  return seen.size;
+function getRankTag(index) {
+  return MEDALS[index] || `**#${index + 1}**`;
 }
 
 function countIndexedPets(data, userId, pets) {
@@ -66,92 +65,110 @@ function resolvePageFromArgs(args = []) {
   return 0;
 }
 
-async function resolveUsername(guild, client, userId) {
-  const fallback = `User ${userId}`;
-  try {
-    const cachedMember = guild?.members?.cache?.get(userId);
-    if (cachedMember?.user?.username) return cachedMember.user.username;
+async function resolveUsernamesFast(guild, client, userIds) {
+  const nameMap = new Map();
+  const missingIds = [];
 
-    const cachedUser = client?.users?.cache?.get(userId);
-    if (cachedUser?.username) return cachedUser.username;
-
-    if (guild?.members?.fetch) {
-      const member = await Promise.race([
-        guild.members.fetch(userId).catch(() => null),
-        new Promise((resolve) => setTimeout(() => resolve(null), 1500))
-      ]);
-      if (member?.user?.username) return member.user.username;
+  for (const id of userIds) {
+    const cachedMember = guild?.members?.cache?.get(id);
+    if (cachedMember?.user?.username) {
+      nameMap.set(id, cachedMember.user.username);
+      continue;
     }
-
-    if (client?.users?.fetch) {
-      const fetched = await Promise.race([
-        client.users.fetch(userId).catch(() => null),
-        new Promise((resolve) => setTimeout(() => resolve(null), 1500))
-      ]);
-      if (fetched?.username) return fetched.username;
+    const cachedUser = client?.users?.cache?.get(id);
+    if (cachedUser?.username) {
+      nameMap.set(id, cachedUser.username);
+      continue;
     }
-  } catch {
-    // ignore lookup errors
+    missingIds.push(id);
   }
-  return fallback;
+
+  if (missingIds.length > 0 && client?.users?.fetch) {
+    const fetchOne = async (id) => {
+      try {
+        const u = await Promise.race([
+          client.users.fetch(id).catch(() => null),
+          new Promise((resolve) => setTimeout(() => resolve(null), 900))
+        ]);
+        if (u?.username) nameMap.set(id, u.username);
+      } catch {
+        // ignore lookup errors
+      }
+    };
+
+    await Promise.all(missingIds.slice(0, 20).map(fetchOne));
+  }
+
+  for (const id of userIds) {
+    if (!nameMap.has(id)) {
+      nameMap.set(id, `Player ${id.slice(-4)}`);
+    }
+  }
+
+  return nameMap;
 }
 
 function buildPages(usersData, prefix) {
-  // Page 1: DON Wallet Balance
+  // Page 1: DON Wallet Balance (Top 5)
   const donSorted = [...usersData]
     .sort((a, b) => b.balance - a.balance || b.powerScore - a.powerScore)
-    .slice(0, 10);
+    .slice(0, TOP_LIMIT);
   const topDon = donSorted[0]?.balance ?? 0;
 
   const donLines = donSorted.map((u, i) => {
-    const gap = i === 0 ? "👑 Leader" : `-${formatDon(Math.max(0, topDon - u.balance))} DON`;
-    return `${getRankPrefix(i)} **${u.username}** (<@${u.id}>)\n┗ \`${formatDon(u.balance)} DON\` • *${gap}*`;
+    const bar = buildMiniBar(u.balance, topDon);
+    const tag = i === 0 ? "👑" : `-${formatDon(Math.max(0, topDon - u.balance))}`;
+    return `${getRankTag(i)} **${u.username}** • \`${formatDon(u.balance)} DON\`\n${bar} *${tag}*`;
   });
 
   const page1 = new EmbedBuilder()
-    .setTitle("🏆 Leaderboard • DON Wallet Balance")
+    .setTitle("🏆 Top 5 • DON Wallet")
     .setColor(0x2ecc71)
-    .setDescription(donLines.join("\n") || "No data.")
-    .setFooter({ text: `Page 1/4 • ${prefix}lb <don|rbx|pets|index> to jump` })
+    .setDescription(donLines.join("\n\n") || "*No rankings yet.*")
+    .setFooter({ text: `Page 1/4 • ${prefix}lb <don|rbx|pets|index>` })
     .setTimestamp();
 
-  // Page 2: Fun / Fake Robux (Low Exchange Rate)
+  // Page 2: Fun Robux Rate (50 DON = 1 R$, Top 5)
   const rbxSorted = [...usersData]
     .sort((a, b) => b.funRobux - a.funRobux || b.balance - a.balance)
-    .slice(0, 10);
+    .slice(0, TOP_LIMIT);
   const topRbx = rbxSorted[0]?.funRobux ?? 0;
 
   const rbxLines = rbxSorted.map((u, i) => {
-    const gap = i === 0 ? "👑 Leader" : `-${Math.max(0, topRbx - u.funRobux).toFixed(2)} R$`;
-    return `${getRankPrefix(i)} **${u.username}** (<@${u.id}>)\n┗ \`${u.funRobux.toFixed(2)} R$\` *(fun rate: 1 DON = ${FUN_ROBUX_PER_DON} R$)* • *${gap}*`;
+    const bar = buildMiniBar(u.funRobux, topRbx);
+    const tag = i === 0 ? "👑" : `-${Math.max(0, topRbx - u.funRobux).toFixed(2)} R$`;
+    return `${getRankTag(i)} **${u.username}** • \`${u.funRobux.toFixed(2)} R$\`\n${bar} *${tag}*`;
   });
 
   const page2 = new EmbedBuilder()
-    .setTitle("🏆 Leaderboard • Fun Robux Rate")
+    .setTitle("💎 Top 5 • Fun Robux")
     .setColor(0x5865f2)
-    .setDescription(rbxLines.join("\n") || "No data.")
-    .setFooter({ text: `Page 2/4 • Fake/fun exchange rate only • ${prefix}lb` })
+    .setDescription(
+      `*Fun rate: \`${DON_PER_FUN_ROBUX} DON = 1 R$\`*\n\n` +
+        (rbxLines.join("\n\n") || "*No rankings yet.*")
+    )
+    .setFooter({ text: `Page 2/4 • Event/fun exchange reference` })
     .setTimestamp();
 
-  // Page 3: Total Pet Worth
-  const petWorthSorted = [...usersData]
+  // Page 3: Total Pet Worth (Top 5)
+  const worthSorted = [...usersData]
     .sort((a, b) => b.totalPetWorth - a.totalPetWorth || b.indexedPets - a.indexedPets)
-    .slice(0, 10);
-  const topWorth = petWorthSorted[0]?.totalPetWorth ?? 0;
+    .slice(0, TOP_LIMIT);
+  const topWorth = worthSorted[0]?.totalPetWorth ?? 0;
 
-  const worthLines = petWorthSorted.map((u, i) => {
-    const gap = i === 0 ? "👑 Leader" : `-${formatDon(Math.max(0, topWorth - u.totalPetWorth))} DON`;
-    return `${getRankPrefix(i)} **${u.username}** (<@${u.id}>)\n┗ \`${formatDon(u.totalPetWorth)} DON worth\` (${u.petCount} pets • ${u.indexedPets}/${TOTAL_INDEX_PETS} dex) • *${gap}*`;
+  const worthLines = worthSorted.map((u, i) => {
+    const bar = buildMiniBar(u.totalPetWorth, topWorth);
+    return `${getRankTag(i)} **${u.username}** • \`${formatDon(u.totalPetWorth)} DON\` *(${u.petCount} pets)*\n${bar}`;
   });
 
   const page3 = new EmbedBuilder()
-    .setTitle("🏆 Leaderboard • Total Pet Worth")
+    .setTitle("🐾 Top 5 • Pet Worth")
     .setColor(0xf1c40f)
-    .setDescription(worthLines.join("\n") || "No data.")
-    .setFooter({ text: `Page 3/4 • Pet collection value • ${prefix}lb` })
+    .setDescription(worthLines.join("\n\n") || "*No pets ranked yet.*")
+    .setFooter({ text: `Page 3/4 • Bag value • ${prefix}pets` })
     .setTimestamp();
 
-  // Page 4: Permanent Pet Index Completion
+  // Page 4: Permanent Pet Index Mastery (Top 5)
   const indexSorted = [...usersData]
     .sort(
       (a, b) =>
@@ -159,18 +176,19 @@ function buildPages(usersData, prefix) {
         b.totalPetWorth - a.totalPetWorth ||
         b.balance - a.balance
     )
-    .slice(0, 10);
+    .slice(0, TOP_LIMIT);
 
   const indexLines = indexSorted.map((u, i) => {
     const pct = Math.min(100, Math.round((u.indexedPets / TOTAL_INDEX_PETS) * 100));
-    return `${getRankPrefix(i)} **${u.username}** (<@${u.id}>)\n┗ \`${u.indexedPets}/${TOTAL_INDEX_PETS} indexed\` (**${pct}%**) • Worth: \`${formatDon(u.totalPetWorth)} DON\``;
+    const bar = buildMiniBar(u.indexedPets, TOTAL_INDEX_PETS);
+    return `${getRankTag(i)} **${u.username}** • \`${u.indexedPets}/${TOTAL_INDEX_PETS}\` (**${pct}%**)\n${bar}`;
   });
 
   const page4 = new EmbedBuilder()
-    .setTitle("📖 Leaderboard • Pet Index Mastery")
+    .setTitle("📖 Top 5 • Index Mastery")
     .setColor(0x9b59b6)
-    .setDescription(indexLines.join("\n") || "No data.")
-    .setFooter({ text: `Page 4/4 • Permanent dex discoveries • ${prefix}index` })
+    .setDescription(indexLines.join("\n\n") || "*No discoveries yet.*")
+    .setFooter({ text: `Page 4/4 • Permanent dex • ${prefix}index` })
     .setTimestamp();
 
   return [page1, page2, page3, page4];
@@ -180,121 +198,50 @@ function getRow(pageIndex) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("lb_p1")
-      .setLabel("1️⃣ DON")
+      .setLabel("DON")
       .setStyle(pageIndex === 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
       .setDisabled(pageIndex === 0),
     new ButtonBuilder()
       .setCustomId("lb_p2")
-      .setLabel("2️⃣ Fun R$")
+      .setLabel("Fun R$")
       .setStyle(pageIndex === 1 ? ButtonStyle.Success : ButtonStyle.Secondary)
       .setDisabled(pageIndex === 1),
     new ButtonBuilder()
       .setCustomId("lb_p3")
-      .setLabel("3️⃣ Pet Worth")
+      .setLabel("Pet Worth")
       .setStyle(pageIndex === 2 ? ButtonStyle.Success : ButtonStyle.Secondary)
       .setDisabled(pageIndex === 2),
     new ButtonBuilder()
       .setCustomId("lb_p4")
-      .setLabel("4️⃣ Index")
+      .setLabel("Index")
       .setStyle(pageIndex === 3 ? ButtonStyle.Success : ButtonStyle.Secondary)
       .setDisabled(pageIndex === 3)
   );
 }
 
-async function execute(message, args = [], prefix = "?", getGuildData, saveData) {
+async function execute(message, args = [], prefix = "?") {
   try {
     if (!message?.guild) {
-      return message?.reply?.("❌ This command can only be used inside a server.");
+      return message?.reply?.("❌ Use this command inside a server.");
     }
 
-    const data = typeof getGuildData === "function" ? (getGuildData(message.guild.id) || {}) : {};
-    if (!data.economy || typeof data.economy !== "object") data.economy = {};
-    if (!data.pets || typeof data.pets !== "object") data.pets = {};
-    if (!data.petDex || typeof data.petDex !== "object") data.petDex = {};
+    const data = typeof global.getGuildData === "function"
+      ? global.getGuildData(message.guild.id) || {}
+      : {};
 
-    const userIds = new Set([
-      ...Object.keys(data.economy),
-      ...Object.keys(data.pets),
-      ...Object.keys(data.petDex),
-      message.author.id
-    ]);
+    const ecoMap = data.economy && typeof data.economy === "object" ? data.economy : {};
+    const petsMap = data.pets && typeof data.pets === "object" ? data.pets : {};
+    const dexMap = data.petDex && typeof data.petDex === "object" ? data.petDex : {};
 
-    const usersData = [];
-    for (const id of userIds) {
-      const eco = data.economy[id] || {};
-      const pets = Array.isArray(data.pets[id]) ? data.pets[id] : [];
+    const allIds = Array.from(
+      new Set([
+        ...Object.keys(ecoMap),
+        ...Object.keys(petsMap),
+        ...Object.keys(dexMap),
+        message.author.id
+      ])
+    );
 
-      const rawBal = Number(eco.balance);
-      const balance = Number.isFinite(rawBal) ? rawBal : 0;
-      const totalPetWorth = getTotalPetWorth(pets);
-      const uniquePets = countUniquePets(pets);
-      const indexedPets = countIndexedPets(data, id, pets);
+    const nameMap = await resolveUsernamesFast(message.guild, message.client, allIds);
 
-      const funRobux =
-        typeof eco.robux === "number" && Number.isFinite(eco.robux)
-          ? Number(eco.robux)
-          : Number((balance * FUN_ROBUX_PER_DON).toFixed(2));
-
-      const powerScore = Number(
-        (balance + totalPetWorth * 0.5 + indexedPets * 15).toFixed(2)
-      );
-
-      const username = await resolveUsername(message.guild, message.client, id);
-
-      usersData.push({
-        id,
-        username,
-        balance,
-        funRobux,
-        totalPetWorth,
-        petCount: pets.length,
-        uniquePets,
-        indexedPets,
-        powerScore
-      });
-    }
-
-    const pages = buildPages(usersData, prefix || "?");
-    let currentPage = resolvePageFromArgs(args);
-
-    const lbMsg = await message.reply({
-      embeds: [pages[currentPage]],
-      components: [getRow(currentPage)],
-      allowedMentions: { users: [] }
-    });
-
-    const collector = lbMsg.createMessageComponentCollector({
-      filter: (i) => i.user.id === message.author.id,
-      time: 120000
-    });
-
-    collector.on("collect", async (i) => {
-      try {
-        if (i.customId === "lb_p1") currentPage = 0;
-        else if (i.customId === "lb_p2") currentPage = 1;
-        else if (i.customId === "lb_p3") currentPage = 2;
-        else if (i.customId === "lb_p4") currentPage = 3;
-        else return;
-
-        await i.update({
-          embeds: [pages[currentPage]],
-          components: [getRow(currentPage)],
-          allowedMentions: { users: [] }
-        });
-      } catch {
-        // ignore interaction update errors
-      }
-    });
-
-    collector.on("end", () => {
-      lbMsg.edit({ components: [] }).catch(() => null);
-    });
-
-    return lbMsg;
-  } catch (err) {
-    console.error("[LB] Command error:", err);
-    return message.reply("❌ Could not load the leaderboard right now.").catch(() => null);
-  }
-}
-
-module.exports = { execute };
+    const usersData = allIds.map((id) => {
