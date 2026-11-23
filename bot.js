@@ -887,10 +887,11 @@ if (command === "commandinfo" || command === "cmdinfo" || command === "guide") {
     return roleIconCommand.execute(message, args);
   }
 
-  if (command === "rolecreate") {
+if (command === "rolecreate") {
     return roleCreateCommand.execute(message, args);
   }
 
+  if (command === "rename") {
     const botReply = await renameCommand.execute(message, args, prefix);
     deleteAfter(message, 5000);
     if (botReply && typeof botReply.delete === "function") {
@@ -907,16 +908,6 @@ if (command === "commandinfo" || command === "cmdinfo" || command === "guide") {
       return true;
     }
     return handleBirthdayCommand(message, args, prefix, getGuildData, saveData);
-  }
-
-  if (command === "status") {
-    const statusCmd = require("./commands/status.js");
-    return statusCmd.execute(message, args, client, getGuildData);
-  }
-
-  if (command === "joininfo") {
-    const joinInfoCmd = require("./commands/joininfo.js");
-    return joinInfoCmd.execute(message, args, client, getGuildData);
   }
 
   if (command === "tz" || command === "timezone") {
