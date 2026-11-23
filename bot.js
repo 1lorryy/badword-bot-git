@@ -2976,12 +2976,13 @@ client.on("messageCreate", async (message) => {
     const wasCommand = await handleCommands(message, getGuildData);
     if (wasCommand) return;
 
-    // Never let AI reply inside ticket channels or ticket categories
+// Never let AI reply inside ticket channels or ticket categories
+    const ts = typeof ticketSystem !== "undefined" ? ticketSystem : null;
     const isTicket =
-      (typeof ticketSystem?.isTicketChannel === "function" && ticketSystem.isTicketChannel(message.channel.id)) ||
-      (Array.isArray(ticketSystem?.ALLOWED_CATEGORY_IDS) && ticketSystem.ALLOWED_CATEGORY_IDS.includes(message.channel.parentId));
+      (typeof ts?.isTicketChannel === "function" && ts.isTicketChannel(message.channel.id)) ||
+      (Array.isArray(ts?.ALLOWED_CATEGORY_IDS) && ts.ALLOWED_CATEGORY_IDS.includes(message.channel.parentId));
     if (isTicket) return;
-
+    
     const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
 
     if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
