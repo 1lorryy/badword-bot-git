@@ -2539,6 +2539,17 @@ client.on("interactionCreate", async (interaction) => {
         return await handleCommands(fakeMessage, getGuildData);
       }
     }
+
+        // 5. Handle Tickets, Giveaways, Polls, Reaction Roles, Custom Colors, Marriage/Adoption Buttons/Modals
+    if (interaction.isButton() || interaction.isModalSubmit()) {
+
+      // 👉 Ticket System Buttons & Close Reason Modal
+      if (
+        interaction.customId?.startsWith("tkt_") ||
+        interaction.customId === "tkt_close_reason_modal"
+      ) {
+        return await ticketSystem.handleTicketInteraction(interaction);
+      }
       
       // 👉 Reaction Roles Button Handler Integration
       if (interaction.isButton() && interaction.customId.startsWith("rr_")) {
