@@ -25,6 +25,30 @@ function countUniquePets(pets) {
   return seen.size;
 }
 
+function countIndexedPets(data, userId, pets) {
+  const seen = new Set();
+
+  const dexEntries = Array.isArray(data?.petDex?.[userId]) ? data.petDex[userId] : [];
+  for (const entry of dexEntries) {
+    if (typeof entry === "string" && entry.trim()) {
+      seen.add(entry.trim().toLowerCase());
+    } else if (entry && typeof entry === "object") {
+      const key = entry.id || String(entry.name || "").trim().toLowerCase();
+      if (key) seen.add(key);
+    }
+  }
+
+  if (Array.isArray(pets)) {
+    for (const p of pets) {
+      if (!p || typeof p !== "object") continue;
+      const key = p.id || String(p.name || "").trim().toLowerCase();
+      if (key) seen.add(key);
+    }
+  }
+
+  return seen.size;
+}
+
 function getTotalPetWorth(pets) {
   if (!Array.isArray(pets)) return 0;
   return pets.reduce((sum, p) => {
@@ -111,13 +135,13 @@ function buildPages(usersData, prefix) {
 
   // Page 3: Total Pet Worth
   const petWorthSorted = [...usersData]
-    .sort((a, b) => b.totalPetWorth - a.totalPetWorth || b.uniquePets - a.uniquePets)
+    .sort((a, b) => b.totalPetWorth - a.totalPetWorth || b.indexedPets - a.indexedPets)
     .slice(0, 10);
   const topWorth = petWorthSorted[0]?.totalPetWorth ?? 0;
 
   const worthLines = petWorthSorted.map((u, i) => {
     const gap = i === 0 ? "👑 Leader" : `-${formatDon(Math.max(0, topWorth - u.totalPetWorth))} DON`;
-    return `${getRankPrefix(i)} **${u.username}** (<@${u.id}>)\n┗ \`${formatDon(u.totalPetWorth)} DON worth\` (${u.petCount} pets • ${u.uniquePets}/${TOTAL_INDEX_PETS} dex) • *${gap}*`;
+    return `${getRankPrefix(i)} **${u.username}** (<@${u.id}>)\n┗ \`${formatDon(u.totalPetWorth)} DON worth\` (${u.petCount} pets • ${u.indexedPets}/${TOTAL_INDEX_PETS} dex) • *${gap}*`;
   });
 
   const page3 = new EmbedBuilder()
@@ -127,26 +151,26 @@ function buildPages(usersData, prefix) {
     .setFooter({ text: `Page 3/4 • Pet collection value • ${prefix}lb` })
     .setTimestamp();
 
-  // Page 4: Pet Index Completion
+  // Page 4: Permanent Pet Index Completion
   const indexSorted = [...usersData]
     .sort(
       (a, b) =>
-        b.uniquePets - a.uniquePets ||
+        b.indexedPets - a.indexedPets ||
         b.totalPetWorth - a.totalPetWorth ||
         b.balance - a.balance
     )
     .slice(0, 10);
 
   const indexLines = indexSorted.map((u, i) => {
-    const pct = Math.min(100, Math.round((u.uniquePets / TOTAL_INDEX_PETS) * 100));
-    return `${getRankPrefix(i)} **${u.username}** (<@${u.id}>)\n┗ \`${u.uniquePets}/${TOTAL_INDEX_PETS} unlocked\` (**${pct}%**) • Worth: \`${formatDon(u.totalPetWorth)} DON\``;
+    const pct = Math.min(100, Math.round((u.indexedPets / TOTAL_INDEX_PETS) * 100));
+    return `${getRankPrefix(i)} **${u.username}** (<@${u.id}>)\n┗ \`${u.indexedPets}/${TOTAL_INDEX_PETS} indexed\` (**${pct}%**) • Worth: \`${formatDon(u.totalPetWorth)} DON\``;
   });
 
   const page4 = new EmbedBuilder()
     .setTitle("📖 Leaderboard • Pet Index Mastery")
     .setColor(0x9b59b6)
     .setDescription(indexLines.join("\n") || "No data.")
-    .setFooter({ text: `Page 4/4 • Unique pets collected • ${prefix}index` })
+    .setFooter({ text: `Page 4/4 • Permanent dex discoveries • ${prefix}index` })
     .setTimestamp();
 
   return [page1, page2, page3, page4];
@@ -186,10 +210,12 @@ async function execute(message, args = [], prefix = "?", getGuildData, saveData)
     const data = typeof getGuildData === "function" ? (getGuildData(message.guild.id) || {}) : {};
     if (!data.economy || typeof data.economy !== "object") data.economy = {};
     if (!data.pets || typeof data.pets !== "object") data.pets = {};
+    if (!data.petDex || typeof data.petDex !== "object") data.petDex = {};
 
     const userIds = new Set([
       ...Object.keys(data.economy),
       ...Object.keys(data.pets),
+      ...Object.keys(data.petDex),
       message.author.id
     ]);
 
@@ -202,6 +228,7 @@ async function execute(message, args = [], prefix = "?", getGuildData, saveData)
       const balance = Number.isFinite(rawBal) ? rawBal : 0;
       const totalPetWorth = getTotalPetWorth(pets);
       const uniquePets = countUniquePets(pets);
+      const indexedPets = countIndexedPets(data, id, pets);
 
       const funRobux =
         typeof eco.robux === "number" && Number.isFinite(eco.robux)
@@ -209,7 +236,7 @@ async function execute(message, args = [], prefix = "?", getGuildData, saveData)
           : Number((balance * FUN_ROBUX_PER_DON).toFixed(2));
 
       const powerScore = Number(
-        (balance + totalPetWorth * 0.5 + uniquePets * 15).toFixed(2)
+        (balance + totalPetWorth * 0.5 + indexedPets * 15).toFixed(2)
       );
 
       const username = await resolveUsername(message.guild, message.client, id);
@@ -222,6 +249,7 @@ async function execute(message, args = [], prefix = "?", getGuildData, saveData)
         totalPetWorth,
         petCount: pets.length,
         uniquePets,
+        indexedPets,
         powerScore
       });
     }
