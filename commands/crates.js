@@ -1,41 +1,42 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
-// Fun / fake exchange reference only (very low rate so high pet values don't blow up)
-// 20 DON = 1 fun Robux (0.05 per DON)
-const FUN_ROBUX_PER_DON = 0.05;
+// Fun / fake exchange reference only (50 DON = 1 fun Robux -> 0.02 per DON)
+// Helps prevent huge event payouts from blowing up fake R$ totals
+const FUN_ROBUX_PER_DON = 0.02;
+const DON_PER_FUN_ROBUX = 50;
 const INDEX_PER_PAGE = 15;
-const PITY_THRESHOLD = 15; // Guaranteed Epic+ (or Rare+ on Basic) on 15th dry pull
+const PITY_THRESHOLD = 15; // Guaranteed Rare+ (Basic) or Epic+ (Epic+) on 15th dry pull
 
 const CRATE_TYPES = {
   basic: {
     name: "🪵 Basic Crate",
     cost: 5,
     color: 0x8b5a2b,
-    desc: "Mostly Commons, slim shot at Rares."
+    desc: "Common & Rare grind."
   },
   epic: {
     name: "✨ Epic Crate",
     cost: 22,
     color: 0x9b59b6,
-    desc: "Common/Rare grind with tough Epic odds."
+    desc: "Shot at tough Epics."
   },
   mythic: {
     name: "🌌 Mythic Crate",
     cost: 80,
     color: 0xf1c40f,
-    desc: "Heavy Epic/Mythic pool—Mythics are rare hits."
+    desc: "Mythic & Epic pool."
   },
   legendary: {
     name: "⚡ Legendary Crate",
     cost: 260,
     color: 0xe67e22,
-    desc: "Brutal odds—Legendaries take real luck."
+    desc: "Brutal odds for Legendaries."
   },
   godly: {
     name: "👑 Godly Crate",
     cost: 700,
     color: 0xe74c3c,
-    desc: "High-stakes gamble—Godlies are ultra-rare."
+    desc: "Ultra-rare Godly chase."
   }
 };
 
@@ -82,12 +83,13 @@ const PET_POOL = [
 ];
 
 const TIER_ORDER = ["basic", "epic", "mythic", "legendary", "godly"];
+const RARITY_ORDER = ["Common", "Rare", "Epic", "Mythic", "Legendary", "Godly"];
 
 const MUTATIONS = [
   { name: "Rainbow", tag: "🌈 RAINBOW", mult: 5.0, chance: 0.0025 }, // 0.25%
-  { name: "Golden", tag: "🌟 GOLDEN", mult: 3.0, chance: 0.01 },    // 1.0%
-  { name: "Shadow", tag: "🌑 SHADOW", mult: 2.2, chance: 0.03 },    // 3.0%
-  { name: "Shiny", tag: "✨ SHINY", mult: 1.6, chance: 0.08 }       // 8.0%
+  { name: "Golden", tag: "🌟 GOLDEN", mult: 3.0, chance: 0.01 },    // 1.00%
+  { name: "Shadow", tag: "🌑 SHADOW", mult: 2.2, chance: 0.03 },    // 3.00%
+  { name: "Shiny", tag: "✨ SHINY", mult: 1.6, chance: 0.08 }       // 8.00%
 ];
 
 const RARITY_BADGE = {
@@ -98,6 +100,12 @@ const RARITY_BADGE = {
   Legendary: "🟧 Legendary",
   Godly: "🟥✨ GODLY"
 };
+
+function formatPct(pct) {
+  if (pct >= 10) return `${pct.toFixed(1)}%`;
+  if (pct >= 1) return `${pct.toFixed(2)}%`;
+  return `${pct.toFixed(2)}%`;
+}
 
 function formatDon(amount) {
   const num = Number(amount) || 0;
@@ -132,7 +140,6 @@ function getOwnedCounts(userPets = []) {
   return counts;
 }
 
-// Ensures data.petDex[userId] tracks every species ever discovered (even after selling/fusing)
 function ensureAndSyncDex(data, userId) {
   if (!data.petDex || typeof data.petDex !== "object") data.petDex = {};
   if (!Array.isArray(data.petDex[userId])) data.petDex[userId] = [];
@@ -229,6 +236,25 @@ function getCandidatePool(crateType, forcePity = false) {
   return pool;
 }
 
+function getCrateOddsSummary(crateType) {
+  const pool = getCandidatePool(crateType, false);
+  const totalWeight = pool.reduce((sum, p) => sum + p.effectiveWeight, 0) || 1;
+  const rarityWeights = new Map();
+
+  for (const p of pool) {
+    rarityWeights.set(p.rarity, (rarityWeights.get(p.rarity) || 0) + p.effectiveWeight);
+  }
+
+  return RARITY_ORDER
+    .filter((r) => (rarityWeights.get(r) || 0) > 0)
+    .map((r) => {
+      const pct = (rarityWeights.get(r) / totalWeight) * 100;
+      const shortLabel = RARITY_BADGE[r].replace(/^[^\s]+\s/, "");
+      return `${shortLabel} **${formatPct(pct)}**`;
+    })
+    .join(" • ");
+}
+
 function rollPetWithOdds(crateType, pityCount = 0) {
   const triggeredPity = pityCount + 1 >= PITY_THRESHOLD;
   const candidates = getCandidatePool(crateType, triggeredPity);
@@ -244,11 +270,16 @@ function rollPetWithOdds(crateType, pityCount = 0) {
     randomNum -= pet.effectiveWeight;
   }
 
-  const rarityOddsPct = ((chosen.effectiveWeight / totalWeight) * 100).toFixed(1);
+  const rarityWeight = candidates
+    .filter((p) => p.rarity === chosen.rarity)
+    .reduce((sum, p) => sum + p.effectiveWeight, 0);
+
+  const rarityPct = formatPct((rarityWeight / totalWeight) * 100);
+  const petPct = formatPct((chosen.effectiveWeight / totalWeight) * 100);
   const { effectiveWeight, ...cleanPet } = chosen;
   const mutatedPet = rollMutation(cleanPet);
 
-  return { pet: mutatedPet, rarityOddsPct, triggeredPity };
+  return { pet: mutatedPet, rarityPct, petPct, triggeredPity };
 }
 
 function getHypeLine(pet, triggeredPity) {
@@ -267,7 +298,7 @@ function getHypeLine(pet, triggeredPity) {
       ? "🎯 **PITY TRIGGERED!** Guaranteed Rare+ hit!"
       : "🟦 **Rare sneak!** Better than the usual commons.";
   }
-  return "💨 *Common roll — stack 3 duplicates to `?fuse` or keep spinning!*";
+  return "💨 *Common roll — fuse 3 dupes (`?fuse`) or keep spinning.*";
 }
 
 function findFusionCandidate(userPets = []) {
@@ -301,7 +332,6 @@ function executeFusion(userPets) {
   const nextPool = PET_POOL.filter((p) => p.tier === nextTier);
   const baseReward = nextPool[Math.floor(Math.random() * nextPool.length)] || PET_POOL[0];
 
-  // Fusion has boosted 20% mutation chance!
   let fusedPet = { ...baseReward, mutation: null, mutationTag: null };
   if (Math.random() < 0.2) {
     fusedPet = rollMutation(baseReward);
@@ -372,7 +402,7 @@ function buildIndexEmbed(user, data, userId, page = 1) {
 
     let statusText;
     if (ownedCount > 0) {
-      statusText = `✅ **Indexed** *(x${ownedCount} in bag)*`;
+      statusText = `✅ **Indexed** *(x${ownedCount})*`;
     } else if (isIndexed) {
       statusText = `📘 **Indexed** *(sold/fused)*`;
     } else {
@@ -386,19 +416,65 @@ function buildIndexEmbed(user, data, userId, page = 1) {
     page: safePage,
     totalPages,
     embed: new EmbedBuilder()
-      .setTitle(`📖 ${user.username}'s Permanent Pet Index`)
+      .setTitle(`📖 ${user.username}'s Pet Index`)
       .setColor(0x9b59b6)
       .setDescription(
-        `Discovered: **${totalIndexedCount}/${PET_POOL.length}** (**${pct}%**) • *Stays indexed forever even after selling!*\n` +
-        `Fun Rate: \`1 DON = ${FUN_ROBUX_PER_DON} R$\` (just for fun)\n\n` +
+        `**${totalIndexedCount}/${PET_POOL.length}** (**${pct}%**) • *Stays indexed after selling/fusing*\n` +
+        `Fun rate: \`${DON_PER_FUN_ROBUX} DON = 1 R$\`\n\n` +
         lines.join("\n")
       )
-      .setFooter({ text: `Page ${safePage}/${totalPages} • Use buttons below or ?index <page>` })
+      .setFooter({ text: `Page ${safePage}/${totalPages} • ?index <page>` })
       .setTimestamp()
   };
 }
 
-function buildShopComponents() {
+function buildCrateHubEmbed(prefix, balance, pity, dexCount) {
+  return new EmbedBuilder()
+    .setTitle("🎰 Pet Gacha Arcade")
+    .setColor(0x5865f2)
+    .setDescription(
+      `💳 \`${formatDon(balance)} DON\` *(~${toFunRobux(balance)} R$ fun)* • 🎯 Pity \`${pity}/${PITY_THRESHOLD}\` • 📖 Dex \`${dexCount}/${PET_POOL.length}\`\n` +
+      `Tap **📖 Info & %** for exact rarity odds & pet pools.`
+    )
+    .addFields(
+      { name: "🪵 Basic • 5 DON", value: CRATE_TYPES.basic.desc, inline: true },
+      { name: "✨ Epic • 22 DON", value: CRATE_TYPES.epic.desc, inline: true },
+      { name: "🌌 Mythic • 80 DON", value: CRATE_TYPES.mythic.desc, inline: true },
+      { name: "⚡ Legendary • 260 DON", value: CRATE_TYPES.legendary.desc, inline: true },
+      { name: "👑 Godly • 700 DON", value: CRATE_TYPES.godly.desc, inline: true },
+      { name: "⚡ Commands", value: `\`${prefix}pets\` \`${prefix}fuse\` \`${prefix}lock\` \`${prefix}sellall\``, inline: true }
+    )
+    .setFooter({ text: "Page 1/2 • Crates Hub" });
+}
+
+function buildInfoPageEmbed(prefix) {
+  const oddsLines = Object.entries(CRATE_TYPES)
+    .map(([key, c]) => `**${c.name} (${c.cost} DON):** ${getCrateOddsSummary(key)}`)
+    .join("\n");
+
+  const compactTier = (tier) =>
+    PET_POOL.filter((p) => p.tier === tier)
+      .map((p) => `${p.emoji} ${p.name} *(${formatDon(p.value)})*`)
+      .join(" • ");
+
+  return new EmbedBuilder()
+    .setTitle("📖 Rarity Odds (%), Mutations & Pet Pools")
+    .setColor(0x9b59b6)
+    .setDescription(
+      `${oddsLines}\n\n` +
+      `**Mutations:** ✨ Shiny \`8%\` (\`1.6x\`) • 🌑 Shadow \`3%\` (\`2.2x\`) • 🌟 Golden \`1%\` (\`3x\`) • 🌈 Rainbow \`0.25%\` (\`5x\`)\n` +
+      `**Rules:** Pity every \`${PITY_THRESHOLD}\` pulls • \`${prefix}fuse\` merges 3 dupes • \`${prefix}lock\` protects from \`${prefix}sellall\``
+    )
+    .addFields(
+      { name: "🪵 Basic Pets", value: compactTier("basic"), inline: false },
+      { name: "✨ Epic Pets", value: compactTier("epic"), inline: false },
+      { name: "🌌 Mythic Pets", value: compactTier("mythic"), inline: false },
+      { name: "⚡ Legendary & 👑 Godly Pets", value: `${compactTier("legendary")} • ${compactTier("godly")}`, inline: false }
+    )
+    .setFooter({ text: `Page 2/2 • Fun rate: ${DON_PER_FUN_ROBUX} DON = 1 R$` });
+}
+
+function buildShopComponents(page = 1) {
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("open_crate_basic").setLabel(`🪵 Basic (${CRATE_TYPES.basic.cost})`).setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("open_crate_epic").setLabel(`✨ Epic (${CRATE_TYPES.epic.cost})`).setStyle(ButtonStyle.Primary),
@@ -411,12 +487,25 @@ function buildShopComponents() {
   );
 
   const row3 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("gacha_quick_fuse").setLabel("⚗️ Fuse 3 Dupes").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("gacha_quick_flip").setLabel("🎲 Coin Flip (10 DON)").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("gacha_sell_unlocked").setLabel("💸 Sell Unlocked").setStyle(ButtonStyle.Danger)
+    new ButtonBuilder().setCustomId("gacha_quick_fuse").setLabel("⚗️ Fuse 3").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("gacha_quick_flip").setLabel("🎲 Flip (10)").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("gacha_sell_unlocked").setLabel("💸 Sell All").setStyle(ButtonStyle.Danger)
   );
 
-  return [row1, row2, row3];
+  const row4 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("gacha_page_hub")
+      .setLabel("🎰 Crates")
+      .setStyle(page === 1 ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setDisabled(page === 1),
+    new ButtonBuilder()
+      .setCustomId("gacha_page_info")
+      .setLabel("📖 Info & %")
+      .setStyle(page === 2 ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setDisabled(page === 2)
+  );
+
+  return [row1, row2, row3, row4];
 }
 
 async function execute(message, args, prefix, getGuildData, saveData) {
@@ -432,7 +521,6 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     data.economy[userId].gachaPity = 0;
   }
 
-  // Sync any pre-existing owned pets into the permanent dex
   const { changed: dexSynced } = ensureAndSyncDex(data, userId);
   if (dexSynced) saveData();
 
@@ -504,7 +592,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
   }
 
   // =========================================================================
-  // 1. LOCK / FAVORITE PET (?lock [num] or ?unlock [num])
+  // 1. LOCK / UNLOCK PET (?lock [num] or ?unlock [num])
   // =========================================================================
   if (invokedCmd === "lock" || invokedCmd === "unlock" || firstArg === "lock" || firstArg === "unlock") {
     const numArg = firstArg === "lock" || firstArg === "unlock" ? secondArg : firstArg;
@@ -512,7 +600,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     const userPets = data.pets[userId] || [];
 
     if (isNaN(petIndex) || petIndex < 0 || petIndex >= userPets.length) {
-      return message.reply(`❌ Usage: \`${prefix}lock [pet number]\` (protects a pet from \`${prefix}sellall\` and fusion)`);
+      return message.reply(`❌ Usage: \`${prefix}lock [pet number]\``);
     }
 
     const target = userPets[petIndex];
@@ -521,22 +609,20 @@ async function execute(message, args, prefix, getGuildData, saveData) {
 
     return message.reply(
       target.locked
-        ? `🔒 Locked ${target.emoji} **${getPetDisplayName(target)}**! It won't be sold by \`${prefix}sellall\` or fused.`
+        ? `🔒 Locked ${target.emoji} **${getPetDisplayName(target)}**.`
         : `🔓 Unlocked ${target.emoji} **${getPetDisplayName(target)}**.`
     );
   }
 
   // =========================================================================
-  // 2. FUSE 3 DUPLICATE PETS (?fuse or ?crates fuse)
+  // 2. FUSE 3 DUPLICATE PETS (?fuse)
   // =========================================================================
   if (invokedCmd === "fuse" || invokedCmd === "upgrade" || firstArg === "fuse" || firstArg === "upgrade") {
     const userPets = data.pets[userId] || [];
     const result = executeFusion(userPets);
 
     if (!result) {
-      return message.reply(
-        `⚗️ You need **3 unlocked duplicate pets** (below Godly tier) to fuse into a higher-tier pet! Open more crates with \`${prefix}crates\`.`
-      );
+      return message.reply(`⚗️ Need **3 unlocked duplicate pets** (below Godly) to fuse.`);
     }
 
     const { consumedName, fusedPet } = result;
@@ -544,17 +630,16 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     saveData();
 
     const badge = RARITY_BADGE[fusedPet.rarity] || `\`${fusedPet.rarity}\``;
-    const newDexNote = isNewEntry ? `\n📖 **NEW INDEX ENTRY UNLOCKED!**` : "";
+    const newDexNote = isNewEntry ? `\n📖 **NEW INDEX ENTRY!**` : "";
 
     return message.reply(
-      `⚗️ **FUSION SUCCESS!** Combined **3x ${consumedName}** into:\n` +
-      `✨ ${fusedPet.emoji} **${getPetDisplayName(fusedPet)}** (${badge}) • Value: **${formatDon(fusedPet.value)} DON** *(~${toFunRobux(fusedPet.value)} R$ fun rate)*!` +
+      `⚗️ Fused **3x ${consumedName}** → ${fusedPet.emoji} **${getPetDisplayName(fusedPet)}** (${badge}) • **${formatDon(fusedPet.value)} DON**` +
       newDexNote
     );
   }
 
   // =========================================================================
-  // 3. DOUBLE-OR-NOTHING COIN FLIP (?gamble [amount] or ?flip [amount])
+  // 3. COIN FLIP (?gamble [1-500])
   // =========================================================================
   if (invokedCmd === "gamble" || invokedCmd === "flip" || firstArg === "gamble" || firstArg === "flip") {
     const amtArg = firstArg === "gamble" || firstArg === "flip" ? secondArg : firstArg;
@@ -562,32 +647,25 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     const bet = amtArg === "all" ? Math.min(currentBal, 500) : Number(amtArg);
 
     if (!Number.isFinite(bet) || bet < 1 || bet > 500) {
-      return message.reply(`🎲 Usage: \`${prefix}gamble [1 - 500]\` (45% chance to 2x your DON bet!)`);
+      return message.reply(`🎲 Usage: \`${prefix}gamble [1 - 500]\` (45% chance to 2x)`);
     }
     if (currentBal < bet) {
-      return message.reply(`❌ You only have **${formatDon(currentBal)} DON**!`);
+      return message.reply(`❌ You only have **${formatDon(currentBal)} DON**.`);
     }
 
     const won = Math.random() < 0.45;
-    if (won) {
-      data.economy[userId].balance = Number((currentBal + bet).toFixed(2));
-      saveData();
-      return message.reply(
-        `🎲 **HEADS — YOU WON!** Doubled your bet and gained **+${formatDon(bet)} DON**!\n` +
-        `💳 New Balance: \`${formatDon(data.economy[userId].balance)} DON\``
-      );
-    } else {
-      data.economy[userId].balance = Number((currentBal - bet).toFixed(2));
-      saveData();
-      return message.reply(
-        `💀 **TAILS — YOU LOST!** Lost **-${formatDon(bet)} DON**.\n` +
-        `💳 New Balance: \`${formatDon(data.economy[userId].balance)} DON\``
-      );
-    }
+    data.economy[userId].balance = Number((won ? currentBal + bet : currentBal - bet).toFixed(2));
+    saveData();
+
+    return message.reply(
+      won
+        ? `🎲 **HEADS — WON +${formatDon(bet)} DON!** • Balance: \`${formatDon(data.economy[userId].balance)} DON\``
+        : `💀 **TAILS — LOST -${formatDon(bet)} DON.** • Balance: \`${formatDon(data.economy[userId].balance)} DON\``
+    );
   }
 
   // =========================================================================
-  // 4. SELL ALL UNLOCKED PETS INSTANTLY (?sellall, ?sell-all, or ?crates sellall)
+  // 4. SELL ALL UNLOCKED PETS (?sellall)
   // =========================================================================
   const isSellAllCommand =
     invokedCmd === "sellall" ||
@@ -608,14 +686,14 @@ async function execute(message, args, prefix, getGuildData, saveData) {
 
     const userPets = Array.isArray(freshData.pets[userId]) ? freshData.pets[userId] : [];
     if (userPets.length === 0) {
-      return message.reply(`🎒 You don't have any pets to sell! Open crates with \`${prefix}crates\`.`);
+      return message.reply(`🎒 No pets to sell.`);
     }
 
     const toSell = userPets.filter((p) => !p?.locked);
     const keptLocked = userPets.filter((p) => p?.locked);
 
     if (toSell.length === 0) {
-      return message.reply(`🔒 All of your pets are locked! Use \`${prefix}unlock [number]\` or \`${prefix}sell [number]\`.`);
+      return message.reply(`🔒 All pets are locked. Use \`${prefix}unlock [num]\` first.`);
     }
 
     const totalDonEarned = Number(
@@ -629,14 +707,14 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     saveData();
 
     return message.reply(
-      `💸 Sold **${toSell.length}** pet(s) for **${formatDon(totalDonEarned)} DON** *(~${toFunRobux(totalDonEarned)} R$ fun rate)*! *(Your \`${prefix}index\` progress stays saved!)*` +
-      (keptLocked.length > 0 ? `\n🔒 Kept **${keptLocked.length}** locked pet(s) safe.` : "") +
-      `\n💳 New Wallet Balance: \`${formatDon(freshData.economy[userId].balance)} DON\``
+      `💸 Sold **${toSell.length}** pet(s) for **+${formatDon(totalDonEarned)} DON** *(~${toFunRobux(totalDonEarned)} R$ fun)*` +
+      (keptLocked.length > 0 ? ` • 🔒 Kept **${keptLocked.length}**` : "") +
+      `\n💳 Balance: \`${formatDon(freshData.economy[userId].balance)} DON\``
     );
   }
 
   // =========================================================================
-  // 5. SELL SINGLE PET (?sell [number] or ?crates sell [number])
+  // 5. SELL SINGLE PET (?sell [num])
   // =========================================================================
   const isSellCommand =
     invokedCmd === "sell" ||
@@ -650,9 +728,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     const userPets = data.pets[userId] || [];
 
     if (isNaN(petIndex) || petIndex < 0 || petIndex >= userPets.length) {
-      return message.reply(
-        `❌ Usage: \`${prefix}sell [pet number]\` or \`${prefix}sellall\` (Check numbers with \`${prefix}pets\`)`
-      );
+      return message.reply(`❌ Usage: \`${prefix}sell [pet number]\``);
     }
 
     ensureAndSyncDex(data, userId);
@@ -664,13 +740,12 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     saveData();
 
     return message.reply(
-      `💰 Sold ${soldPet.emoji || "🐾"} **${getPetDisplayName(soldPet)}** (\`${soldPet.rarity}\`) for **${formatDon(donEarned)} DON** *(~${toFunRobux(donEarned)} R$ fun rate)*!\n` +
-      `💳 New Wallet Balance: \`${formatDon(data.economy[userId].balance)} DON\``
+      `💰 Sold ${soldPet.emoji || "🐾"} **${getPetDisplayName(soldPet)}** for **+${formatDon(donEarned)} DON** • Balance: \`${formatDon(data.economy[userId].balance)} DON\``
     );
   }
 
   // =========================================================================
-  // 6. VIEW INVENTORY (?pets, ?inventory, ?inv)
+  // 6. VIEW INVENTORY (?pets)
   // =========================================================================
   const isInventoryCmd =
     invokedCmd === "pets" ||
@@ -683,9 +758,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
   if (isInventoryCmd) {
     const userPets = data.pets[userId] || [];
     if (userPets.length === 0) {
-      return message.reply(
-        `🎒 Your pet inventory is empty! Use \`${prefix}crates\` to spin for pets or \`${prefix}index\` to see your discovered pets.`
-      );
+      return message.reply(`🎒 Empty bag — use \`${prefix}crates\` to pull pets.`);
     }
 
     const indexMap = getPetIndexMap();
@@ -703,11 +776,11 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     const totalWorth = userPets.reduce((sum, p) => sum + (Number(p?.value) || 0), 0);
 
     const embed = new EmbedBuilder()
-      .setTitle(`🎒 ${message.author.username}'s Pet Collection`)
+      .setTitle(`🎒 ${message.author.username}'s Pets`)
       .setColor(0x5865f2)
       .setDescription(inventoryList)
       .setFooter({
-        text: `Pets: ${userPets.length} • Worth: ${formatDon(totalWorth)} DON • ${prefix}lock [num] • ${prefix}fuse • ${prefix}sellall`
+        text: `${userPets.length} pets • Worth ${formatDon(totalWorth)} DON • ${prefix}lock [num] • ${prefix}sellall`
       })
       .setTimestamp();
 
@@ -715,33 +788,23 @@ async function execute(message, args, prefix, getGuildData, saveData) {
   }
 
   // =========================================================================
-  // 7. ALL-IN-ONE GACHA ARCADE HUB (?crates)
+  // 7. GACHA ARCADE HUB (?crates) — Page 1: Crates | Page 2: Info & %
   // =========================================================================
   const userBalance = Number(data.economy[userId].balance) || 0;
   const pityNow = Number(data.economy[userId].gachaPity) || 0;
   const { dexSet } = ensureAndSyncDex(data, userId);
   let sessionPulls = 0;
+  let currentPage = firstArg === "info" || firstArg === "help" || firstArg === "odds" ? 2 : 1;
 
-  const embed = new EmbedBuilder()
-    .setTitle("🎰 Pet Gacha Arcade — Crates, Mutations, Fusion & Flip")
-    .setColor(0x5865f2)
-    .setDescription(
-      `Spin crates for rare pets + ultra-rare **Shiny / Shadow / Golden / Rainbow** mutations!\n` +
-      `💳 **Balance:** \`${formatDon(userBalance)} DON\` *(~${toFunRobux(userBalance)} R$ fun rate)* • 🎯 **Pity:** \`${pityNow}/${PITY_THRESHOLD}\` • 📖 **Dex:** \`${dexSet.size}/${PET_POOL.length}\`\n` +
-      `Commands: \`${prefix}pets\` • \`${prefix}fuse\` • \`${prefix}gamble [amt]\` • \`${prefix}lock [num]\` • \`${prefix}sellall\` • \`${prefix}index\``
-    )
-    .addFields(
-      { name: "🪵 Basic", value: `**${CRATE_TYPES.basic.cost} DON**\n${CRATE_TYPES.basic.desc}`, inline: true },
-      { name: "✨ Epic", value: `**${CRATE_TYPES.epic.cost} DON**\n${CRATE_TYPES.epic.desc}`, inline: true },
-      { name: "🌌 Mythic", value: `**${CRATE_TYPES.mythic.cost} DON**\n${CRATE_TYPES.mythic.desc}`, inline: true },
-      { name: "⚡ Legendary", value: `**${CRATE_TYPES.legendary.cost} DON**\n${CRATE_TYPES.legendary.desc}`, inline: true },
-      { name: "👑 Godly", value: `**${CRATE_TYPES.godly.cost} DON**\n${CRATE_TYPES.godly.desc}`, inline: true },
-      { name: "✨ Mutations", value: "Shiny `1.6x` • Shadow `2.2x`\nGolden `3.0x` • Rainbow `5.0x`", inline: true }
-    )
-    .setFooter({ text: "Click any button below to spin, fuse 3 dupes, coin flip, or cash out!" });
+  const initialEmbed =
+    currentPage === 2
+      ? buildInfoPageEmbed(prefix)
+      : buildCrateHubEmbed(prefix, userBalance, pityNow, dexSet.size);
 
-  const components = buildShopComponents();
-  const shopMsg = await message.reply({ embeds: [embed], components });
+  const shopMsg = await message.reply({
+    embeds: [initialEmbed],
+    components: buildShopComponents(currentPage)
+  });
 
   const collector = shopMsg.createMessageComponentCollector({
     filter: (i) => i.user.id === message.author.id,
@@ -764,12 +827,33 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     const userEco = currentData.economy[userId];
     const currentBalance = Number(userEco.balance) || 0;
 
-    // --- Quick Action 1: Fuse 3 Duplicate Pets ---
+    if (interaction.customId === "gacha_page_hub") {
+      currentPage = 1;
+      const hubEmbed = buildCrateHubEmbed(
+        prefix,
+        currentBalance,
+        Number(userEco.gachaPity) || 0,
+        currentData.petDex[userId].length
+      );
+      return interaction.update({
+        embeds: [hubEmbed],
+        components: buildShopComponents(currentPage)
+      });
+    }
+
+    if (interaction.customId === "gacha_page_info") {
+      currentPage = 2;
+      return interaction.update({
+        embeds: [buildInfoPageEmbed(prefix)],
+        components: buildShopComponents(currentPage)
+      });
+    }
+
     if (interaction.customId === "gacha_quick_fuse") {
       const fusion = executeFusion(currentData.pets[userId]);
       if (!fusion) {
         return interaction.reply({
-          content: "⚗️ Need **3 unlocked duplicate pets** (below Godly) to fuse! Keep spinning to collect dupes.",
+          content: "⚗️ Need **3 unlocked duplicate pets** (below Godly) to fuse.",
           ephemeral: true
         });
       }
@@ -778,31 +862,29 @@ async function execute(message, args, prefix, getGuildData, saveData) {
       saveData();
 
       const badge = RARITY_BADGE[fusedPet.rarity] || `\`${fusedPet.rarity}\``;
-      const newDexNote = isNewEntry ? `\n📖 **NEW INDEX ENTRY UNLOCKED!** (${currentData.petDex[userId].length}/${PET_POOL.length})` : "";
+      const newDexNote = isNewEntry
+        ? `\n📖 **NEW INDEX ENTRY!** (${currentData.petDex[userId].length}/${PET_POOL.length})`
+        : "";
 
       const fuseEmbed = new EmbedBuilder()
-        .setTitle("⚗️ Pet Fusion Complete!")
+        .setTitle("⚗️ Fusion Success")
         .setColor(0x9b59b6)
         .setDescription(
-          `Merged **3x ${consumedName}** into a stronger tier:\n\n` +
-          `${fusedPet.emoji} **${getPetDisplayName(fusedPet)}**\n` +
-          `• **Rarity:** ${badge}\n` +
-          `• **Sell Value:** \`${formatDon(fusedPet.value)} DON\` *(~${toFunRobux(fusedPet.value)} R$ fun rate)*\n` +
-          `• **Balance:** \`${formatDon(userEco.balance)} DON\`` +
+          `3x ${consumedName} → ${fusedPet.emoji} **${getPetDisplayName(fusedPet)}** (${badge})\n` +
+          `Value: \`${formatDon(fusedPet.value)} DON\` • Balance: \`${formatDon(userEco.balance)} DON\`` +
           newDexNote
         )
-        .setFooter({ text: `${prefix}pets to inspect or ${prefix}lock [num] to protect your pull!` })
         .setTimestamp();
 
-      return interaction.update({ embeds: [fuseEmbed], components });
+      currentPage = 1;
+      return interaction.update({ embeds: [fuseEmbed], components: buildShopComponents(currentPage) });
     }
 
-    // --- Quick Action 2: 10 DON Double-or-Nothing Flip ---
     if (interaction.customId === "gacha_quick_flip") {
       const bet = 10;
       if (currentBalance < bet) {
         return interaction.reply({
-          content: `❌ You need at least **${bet} DON** to coin flip (Balance: **${formatDon(currentBalance)} DON**).`,
+          content: `❌ Need **${bet} DON** to flip (Balance: **${formatDon(currentBalance)} DON**).`,
           ephemeral: true
         });
       }
@@ -811,21 +893,15 @@ async function execute(message, args, prefix, getGuildData, saveData) {
       saveData();
 
       const flipEmbed = new EmbedBuilder()
-        .setTitle(won ? "🎲 Coin Flip — HEADS (YOU WON!)" : "💀 Coin Flip — TAILS (LOST!)")
+        .setTitle(won ? "🎲 HEADS — WON +10 DON" : "💀 TAILS — LOST -10 DON")
         .setColor(won ? 0x2ecc71 : 0xe74c3c)
-        .setDescription(
-          (won
-            ? `🔥 Doubled your **${bet} DON** wager (**+${bet} DON**)!`
-            : `💨 Lost your **${bet} DON** wager (**-${bet} DON**).`) +
-          `\n💳 **New Balance:** \`${formatDon(userEco.balance)} DON\``
-        )
-        .setFooter({ text: `Or use ${prefix}gamble [1-500] for custom bets!` })
+        .setDescription(`💳 Balance: \`${formatDon(userEco.balance)} DON\``)
         .setTimestamp();
 
-      return interaction.update({ embeds: [flipEmbed], components });
+      currentPage = 1;
+      return interaction.update({ embeds: [flipEmbed], components: buildShopComponents(currentPage) });
     }
 
-    // --- Quick Action 3: Sell All Unlocked Pets ---
     if (interaction.customId === "gacha_sell_unlocked") {
       const pets = currentData.pets[userId];
       const toSell = pets.filter((p) => !p?.locked);
@@ -833,7 +909,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
 
       if (toSell.length === 0) {
         return interaction.reply({
-          content: "🎒 No unlocked pets to sell right now!",
+          content: "🎒 No unlocked pets to sell.",
           ephemeral: true
         });
       }
@@ -844,35 +920,32 @@ async function execute(message, args, prefix, getGuildData, saveData) {
       saveData();
 
       const sellEmbed = new EmbedBuilder()
-        .setTitle("💸 Instant Cash-Out Complete!")
+        .setTitle("💸 Sold Unlocked Pets")
         .setColor(0x2ecc71)
         .setDescription(
-          `Sold **${toSell.length}** unlocked pet(s) for **+${formatDon(earned)} DON** *(~${toFunRobux(earned)} R$ fun rate)*!\n` +
-          `📖 Your \`${prefix}index\` discoveries remain saved permanently.\n` +
-          (kept.length > 0 ? `🔒 Kept **${kept.length}** locked pet(s) safe.\n` : "") +
-          `💳 **New Balance:** \`${formatDon(userEco.balance)} DON\``
+          `Sold **${toSell.length}** pet(s) for **+${formatDon(earned)} DON** *(~${toFunRobux(earned)} R$ fun)*\n` +
+          `💳 Balance: \`${formatDon(userEco.balance)} DON\``
         )
-        .setFooter({ text: "Ready to spin again below!" })
         .setTimestamp();
 
-      return interaction.update({ embeds: [sellEmbed], components });
+      currentPage = 1;
+      return interaction.update({ embeds: [sellEmbed], components: buildShopComponents(currentPage) });
     }
 
-    // --- Crate Spin ---
     const crateKey = interaction.customId.replace("open_crate_", "");
     const crate = CRATE_TYPES[crateKey];
     if (!crate) return;
 
     if (currentBalance < crate.cost) {
       return interaction.reply({
-        content: `❌ Need **${crate.cost} DON** for ${crate.name}, you have **${formatDon(currentBalance)} DON**.`,
+        content: `❌ Need **${crate.cost} DON** for ${crate.name} (Balance: **${formatDon(currentBalance)} DON**).`,
         ephemeral: true
       });
     }
 
     userEco.balance = Number((currentBalance - crate.cost).toFixed(2));
     const prevPity = Number(userEco.gachaPity) || 0;
-    const { pet: wonPet, rarityOddsPct, triggeredPity } = rollPetWithOdds(crateKey, prevPity);
+    const { pet: wonPet, rarityPct, petPct, triggeredPity } = rollPetWithOdds(crateKey, prevPity);
     sessionPulls += 1;
 
     const hitGoodRarity =
@@ -888,27 +961,23 @@ async function execute(message, args, prefix, getGuildData, saveData) {
 
     const badge = RARITY_BADGE[wonPet.rarity] || `\`${wonPet.rarity}\``;
     const hypeLine = getHypeLine(wonPet, triggeredPity);
-    const mutationLine = wonPet.mutationTag ? `\n• **Mutation:** ${wonPet.mutationTag}` : "";
-    const newDexLine = isNewDiscovery
-      ? `\n• **Index:** 🆕 **NEW DISCOVERY!** (\`${currentData.petDex[userId].length}/${PET_POOL.length}\`)`
-      : `\n• **Index:** ✅ Already indexed (\`${currentData.petDex[userId].length}/${PET_POOL.length}\`)`;
+    const mutationLine = wonPet.mutationTag ? ` • ${wonPet.mutationTag}` : "";
+    const dexBadge = isNewDiscovery ? " 🆕 **NEW**" : "";
 
     const resultEmbed = new EmbedBuilder()
-      .setTitle(`🎰 ${crate.name} — Spin #${sessionPulls}`)
+      .setTitle(`${crate.name} • Spin #${sessionPulls}`)
       .setColor(wonPet.mutation === "Rainbow" || wonPet.rarity === "Godly" ? 0xff0055 : crate.color)
       .setDescription(
         `${hypeLine}\n\n` +
-        `${wonPet.emoji} **${getPetDisplayName(wonPet)}**\n` +
-        `• **Rarity:** ${badge} *(~${rarityOddsPct}% in this crate)*` +
-        mutationLine +
-        `\n• **Sell Value:** \`${formatDon(wonPet.value)} DON\` *(~${toFunRobux(wonPet.value)} R$ fun rate)*` +
-        newDexLine +
-        `\n• **Balance:** \`${formatDon(userEco.balance)} DON\` • **Pity:** \`${userEco.gachaPity}/${PITY_THRESHOLD}\``
+        `${wonPet.emoji} **${getPetDisplayName(wonPet)}**${mutationLine}${dexBadge}\n` +
+        `${badge} (\`${rarityPct}\` rarity • \`${petPct}\` pet) • \`${formatDon(wonPet.value)} DON\` *(~${toFunRobux(wonPet.value)} R$)*\n` +
+        `💳 \`${formatDon(userEco.balance)} DON\` • 🎯 Pity \`${userEco.gachaPity}/${PITY_THRESHOLD}\` • 📖 \`${currentData.petDex[userId].length}/${PET_POOL.length}\``
       )
       .setFooter({ text: `${prefix}pets • ${prefix}lock [num] • ${prefix}fuse • ${prefix}sellall` })
       .setTimestamp();
 
-    await interaction.update({ embeds: [resultEmbed], components });
+    currentPage = 1;
+    await interaction.update({ embeds: [resultEmbed], components: buildShopComponents(currentPage) });
   });
 
   collector.on("end", () => {
