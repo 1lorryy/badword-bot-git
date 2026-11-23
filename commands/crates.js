@@ -229,7 +229,47 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     return indexMsg;
   }
 
-  // 1. SELL PET COMMAND (?sell [number] or ?crates sell [number])
+  // 1A. SELL ALL PETS INSTANTLY (?sellall, ?sell-all, or ?crates sellall)
+  const isSellAllCommand =
+    invokedCmd === "sellall" ||
+    invokedCmd === "sell-all" ||
+    invokedCmd === "sellpetsall" ||
+    firstArg === "sellall" ||
+    firstArg === "sell-all";
+
+  if (isSellAllCommand) {
+    const freshData = getGuildData(message.guild.id);
+    if (!freshData.economy) freshData.economy = {};
+    if (!freshData.pets) freshData.pets = {};
+    if (!freshData.economy[userId]) {
+      freshData.economy[userId] = { balance: 0, coins: 0, lastDaily: 0 };
+    }
+
+    const userPets = Array.isArray(freshData.pets[userId]) ? freshData.pets[userId] : [];
+    if (userPets.length === 0) {
+      return message.reply(
+        `🎒 You don't have any pets to sell! Open crates with \`${prefix}crates\`.`
+      );
+    }
+
+    const totalDonEarned = Number(
+      userPets.reduce((sum, p) => sum + (Number(p?.value) || 0.5), 0).toFixed(2)
+    );
+    const soldCount = userPets.length;
+
+    freshData.pets[userId] = [];
+    freshData.economy[userId].balance = Number(
+      ((Number(freshData.economy[userId].balance) || 0) + totalDonEarned).toFixed(2)
+    );
+    saveData();
+
+    return message.reply(
+      `💸 Sold **all ${soldCount}** pet(s) for **${formatDon(totalDonEarned)} DON** *(~${toFunRobux(totalDonEarned)} R$ fun rate)*!\n` +
+      `💳 New Wallet Balance: \`${formatDon(freshData.economy[userId].balance)} DON\``
+    );
+  }
+
+  // 1B. SELL SINGLE PET COMMAND (?sell [number] or ?crates sell [number])
   const isSellCommand =
     invokedCmd === "sell" ||
     invokedCmd === "sellpet" ||
@@ -243,7 +283,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
 
     if (isNaN(petIndex) || petIndex < 0 || petIndex >= userPets.length) {
       return message.reply(
-        `❌ Usage: \`${prefix}sell [pet number]\` (Check your pet numbers using \`${prefix}pets\` or \`${prefix}inventory\`)`
+        `❌ Usage: \`${prefix}sell [pet number]\` or \`${prefix}sellall\` (Check your pet numbers using \`${prefix}pets\` or \`${prefix}inventory\`)`
       );
     }
 
@@ -292,7 +332,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
       .setColor(0x5865f2)
       .setDescription(inventoryList)
       .setFooter({
-        text: `Total Pets: ${userPets.length} • ${prefix}sell [num] to sell • ${prefix}index to view dex`
+        text: `Total Pets: ${userPets.length} • ${prefix}sell [num] or ${prefix}sellall • ${prefix}index for dex`
       })
       .setTimestamp();
 
@@ -308,7 +348,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     .setDescription(
       `Chat in the server to earn DON, spin crates, and collect pets.\n` +
       `💳 **Your Balance:** \`${formatDon(userBalance)} DON\` *(~${toFunRobux(userBalance)} R$ — fake/fun rate only)*\n` +
-      `📖 Check collection progress anytime with \`${prefix}index\` and your pets with \`${prefix}pets\`.`
+      `📖 Check collection progress anytime with \`${prefix}index\` and your pets with \`${prefix}pets\` (\`${prefix}sellall\` to sell all).`
     )
     .addFields(
       { name: "🪵 Basic", value: `Cost: **${CRATE_TYPES.basic.cost} DON**\n${CRATE_TYPES.basic.desc}`, inline: true },
@@ -379,7 +419,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
         `💰 **Pet Value:** \`${formatDon(wonPet.value)} DON\` *(~${toFunRobux(wonPet.value)} R$ fun rate)*\n\n` +
         `*(New Balance: ${formatDon(userEco.balance)} DON)*`
       )
-      .setFooter({ text: `${prefix}pets for inventory • ${prefix}index for dex • ${prefix}sell [num] to sell` })
+      .setFooter({ text: `${prefix}pets for inventory • ${prefix}index for dex • ${prefix}sell [num] or ${prefix}sellall` })
       .setTimestamp();
 
     await interaction.update({ embeds: [resultEmbed], components: [row1, row2] });
