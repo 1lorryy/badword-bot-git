@@ -1,7 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 // Fun / fake exchange reference only (50 DON = 1 fun Robux -> 0.02 per DON)
-// Helps prevent huge event payouts from blowing up fake R$ totals
 const FUN_ROBUX_PER_DON = 0.02;
 const DON_PER_FUN_ROBUX = 50;
 const INDEX_PER_PAGE = 15;
@@ -12,31 +11,31 @@ const CRATE_TYPES = {
     name: "🪵 Basic Crate",
     cost: 5,
     color: 0x8b5a2b,
-    desc: "Common & Rare grind."
+    tagline: "Entry grind • Commons & Rares"
   },
   epic: {
     name: "✨ Epic Crate",
     cost: 22,
     color: 0x9b59b6,
-    desc: "Shot at tough Epics."
+    tagline: "Mid tier • Tough Epic chase"
   },
   mythic: {
     name: "🌌 Mythic Crate",
     cost: 80,
     color: 0xf1c40f,
-    desc: "Mythic & Epic pool."
+    tagline: "High tier • Mythics & Epics"
   },
   legendary: {
     name: "⚡ Legendary Crate",
     cost: 260,
     color: 0xe67e22,
-    desc: "Brutal odds for Legendaries."
+    tagline: "Brutal odds • High-value drops"
   },
   godly: {
     name: "👑 Godly Crate",
     cost: 700,
     color: 0xe74c3c,
-    desc: "Ultra-rare Godly chase."
+    tagline: "Apex chase • Ultra-rare Godlies"
   }
 };
 
@@ -103,7 +102,6 @@ const RARITY_BADGE = {
 
 function formatPct(pct) {
   if (pct >= 10) return `${pct.toFixed(1)}%`;
-  if (pct >= 1) return `${pct.toFixed(2)}%`;
   return `${pct.toFixed(2)}%`;
 }
 
@@ -115,6 +113,13 @@ function formatDon(amount) {
 function toFunRobux(donAmount) {
   const val = (Number(donAmount) || 0) * FUN_ROBUX_PER_DON;
   return val.toFixed(2);
+}
+
+function buildPityBar(pity) {
+  const clamped = Math.min(Math.max(0, Number(pity) || 0), PITY_THRESHOLD);
+  const blocks = 10;
+  const filled = Math.round((clamped / PITY_THRESHOLD) * blocks);
+  return `${"█".repeat(filled)}${"░".repeat(blocks - filled)} \`${clamped}/${PITY_THRESHOLD}\``;
 }
 
 function getPetDisplayName(pet) {
@@ -236,7 +241,7 @@ function getCandidatePool(crateType, forcePity = false) {
   return pool;
 }
 
-function getCrateOddsSummary(crateType) {
+function getCrateOddsCompact(crateType) {
   const pool = getCandidatePool(crateType, false);
   const totalWeight = pool.reduce((sum, p) => sum + p.effectiveWeight, 0) || 1;
   const rarityWeights = new Map();
@@ -252,7 +257,7 @@ function getCrateOddsSummary(crateType) {
       const shortLabel = RARITY_BADGE[r].replace(/^[^\s]+\s/, "");
       return `${shortLabel} **${formatPct(pct)}**`;
     })
-    .join(" • ");
+    .join(" · ");
 }
 
 function rollPetWithOdds(crateType, pityCount = 0) {
@@ -283,20 +288,20 @@ function rollPetWithOdds(crateType, pityCount = 0) {
 }
 
 function getHypeLine(pet, triggeredPity) {
-  if (pet.mutation === "Rainbow") return "🌈🚨 **UNREAL RAINBOW MUTATION!! 5.0x VALUE FLEX!!**";
-  if (pet.rarity === "Godly") return "🚨 **INSANE GODLY PULL!!** The whole server felt that.";
-  if (pet.rarity === "Legendary") return "🔥 **HUGE LEGENDARY HIT!** Beat brutal odds for this one.";
-  if (pet.mutation === "Golden") return "🌟 **GOLDEN VARIANT!** 3.0x sell value multiplier!";
-  if (pet.rarity === "Mythic") return "⚡ **MYTHIC DROP!** Huge luck on that spin.";
+  if (pet.mutation === "Rainbow") return "🌈🚨 **RAINBOW MUTATION!! 5.0x VALUE FLEX!!**";
+  if (pet.rarity === "Godly") return "🚨 **GODLY PULL!!** Server-shaking luck.";
+  if (pet.rarity === "Legendary") return "🔥 **LEGENDARY HIT!** Beat brutal odds.";
+  if (pet.mutation === "Golden") return "🌟 **GOLDEN MUTATION!** 3.0x value.";
+  if (pet.rarity === "Mythic") return "⚡ **MYTHIC DROP!** Clean high-tier hit.";
   if (pet.rarity === "Epic") {
     return triggeredPity
-      ? "🎯 **PITY TRIGGERED!** Guaranteed Epic+ hit!"
-      : "✨ **Epic pull!** Solid step up from the grind.";
+      ? "🎯 **PITY GUARANTEED HIT!** Epic+ unlocked."
+      : "✨ **EPIC PULL!** Nice step up.";
   }
   if (pet.rarity === "Rare") {
     return triggeredPity
-      ? "🎯 **PITY TRIGGERED!** Guaranteed Rare+ hit!"
-      : "🟦 **Rare sneak!** Better than the usual commons.";
+      ? "🎯 **PITY GUARANTEED HIT!** Rare+ unlocked."
+      : "🟦 **RARE HIT!** Above-average pull.";
   }
   return "💨 *Common roll — fuse 3 dupes (`?fuse`) or keep spinning.*";
 }
@@ -419,7 +424,7 @@ function buildIndexEmbed(user, data, userId, page = 1) {
       .setTitle(`📖 ${user.username}'s Pet Index`)
       .setColor(0x9b59b6)
       .setDescription(
-        `**${totalIndexedCount}/${PET_POOL.length}** (**${pct}%**) • *Stays indexed after selling/fusing*\n` +
+        `**${totalIndexedCount}/${PET_POOL.length}** (**${pct}%**) • *Permanent discoveries (kept even after selling)*\n` +
         `Fun rate: \`${DON_PER_FUN_ROBUX} DON = 1 R$\`\n\n` +
         lines.join("\n")
       )
@@ -430,82 +435,110 @@ function buildIndexEmbed(user, data, userId, page = 1) {
 
 function buildCrateHubEmbed(prefix, balance, pity, dexCount) {
   return new EmbedBuilder()
-    .setTitle("🎰 Pet Gacha Arcade")
+    .setTitle("🎰 Gacha Arcade")
     .setColor(0x5865f2)
     .setDescription(
-      `💳 \`${formatDon(balance)} DON\` *(~${toFunRobux(balance)} R$ fun)* • 🎯 Pity \`${pity}/${PITY_THRESHOLD}\` • 📖 Dex \`${dexCount}/${PET_POOL.length}\`\n` +
-      `Tap **📖 Info & %** for exact rarity odds & pet pools.`
+      `💳 **Wallet:** \`${formatDon(balance)} DON\` *(~${toFunRobux(balance)} R$ fun)* • 📖 **Dex:** \`${dexCount}/${PET_POOL.length}\`\n` +
+      `🎯 **Pity:** ${buildPityBar(pity)}`
     )
     .addFields(
-      { name: "🪵 Basic • 5 DON", value: CRATE_TYPES.basic.desc, inline: true },
-      { name: "✨ Epic • 22 DON", value: CRATE_TYPES.epic.desc, inline: true },
-      { name: "🌌 Mythic • 80 DON", value: CRATE_TYPES.mythic.desc, inline: true },
-      { name: "⚡ Legendary • 260 DON", value: CRATE_TYPES.legendary.desc, inline: true },
-      { name: "👑 Godly • 700 DON", value: CRATE_TYPES.godly.desc, inline: true },
-      { name: "⚡ Commands", value: `\`${prefix}pets\` \`${prefix}fuse\` \`${prefix}lock\` \`${prefix}sellall\``, inline: true }
+      { name: "🪵 Basic • 5 DON", value: CRATE_TYPES.basic.tagline, inline: true },
+      { name: "✨ Epic • 22 DON", value: CRATE_TYPES.epic.tagline, inline: true },
+      { name: "🌌 Mythic • 80 DON", value: CRATE_TYPES.mythic.tagline, inline: true },
+      { name: "⚡ Legendary • 260 DON", value: CRATE_TYPES.legendary.tagline, inline: true },
+      { name: "👑 Godly • 700 DON", value: CRATE_TYPES.godly.tagline, inline: true },
+      { name: "🧭 Commands", value: `\`${prefix}pets\` \`${prefix}fuse\` \`${prefix}lock\` \`${prefix}sellall\``, inline: true }
     )
-    .setFooter({ text: "Page 1/2 • Crates Hub" });
+    .setFooter({ text: "Tap 'Odds & Pets' for crate % & pet lists • Page 1/2" });
 }
 
 function buildInfoPageEmbed(prefix) {
-  const oddsLines = Object.entries(CRATE_TYPES)
-    .map(([key, c]) => `**${c.name} (${c.cost} DON):** ${getCrateOddsSummary(key)}`)
+  const crateOddsBlock = Object.entries(CRATE_TYPES)
+    .map(([key, c]) => `• **${c.name}** *(${c.cost} DON)* → ${getCrateOddsCompact(key)}`)
     .join("\n");
 
-  const compactTier = (tier) =>
-    PET_POOL.filter((p) => p.tier === tier)
-      .map((p) => `${p.emoji} ${p.name} *(${formatDon(p.value)})*`)
-      .join(" • ");
+  const spotlightByTier = (tier) => {
+    const items = PET_POOL.filter((p) => p.tier === tier);
+    const top = items.slice(-2).map((p) => `${p.emoji} **${p.name}**`).join(" & ");
+    return `${items.length} pets · Top: ${top}`;
+  };
 
   return new EmbedBuilder()
-    .setTitle("📖 Rarity Odds (%), Mutations & Pet Pools")
+    .setTitle("📖 Crate Odds, Mutations & How It Works")
     .setColor(0x9b59b6)
     .setDescription(
-      `${oddsLines}\n\n` +
-      `**Mutations:** ✨ Shiny \`8%\` (\`1.6x\`) • 🌑 Shadow \`3%\` (\`2.2x\`) • 🌟 Golden \`1%\` (\`3x\`) • 🌈 Rainbow \`0.25%\` (\`5x\`)\n` +
-      `**Rules:** Pity every \`${PITY_THRESHOLD}\` pulls • \`${prefix}fuse\` merges 3 dupes • \`${prefix}lock\` protects from \`${prefix}sellall\``
+      `**Crate Rarity Chances**\n${crateOddsBlock}\n\n` +
+      `**Mutations (Bonus Multiplier)**\n` +
+      `✨ Shiny \`8%\` (**1.6x**) · 🌑 Shadow \`3%\` (**2.2x**) · 🌟 Golden \`1%\` (**3x**) · 🌈 Rainbow \`0.25%\` (**5x**)`
     )
     .addFields(
-      { name: "🪵 Basic Pets", value: compactTier("basic"), inline: false },
-      { name: "✨ Epic Pets", value: compactTier("epic"), inline: false },
-      { name: "🌌 Mythic Pets", value: compactTier("mythic"), inline: false },
-      { name: "⚡ Legendary & 👑 Godly Pets", value: `${compactTier("legendary")} • ${compactTier("godly")}`, inline: false }
+      {
+        name: "⚙️ Game Loop & Smart Tricks",
+        value:
+          `• **Pity (\`${PITY_THRESHOLD}\` pulls):** Guarantees Rare+ on Basic or Epic+ on higher crates.\n` +
+          `• **Fusion (\`${prefix}fuse\`):** Merge **3 unlocked dupes** for 1 higher-tier pet (20% mutation chance).\n` +
+          `• **Lock & Cash-Out:** \`${prefix}lock [num]\` protects pets from \`${prefix}sellall\`. \`${prefix}index\` never resets.`
+      },
+      {
+        name: "🐾 Tier Highlights",
+        value:
+          `🪵 **Basic:** ${spotlightByTier("basic")}\n` +
+          `✨ **Epic:** ${spotlightByTier("epic")}\n` +
+          `🌌 **Mythic:** ${spotlightByTier("mythic")}\n` +
+          `⚡ **Legendary:** ${spotlightByTier("legendary")}\n` +
+          `👑 **Godly:** ${spotlightByTier("godly")}`
+      }
     )
-    .setFooter({ text: `Page 2/2 • Fun rate: ${DON_PER_FUN_ROBUX} DON = 1 R$` });
+    .setFooter({ text: `Tap 'Crates' to spin • Fun rate: ${DON_PER_FUN_ROBUX} DON = 1 R$ • Page 2/2` });
 }
 
 function buildShopComponents(page = 1) {
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("open_crate_basic").setLabel(`🪵 Basic (${CRATE_TYPES.basic.cost})`).setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("open_crate_epic").setLabel(`✨ Epic (${CRATE_TYPES.epic.cost})`).setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("open_crate_mythic").setLabel(`🌌 Mythic (${CRATE_TYPES.mythic.cost})`).setStyle(ButtonStyle.Success)
+    new ButtonBuilder()
+      .setCustomId("open_crate_basic")
+      .setLabel(`🪵 Basic (${CRATE_TYPES.basic.cost})`)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("open_crate_epic")
+      .setLabel(`✨ Epic (${CRATE_TYPES.epic.cost})`)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId("open_crate_mythic")
+      .setLabel(`🌌 Mythic (${CRATE_TYPES.mythic.cost})`)
+      .setStyle(ButtonStyle.Success)
   );
 
   const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("open_crate_legendary").setLabel(`⚡ Legendary (${CRATE_TYPES.legendary.cost})`).setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("open_crate_godly").setLabel(`👑 Godly (${CRATE_TYPES.godly.cost})`).setStyle(ButtonStyle.Danger)
+    new ButtonBuilder()
+      .setCustomId("open_crate_legendary")
+      .setLabel(`⚡ Legendary (${CRATE_TYPES.legendary.cost})`)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId("open_crate_godly")
+      .setLabel(`👑 Godly (${CRATE_TYPES.godly.cost})`)
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId("gacha_toggle_page")
+      .setLabel(page === 2 ? "🎰 Crates" : "📖 Odds & Pets")
+      .setStyle(page === 2 ? ButtonStyle.Success : ButtonStyle.Secondary)
   );
 
   const row3 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("gacha_quick_fuse").setLabel("⚗️ Fuse 3").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("gacha_quick_flip").setLabel("🎲 Flip (10)").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("gacha_sell_unlocked").setLabel("💸 Sell All").setStyle(ButtonStyle.Danger)
+    new ButtonBuilder()
+      .setCustomId("gacha_quick_fuse")
+      .setLabel("⚗️ Fuse 3")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("gacha_quick_flip")
+      .setLabel("🎲 Flip (10)")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("gacha_sell_unlocked")
+      .setLabel("💸 Sell All")
+      .setStyle(ButtonStyle.Danger)
   );
 
-  const row4 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("gacha_page_hub")
-      .setLabel("🎰 Crates")
-      .setStyle(page === 1 ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setDisabled(page === 1),
-    new ButtonBuilder()
-      .setCustomId("gacha_page_info")
-      .setLabel("📖 Info & %")
-      .setStyle(page === 2 ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setDisabled(page === 2)
-  );
-
-  return [row1, row2, row3, row4];
+  return [row1, row2, row3];
 }
 
 async function execute(message, args, prefix, getGuildData, saveData) {
@@ -788,7 +821,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
   }
 
   // =========================================================================
-  // 7. GACHA ARCADE HUB (?crates) — Page 1: Crates | Page 2: Info & %
+  // 7. GACHA ARCADE HUB (?crates) — Page 1: Crates | Page 2: Odds & Info
   // =========================================================================
   const userBalance = Number(data.economy[userId].balance) || 0;
   const pityNow = Number(data.economy[userId].gachaPity) || 0;
@@ -827,24 +860,20 @@ async function execute(message, args, prefix, getGuildData, saveData) {
     const userEco = currentData.economy[userId];
     const currentBalance = Number(userEco.balance) || 0;
 
-    if (interaction.customId === "gacha_page_hub") {
-      currentPage = 1;
-      const hubEmbed = buildCrateHubEmbed(
-        prefix,
-        currentBalance,
-        Number(userEco.gachaPity) || 0,
-        currentData.petDex[userId].length
-      );
-      return interaction.update({
-        embeds: [hubEmbed],
-        components: buildShopComponents(currentPage)
-      });
-    }
+    if (interaction.customId === "gacha_toggle_page") {
+      currentPage = currentPage === 1 ? 2 : 1;
+      const nextEmbed =
+        currentPage === 2
+          ? buildInfoPageEmbed(prefix)
+          : buildCrateHubEmbed(
+              prefix,
+              currentBalance,
+              Number(userEco.gachaPity) || 0,
+              currentData.petDex[userId].length
+            );
 
-    if (interaction.customId === "gacha_page_info") {
-      currentPage = 2;
       return interaction.update({
-        embeds: [buildInfoPageEmbed(prefix)],
+        embeds: [nextEmbed],
         components: buildShopComponents(currentPage)
       });
     }
@@ -971,7 +1000,7 @@ async function execute(message, args, prefix, getGuildData, saveData) {
         `${hypeLine}\n\n` +
         `${wonPet.emoji} **${getPetDisplayName(wonPet)}**${mutationLine}${dexBadge}\n` +
         `${badge} (\`${rarityPct}\` rarity • \`${petPct}\` pet) • \`${formatDon(wonPet.value)} DON\` *(~${toFunRobux(wonPet.value)} R$)*\n` +
-        `💳 \`${formatDon(userEco.balance)} DON\` • 🎯 Pity \`${userEco.gachaPity}/${PITY_THRESHOLD}\` • 📖 \`${currentData.petDex[userId].length}/${PET_POOL.length}\``
+        `💳 \`${formatDon(userEco.balance)} DON\` • 🎯 ${buildPityBar(userEco.gachaPity)} • 📖 \`${currentData.petDex[userId].length}/${PET_POOL.length}\``
       )
       .setFooter({ text: `${prefix}pets • ${prefix}lock [num] • ${prefix}fuse • ${prefix}sellall` })
       .setTimestamp();
