@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
-const FUN_ROBUX_PER_DON = 0.05;
+const FUN_ROBUX_PER_DON = 0.02;
 const TOTAL_INDEX_PETS = 30;
 const MEDALS = ["🥇", "🥈", "🥉"];
 
