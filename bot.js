@@ -698,6 +698,10 @@ const funCommandsList = [
     return tradeCmd.execute(message, args, prefix, getGuildData, saveData);
   }
 
+if (command === "index" || command === "dex" || command === "pokedex") {
+    return cratesCommand.execute(message, ["index", ...args], prefix, getGuildData, saveData);
+  }
+  
   if (command === "sell" || command === "sellpet") {
     const cratesCmd = require("./commands/crates.js");
     return cratesCmd.execute(message, args, prefix, getGuildData, saveData);
@@ -1914,10 +1918,11 @@ const pageFun = new EmbedBuilder()
         value:
           `• \`${prefix}crates\` — Open the pet crate shop & spin for rare animals!\n` +
           `• \`${prefix}pets\` (or \`${prefix}inventory\`) — View your collected pet collection\n` +
+          `• \`${prefix}index [page]\` (or \`${prefix}dex\`) — View the pet index & track unlocked vs. *not owned* pets\n` +
           `• \`${prefix}sell [number]\` — Sell any pet from your inventory for DON wallet cash\n` +
           `• \`${prefix}trade @user\` — Securely trade rare pets with another server member\n` +
-          `• \`${prefix}lb\` (or \`${prefix}leaderboard\`) — View server leaderboards (DON, Robux, & Pet Worth)\n` +
-          `• \`${prefix}msg\` — Check mini-game balance, exchange points & message stats`
+          `• \`${prefix}lb\` (or \`${prefix}leaderboard\`) — Server leaderboards (DON, Fun R$, Pet Worth, & Index)\n` +
+          `• \`${prefix}msg\` — Check mini-game balance, low fun-rate exchange & message stats`
       },
       {
         name: "💍 Family & Relationships",
