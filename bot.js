@@ -1938,7 +1938,7 @@ const pageFun = new EmbedBuilder()
           `• \`${prefix}sell [num]\` / \`${prefix}sellall\` — Sell one pet or all unlocked pets for DON\n` +
           `• \`${prefix}trade @user\` — Trade pets with another server member\n` +
           `• \`${prefix}lb [don|rbx|pets|index]\` — 4-page server leaderboard\n` +
-          `• \`${prefix}msg\` — Check DON balance, fun Robux (\`1 DON = 0.05 R$\`) & message stats`
+          `• \`${prefix}msg\` — Check DON balance, fun Robux (\`50 DON = 1 R$\`) & message stats`
       },
       {
         name: "💍 Family & Relationships",
