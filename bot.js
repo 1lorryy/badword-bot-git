@@ -26,6 +26,7 @@ const commandInfoModule = require("./commands/commandinfo.js");
 const commandInfoCommand = require("./commands/commandinfo.js");
 const otherRolesCommand = require("./commands/otherroles.js");
 const reactionRolesCommand = require("./commands/reactionroles.js");
+const botCore = require("./botCore.js");
 
 const snipes = {};
 const fs = require("fs");
@@ -2547,9 +2548,11 @@ if (interaction.commandName === "feedback") {
         return;
       }
 
-      // ================= PER-GUILD DATA & PREFIX =================
+// ================= PER-GUILD DATA & PREFIX =================
       const data = getGuildData(message.guild.id);
-      const coreCfg = botCore.getGuild(message.guild.id);
+      const coreCfg = typeof botCore !== "undefined" && botCore?.getGuild
+        ? botCore.getGuild(message.guild.id)
+        : null;
       const prefix = coreCfg?.prefix || data.prefix || DEFAULT_PREFIX;
 
       // Per-guild message points earning (45s cooldown)
