@@ -2530,7 +2530,7 @@ function startOptionalHourlyPromo() {
   if (typeof timer.unref === "function") timer.unref();
 }
 
-// ================= MESSAGE CREATE (DM AI + ECONOMY POINTS) =================
+// ================= MESSAGE CREATE (DM AI + ECONOMY POINTS + AUTOMOD + STATS + AI) =================
 client.on("messageCreate", async (message) => {
   try {
     if (message.author.bot || !message.content) return;
@@ -2562,10 +2562,13 @@ client.on("messageCreate", async (message) => {
       return;
     }
 
-    // Per-guild message points earning (45s cooldown)
+    // ================= PER-GUILD DATA & PREFIX =================
     const data = getGuildData(message.guild.id);
-    if (!data.economy) data.economy = {};
+    const coreCfg = botCore.getGuild(message.guild.id);
+    const prefix = coreCfg?.prefix || data.prefix || DEFAULT_PREFIX;
 
+    // Per-guild message points earning (45s cooldown)
+    if (!data.economy) data.economy = {};
     const userId = message.author.id;
     if (!data.economy[userId]) {
       data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
@@ -2582,11 +2585,6 @@ client.on("messageCreate", async (message) => {
       userData.coins = (userData.coins || 0) + earnedPoints;
       saveData();
     }
-
-   // ================= PER-GUILD DATA & PREFIX =================
-    const data = getGuildData(message.guild.id);
-    const coreCfg = botCore.getGuild(message.guild.id);
-    const prefix = coreCfg?.prefix || data.prefix || DEFAULT_PREFIX;
 
     // ================= PER-GUILD AFK HANDLING =================
     if (typeof botCore.processAfkMessage === "function") {
@@ -2732,7 +2730,7 @@ client.on("messageCreate", async (message) => {
 
     await message.channel.sendTyping().catch(() => null);
 
-  // ================= REAL-TIME CHANNEL HISTORY FETCHER =================
+    // ================= REAL-TIME CHANNEL HISTORY FETCHER =================
     let channelHistory = [];
     try {
       const fetchedMsgs = await message.channel.messages.fetch({ limit: 50 });
