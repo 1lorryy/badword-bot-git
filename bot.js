@@ -2496,11 +2496,11 @@ async function startBot() {
           return await handleCommands(fakeMessage);
         }
 
-        if (interaction.commandName === "feedback") {
+if (interaction.commandName === "feedback") {
           const modal = new ModalBuilder()
             .
   
-// ================= OPTIONAL HOURLY MINI-GAME PROMO =================
+// ================= OPTIONAL HOURLY MINI-GAME PROMO ===============
 function startOptionalHourlyPromo() {
   const generalChannelId = process.env.GENERAL_CHANNEL_ID || "";
   const botChannelId = process.env.BOT_CHANNEL_ID || "";
