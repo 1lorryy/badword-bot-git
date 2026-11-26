@@ -2515,6 +2515,241 @@ if (interaction.commandName === "feedback") {
     }
   });
 
+  // ================= MESSAGE CREATE (DM AI + ECONOMY POINTS + AUTOMOD + STATS + AI) =================
+  client.on("messageCreate", async (message) => {
+    try {
+      if (message.author.bot || !message.content) return;
+
+      // Private DM AI pipeline
+      if (!message.guild) {
+        await message.channel.sendTyping().catch(() => null);
+
+        let dmHistory = [];
+        try {
+          const fetchedMsgs = await message.channel.messages.fetch({ limit: 50 });
+          dmHistory = Array.from(fetchedMsgs.values())
+            .reverse()
+            .map((m) => ({
+              role: m.author.id === client.user.id ? "assistant" : "user",
+              content: `${m.author.username}: ${m.content}`
+            }));
+        } catch (err) {
+          console.error("Failed to fetch DM message history:", err);
+        }
+
+        const aiReply = await generateAiReply(message, message.content, dmHistory, 0).catch(() => null);
+        if (aiReply) {
+          return message.reply({
+            content: aiReply,
+            allowedMentions: { parse: [], repliedUser: true }
+          });
+        }
+        return;
+      }
+
+      // ================= PER-GUILD DATA & PREFIX =================
+      const data = getGuildData(message.guild.id);
+      const coreCfg = botCore.getGuild(message.guild.id);
+      const prefix = coreCfg?.prefix || data.prefix || DEFAULT_PREFIX;
+
+      // Per-guild message points earning (45s cooldown)
+      if (!data.economy) data.economy = {};
+      const userId = message.author.id;
+      if (!data.economy[userId]) {
+        data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
+      }
+
+      const userData = data.economy[userId];
+      const now = Date.now();
+      const POINT_COOLDOWN = 45000;
+
+      if (now - (userData.lastMessagePointTime || 0) > POINT_COOLDOWN && message.content.trim().length > 3) {
+        userData.lastMessagePointTime = now;
+        const earnedPoints = 0.25;
+        userData.balance = (userData.balance || 0) + earnedPoints;
+        userData.coins = (userData.coins || 0) + earnedPoints;
+        saveData();
+      }
+
+      // ================= PER-GUILD AFK HANDLING =================
+      if (typeof botCore.processAfkMessage === "function") {
+        await botCore.processAfkMessage(message);
+      }
+      if (typeof handleAfkMentionsAndReturn === "function") {
+        const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
+        if (userReturned) return;
+      }
+
+      // ================= AUTOMOD BLACKLIST & INVITE BYPASS =================
+      const inviteBypassRoleId = coreCfg?.inviteBypassRoleId || process.env.INVITE_BYPASS_ROLE_ID || "";
+      const hasBypassDiscordInvite = inviteBypassRoleId
+        ? Boolean(message.member?.roles?.cache?.has(inviteBypassRoleId))
+        : false;
+      const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
+      const allowDiscordInvite = hasBypassDiscordInvite && discordInviteRegex.test(message.content);
+
+      const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
+      if (protectedWord) {
+        await message.delete().catch(() => null);
+        await sendAutomodLog(message, protectedWord);
+        return;
+      }
+
+      if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
+        const word = containsBlacklistedWord(message.content, [
+          ...CORE_BLACKLIST,
+          ...(data.words || []),
+          ...(data.blockedLinks || [])
+        ]);
+        if (word) {
+          await message.delete().catch(() => null);
+          await sendAutomodLog(message, word);
+          return;
+        }
+      }
+
+      // ================= PER-GUILD AUTO-RESPONDERS =================
+      if (data.autoResponses && typeof data.autoResponses === "object") {
+        const contentLower = message.content.toLowerCase();
+        for (const [trigger, arData] of Object.entries(data.autoResponses)) {
+          if (contentLower.includes(trigger)) {
+            const payload = {};
+            if (arData.text) payload.content = arData.text;
+            if (arData.image) {
+              payload.embeds = [new EmbedBuilder().setColor(0xff69b4).setImage(arData.image)];
+            }
+            if (payload.content || payload.embeds) {
+              await message.channel.send(payload).catch(() => null);
+            }
+            break;
+          }
+        }
+      }
+
+      // ================= UTC MESSAGE ACTIVITY TRACKER (CONFIGURED CHANNELS ONLY) =================
+      if (Array.isArray(data.countedChannels) && data.countedChannels.includes(message.channel.id)) {
+        if (!data.messageStats) data.messageStats = {};
+        const uid = message.author.id;
+
+        const nowDate = new Date();
+        const utcYear = nowDate.getUTCFullYear();
+        const utcMonth = nowDate.getUTCMonth();
+        const utcDate = nowDate.getUTCDate();
+
+        const dateStr = `${utcYear}-${String(utcMonth + 1).padStart(2, "0")}-${String(utcDate).padStart(2, "0")}`;
+        const monthStr = `${utcYear}-${String(utcMonth + 1).padStart(2, "0")}`;
+
+        const d = new Date(Date.UTC(utcYear, utcMonth, utcDate));
+        const day = d.getUTCDay();
+        const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(d.setUTCDate(diff));
+        const weekStr = monday.toISOString().split("T")[0];
+
+        if (!data.messageStats[uid]) {
+          data.messageStats[uid] = {
+            total: 0,
+            daily: { date: dateStr, count: 0 },
+            weekly: { week: weekStr, count: 0 },
+            monthly: { month: monthStr, count: 0 }
+          };
+        }
+
+        const stats = data.messageStats[uid];
+        if (stats.daily.date !== dateStr) { stats.daily.date = dateStr; stats.daily.count = 0; }
+        if (stats.weekly.week !== weekStr) { stats.weekly.week = weekStr; stats.weekly.count = 0; }
+        if (stats.monthly.month !== monthStr) { stats.monthly.month = monthStr; stats.monthly.count = 0; }
+
+        stats.total++;
+        stats.daily.count++;
+        stats.weekly.count++;
+        stats.monthly.count++;
+        saveData();
+      }
+
+      // ================= CHANNEL PERSONA COUNTER =================
+      if (!data.channelCounters) data.channelCounters = {};
+      if (typeof data.channelCounters[message.channel.id] !== "number") {
+        data.channelCounters[message.channel.id] = 0;
+      }
+      if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
+
+      const lowerContent = message.content.toLowerCase();
+      const isAiCommand = lowerContent.startsWith(`${prefix.toLowerCase()}ai`);
+      const isStatusCommand = lowerContent.startsWith(`${prefix.toLowerCase()}status`);
+
+      let isReplyToBot = false;
+      if (message.reference?.messageId) {
+        const repliedMsg =
+          message.channel.messages.cache.get(message.reference.messageId) ||
+          (await message.channel.messages.fetch(message.reference.messageId).catch(() => null));
+        if (repliedMsg && repliedMsg.author.id === client.user.id) {
+          isReplyToBot = true;
+        }
+      }
+
+      if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
+        data.channelCounters[message.channel.id]++;
+        if (data.channelCounters[message.channel.id] >= 50) {
+          data.channelCounters[message.channel.id] = 0;
+          data.currentPersonaIndex += 1;
+          saveData();
+        }
+      }
+
+      // ================= COMMAND ROUTING =================
+      const wasCommand = await handleCommands(message, getGuildData);
+      if (wasCommand) return;
+
+      // ================= AI CHAT TRIGGER =================
+      const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
+      if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
+
+      let triggerText = message.content;
+      if (isAiCommand) {
+        triggerText = message.content.slice(`${prefix}ai`.length).trim();
+        if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
+      } else if (isBotMentioned) {
+        triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, "g"), "").trim();
+        if (!triggerText) return message.reply("Hey! How can I help you today?");
+      }
+
+      await message.channel.sendTyping().catch(() => null);
+
+      // ================= REAL-TIME CHANNEL HISTORY FETCHER =================
+      let channelHistory = [];
+      try {
+        const fetchedMsgs = await message.channel.messages.fetch({ limit: 50 });
+        channelHistory = Array.from(fetchedMsgs.values())
+          .reverse()
+          .map((m) => ({
+            role: m.author.id === client.user.id ? "assistant" : "user",
+            content: `${m.author.username}: ${m.content}`
+          }));
+      } catch (err) {
+        console.error("Failed to fetch channel message history:", err);
+      }
+
+      const aiReply = await generateAiReply(
+        message,
+        triggerText,
+        channelHistory,
+        data.currentPersonaIndex || 0
+      ).catch((err) => {
+        console.error("AI reply error:", err);
+        return null;
+      });
+
+      if (aiReply) {
+        return await message.reply({
+          content: aiReply,
+          allowedMentions: { parse: [], repliedUser: true }
+        });
+      }
+    } catch (err) {
+      console.error("Error running inside messageCreate pipeline:", err);
+    }
+  });
+
   await client.login(process.env.DISCORD_TOKEN);
 }
 
@@ -2546,244 +2781,6 @@ function startOptionalHourlyPromo() {
   }, 3600000);
 
   if (typeof timer.unref === "function") timer.unref();
-}
-
-// ================= MESSAGE CREATE (DM AI + ECONOMY POINTS + AUTOMOD + STATS + AI) =================
-client.on("messageCreate", async (message) => {
-  try {
-    if (message.author.bot || !message.content) return;
-
-    // Private DM AI pipeline
-    if (!message.guild) {
-      await message.channel.sendTyping().catch(() => null);
-
-      let dmHistory = [];
-      try {
-        const fetchedMsgs = await message.channel.messages.fetch({ limit: 50 });
-        dmHistory = Array.from(fetchedMsgs.values())
-          .reverse()
-          .map((m) => ({
-            role: m.author.id === client.user.id ? "assistant" : "user",
-            content: `${m.author.username}: ${m.content}`
-          }));
-      } catch (err) {
-        console.error("Failed to fetch DM message history:", err);
-      }
-
-      const aiReply = await generateAiReply(message, message.content, dmHistory, 0).catch(() => null);
-      if (aiReply) {
-        return message.reply({
-          content: aiReply,
-          allowedMentions: { parse: [], repliedUser: true }
-        });
-      }
-      return;
-    }
-
-    // ================= PER-GUILD DATA & PREFIX =================
-    const data = getGuildData(message.guild.id);
-    const coreCfg = botCore.getGuild(message.guild.id);
-    const prefix = coreCfg?.prefix || data.prefix || DEFAULT_PREFIX;
-
-    // Per-guild message points earning (45s cooldown)
-    if (!data.economy) data.economy = {};
-    const userId = message.author.id;
-    if (!data.economy[userId]) {
-      data.economy[userId] = { balance: 0, coins: 0, lastDaily: 0, lastMessagePointTime: 0 };
-    }
-
-    const userData = data.economy[userId];
-    const now = Date.now();
-    const POINT_COOLDOWN = 45000;
-
-    if (now - (userData.lastMessagePointTime || 0) > POINT_COOLDOWN && message.content.trim().length > 3) {
-      userData.lastMessagePointTime = now;
-      const earnedPoints = 0.25;
-      userData.balance = (userData.balance || 0) + earnedPoints;
-      userData.coins = (userData.coins || 0) + earnedPoints;
-      saveData();
-    }
-
-    // ================= PER-GUILD AFK HANDLING =================
-    if (typeof botCore.processAfkMessage === "function") {
-      await botCore.processAfkMessage(message);
-    }
-    if (typeof handleAfkMentionsAndReturn === "function") {
-      const userReturned = await handleAfkMentionsAndReturn(message, prefix, getGuildData, saveData);
-      if (userReturned) return;
-    }
-
-    // ================= AUTOMOD BLACKLIST & INVITE BYPASS =================
-    const inviteBypassRoleId = coreCfg?.inviteBypassRoleId || process.env.INVITE_BYPASS_ROLE_ID || "";
-    const hasBypassDiscordInvite = inviteBypassRoleId
-      ? Boolean(message.member?.roles?.cache?.has(inviteBypassRoleId))
-      : false;
-    const discordInviteRegex = /(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\/\S+/i;
-    const allowDiscordInvite = hasBypassDiscordInvite && discordInviteRegex.test(message.content);
-
-    const protectedWord = containsBlacklistedWord(message.content, PROTECTED_BLACKLIST);
-    if (protectedWord) {
-      await message.delete().catch(() => null);
-      await sendAutomodLog(message, protectedWord);
-      return;
-    }
-
-    if (!message.content.startsWith(prefix) && !hasBypassRole(message) && !allowDiscordInvite) {
-      const word = containsBlacklistedWord(message.content, [
-        ...CORE_BLACKLIST,
-        ...(data.words || []),
-        ...(data.blockedLinks || [])
-      ]);
-      if (word) {
-        await message.delete().catch(() => null);
-        await sendAutomodLog(message, word);
-        return;
-      }
-    }
-
-    // ================= PER-GUILD AUTO-RESPONDERS =================
-    if (data.autoResponses && typeof data.autoResponses === "object") {
-      const contentLower = message.content.toLowerCase();
-      for (const [trigger, arData] of Object.entries(data.autoResponses)) {
-        if (contentLower.includes(trigger)) {
-          const payload = {};
-          if (arData.text) payload.content = arData.text;
-          if (arData.image) {
-            payload.embeds = [new EmbedBuilder().setColor(0xff69b4).setImage(arData.image)];
-          }
-          if (payload.content || payload.embeds) {
-            await message.channel.send(payload).catch(() => null);
-          }
-          break;
-        }
-      }
-    }
-
-    // ================= UTC MESSAGE ACTIVITY TRACKER (CONFIGURED CHANNELS ONLY) =================
-    if (Array.isArray(data.countedChannels) && data.countedChannels.includes(message.channel.id)) {
-      if (!data.messageStats) data.messageStats = {};
-      const uid = message.author.id;
-
-      const nowDate = new Date();
-      const utcYear = nowDate.getUTCFullYear();
-      const utcMonth = nowDate.getUTCMonth();
-      const utcDate = nowDate.getUTCDate();
-
-      const dateStr = `${utcYear}-${String(utcMonth + 1).padStart(2, "0")}-${String(utcDate).padStart(2, "0")}`;
-      const monthStr = `${utcYear}-${String(utcMonth + 1).padStart(2, "0")}`;
-
-      const d = new Date(Date.UTC(utcYear, utcMonth, utcDate));
-      const day = d.getUTCDay();
-      const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
-      const monday = new Date(d.setUTCDate(diff));
-      const weekStr = monday.toISOString().split("T")[0];
-
-      if (!data.messageStats[uid]) {
-        data.messageStats[uid] = {
-          total: 0,
-          daily: { date: dateStr, count: 0 },
-          weekly: { week: weekStr, count: 0 },
-          monthly: { month: monthStr, count: 0 }
-        };
-      }
-
-      const stats = data.messageStats[uid];
-      if (stats.daily.date !== dateStr) { stats.daily.date = dateStr; stats.daily.count = 0; }
-      if (stats.weekly.week !== weekStr) { stats.weekly.week = weekStr; stats.weekly.count = 0; }
-      if (stats.monthly.month !== monthStr) { stats.monthly.month = monthStr; stats.monthly.count = 0; }
-
-      stats.total++;
-      stats.daily.count++;
-      stats.weekly.count++;
-      stats.monthly.count++;
-      saveData();
-    }
-
-    // ================= CHANNEL PERSONA COUNTER =================
-    if (!data.channelCounters) data.channelCounters = {};
-    if (typeof data.channelCounters[message.channel.id] !== "number") {
-      data.channelCounters[message.channel.id] = 0;
-    }
-    if (typeof data.currentPersonaIndex !== "number") data.currentPersonaIndex = 0;
-
-    const lowerContent = message.content.toLowerCase();
-    const isAiCommand = lowerContent.startsWith(`${prefix.toLowerCase()}ai`);
-    const isStatusCommand = lowerContent.startsWith(`${prefix.toLowerCase()}status`);
-
-    let isReplyToBot = false;
-    if (message.reference?.messageId) {
-      const repliedMsg =
-        message.channel.messages.cache.get(message.reference.messageId) ||
-        (await message.channel.messages.fetch(message.reference.messageId).catch(() => null));
-      if (repliedMsg && repliedMsg.author.id === client.user.id) {
-        isReplyToBot = true;
-      }
-    }
-
-    if (!isAiCommand && !isStatusCommand && !isReplyToBot && !message.content.startsWith(prefix)) {
-      data.channelCounters[message.channel.id]++;
-      if (data.channelCounters[message.channel.id] >= 50) {
-        data.channelCounters[message.channel.id] = 0;
-        data.currentPersonaIndex += 1;
-        saveData();
-      }
-    }
-
-    // ================= COMMAND ROUTING =================
-    const wasCommand = await handleCommands(message, getGuildData);
-    if (wasCommand) return;
-
-    // ================= AI CHAT TRIGGER =================
-    const isBotMentioned = message.mentions.has(client.user.id) && !message.mentions.everyone;
-    if (!isAiCommand && !isReplyToBot && !isBotMentioned) return;
-
-    let triggerText = message.content;
-    if (isAiCommand) {
-      triggerText = message.content.slice(`${prefix}ai`.length).trim();
-      if (!triggerText) return message.reply(`Usage: \`${prefix}ai [your question]\``);
-    } else if (isBotMentioned) {
-      triggerText = message.content.replace(new RegExp(`<@!?${client.user.id}>`, "g"), "").trim();
-      if (!triggerText) return message.reply("Hey! How can I help you today?");
-    }
-
-    await message.channel.sendTyping().catch(() => null);
-
-    // ================= REAL-TIME CHANNEL HISTORY FETCHER =================
-    let channelHistory = [];
-    try {
-      const fetchedMsgs = await message.channel.messages.fetch({ limit: 50 });
-      channelHistory = Array.from(fetchedMsgs.values())
-        .reverse()
-        .map((m) => ({
-          role: m.author.id === client.user.id ? "assistant" : "user",
-          content: `${m.author.username}: ${m.content}`
-        }));
-    } catch (err) {
-      console.error("Failed to fetch channel message history:", err);
-    }
-
-    const aiReply = await generateAiReply(
-      message,
-      triggerText,
-      channelHistory,
-      data.currentPersonaIndex || 0
-    ).catch((err) => {
-      console.error("AI reply error:", err);
-      return null;
-    });
-
-    if (aiReply) {
-      return await message.reply({
-        content: aiReply,
-        allowedMentions: { parse: [], repliedUser: true }
-      });
-    }
-  } catch (err) {
-    console.error("Error running inside messageCreate pipeline:", err);
-  }
-});
-
-  await client.login(process.env.DISCORD_TOKEN);
 }
 
 module.exports = { startBot };
