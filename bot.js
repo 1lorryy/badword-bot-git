@@ -2498,9 +2498,27 @@ async function startBot() {
 
 if (interaction.commandName === "feedback") {
           const modal = new ModalBuilder()
-            .
-  
-// ================= OPTIONAL HOURLY MINI-GAME PROMO ===============
+            .setCustomId("myModal")
+            .setTitle("Feedback Form");
+
+          const favoriteInput = new TextInputBuilder()
+            .setCustomId("favoriteInput")
+            .setLabel("What's your favorite thing?")
+            .setStyle(TextInputStyle.Short);
+
+          modal.addComponents(new ActionRowBuilder().addComponents(favoriteInput));
+          return await interaction.showModal(modal);
+        }
+      }
+    } catch (err) {
+      console.error("Error handling interactionCreate event:", err);
+    }
+  });
+
+  await client.login(process.env.DISCORD_TOKEN);
+}
+
+// ================= OPTIONAL HOURLY MINI-GAME PROMO =================
 function startOptionalHourlyPromo() {
   const generalChannelId = process.env.GENERAL_CHANNEL_ID || "";
   const botChannelId = process.env.BOT_CHANNEL_ID || "";
